@@ -176,3 +176,5 @@ Wilkinson Audio
 ToneHunt
 Engl
 Splawn
+FabFilter
+Slate Digital
