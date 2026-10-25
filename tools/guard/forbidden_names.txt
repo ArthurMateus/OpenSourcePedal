@@ -145,3 +145,9 @@ DOD FX40B
 Klon Centaur
 5150 III
 6505
+Fractal
+Helix
+Mesa
+Cockos
+Avid
+Bitwig
