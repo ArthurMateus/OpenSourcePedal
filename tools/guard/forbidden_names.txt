@@ -38,3 +38,64 @@ Kemper
 Fractal
 Line 6
 Helix
+TONE3000
+Tone King
+Blackstar
+HeadRush
+Chaos Audio
+Dimehead
+Lava Music
+MOD Dwarf
+RTL Utility
+Oblique Audio
+Native Instruments
+RME
+# Added by #3 (docs/research/reference-plugins.md). Generic words seen in the lineup ("Mantra", "Logos",
+# "Periphery", "Rust", "Hot", "Pink", "Roses") are left out on purpose to avoid false positives.
+Misha Mansoor
+Mansoor
+John Mayer
+Mayer
+Tom Morello
+Morello
+Duplantier
+Henson
+Asato
+Massaad
+Getgood
+Meslin
+Dream Theater
+Nano Cortex
+Cortex Control
+Darkglass Ultimate
+Omega Ampworks
+Granophyre
+Mesa
+SLO-100
+Mark IIC
+Horizon Devices
+Klon
+Dumble
+Tealbreaker
+Justa Boost
+Halfman
+Gravity Tank
+Millipede Delay
+Antelope Filter
+Multivoicer
+Overlord Synth
+Postal Service
+Big Rig Overdrive
+Amp Snob
+Headroom Hero
+Funk Console
+Pathos
+Fatso
+Wham-1
+# Added by #3 review: competitors (multi-word forms only, no generic single words).
+Toneforge
+Joey Sturgis
+STL Tones
+Bogren Digital
+AmpliTube
+IK Multimedia
