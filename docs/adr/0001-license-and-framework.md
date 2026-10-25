@@ -1,7 +1,7 @@
 # ADR-0001: Project license AGPL-3.0-or-later; framework JUCE 8
 
-- Status: **Accepted** (2026-10-25). The Phase 1 research note `docs/research/asio-sdk-licensing.md` and
-  `docs/research/juce-vs-iplug2.md` re-verify the terms. If they find a conflict, supersede this ADR.
+- Status: **Accepted** (2026-10-25). The Phase 1 research note `docs/research/asio-low-latency.md` and
+  `docs/research/framework-comparison.md` re-verify the terms. If they find a conflict, supersede this ADR.
 - Deciders: orchestrator (acct2), confirmed by the owner during bootstrap.
 
 ## Context
