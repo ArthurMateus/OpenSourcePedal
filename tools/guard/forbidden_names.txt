@@ -38,10 +38,23 @@ Kemper
 Fractal
 Line 6
 Helix
-# Added by #5 (tone-targets-b). Generic words (Orange, Boss, CTS, Victoria, Mark) deliberately left out: check by hand.
+TONE3000
+Tone King
+Blackstar
+HeadRush
+Chaos Audio
+Dimehead
+Lava Music
+MOD Dwarf
+RTL Utility
+Oblique Audio
+Native Instruments
+RME
+# Added by #5 (tone-targets-b). Generic words are deliberately left out and checked by hand: Orange, Boss, CTS,
+# Victoria, Mark, Decimator, Rectifier, Two Notes, Periphery, Whammy, Greenback, Mesa, DOD, Centaur, Cry Baby, 5150.
+# When a single word is generic, the multi-word form is listed instead (e.g. Dual Rectifier).
 Getgood
 Duplantier
-Periphery
 Misha Mansoor
 Mansoor
 Tom Morello
@@ -55,7 +68,6 @@ Precision Drive
 Two-Rock
 Dumble
 Klon
-Centaur
 Ibanez
 Tube Screamer
 TS808
@@ -68,35 +80,32 @@ Electro-Harmonix
 Q-Tron
 Way Huge
 Celestion
-Greenback
 Electro-Voice
 EVM12L
 DigiTech
-Whammy
 MXR
 Dunlop
-Cry Baby
-DOD
 TC Electronic
-Two Notes
 Charvel
 Music Man
 DiMarzio
 Bare Knuckle
 Suhr
-Mesa
 JCM800
-5150
-Rectifier
 Mark IIC
 JP-2C
 Axe-FX
-Tone King
 Omega Ampworks
 Granophyre
 Distressor
 Toneforge
-Tone3000
 Nail The Mix
 Bluesbreaker
-Decimator
+Dual Rectifier
+Triple Rectifier
+Two Notes Engineering
+Mesa/Boogie
+DOD FX40B
+Klon Centaur
+5150 III
+6505

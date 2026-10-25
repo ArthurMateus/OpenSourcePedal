@@ -23,17 +23,21 @@
    high-gain channels (F1, F2). Ship a 6-position "attack" (pre-HPF) switch as well (F3).
 3. **Palm-mute tightness = pre-amp HPF 80–120 Hz (steep) + boost mid-hump.** Gentler HPF for 7/8-string presets
    (F2, F7). Make the HPF corner a preset parameter, range 20–300 Hz.
-4. **Noise gate:** first block, keyed from the clean input, with hysteresis. Defaults are *unverified* engineering
-   starting points: threshold −55 dBFS (range −90…−20), attack 0.5 ms, hold 20 ms, release 80 ms, hysteresis 4 dB.
-   QA must calibrate them against the DI clips' measured noise floor (§3.3).
+4. **Noise gate:** first block, keyed from the clean input, with hysteresis. The reference puts it in the global I/O
+   header (S37). Defaults are *unverified* engineering starting points: threshold −55 dBFS for a DI peaking at
+   −12 dBFS (range −90…−20), attack 0.5 ms, hold 20 ms, release 80 ms, hysteresis 4 dB. QA calibrates them (§3.3).
+4b. **Measurable targets per preset type** are in §3.3: an octave-band spectrum (63 Hz–8 kHz, relative to 1 kHz),
+   boost dB, compressor gain reduction, gate threshold, and output at −18 LUFS-I (leads at −17). All values are
+   *estimated* from the cited settings.
 5. **Post-cab EQ template for high-gain rhythm:** HPF 80–120 Hz, cut mud at 200–500 Hz (narrow), find and cut the
    resonance at 3–5 kHz (narrow), LPF 10–12 kHz or a high shelf from 8–10 kHz for fizz (F7).
 6. **Mark-style 5-band graphic EQ** (80 / 240 / 750 / 2200 / 6600 Hz, wide Q) is worth shipping as an EQ "voicing"
    option. It is the main tool for the Petrucci-style scooped lead/rhythm sound (F5).
 7. **Clean/edge targets** (Mayer, Asato, the Gojira clean) need: an always-on clean boost, a Klon-style low-gain
    drive, an opto compressor, spring reverb + tremolo, slapback (~80–120 ms) and a 1×15/1×12 open-back cab (S6, S7).
-8. **Add 61 names to `tools/guard/forbidden_names.txt`** (see the PR). Generic words (Orange, Boss, CTS, Victoria)
-   were *not* added because they would false-positive on product code. Reviewers check them by hand.
+8. **Add 56 names to `tools/guard/forbidden_names.txt`**, distinctive names only. The file comment lists the generic
+   words that are checked by hand (Orange, Boss, Decimator, Rectifier, Two Notes, Periphery and others). Multi-word
+   forms are used where one word is generic (Dual Rectifier, Two Notes Engineering, Klon Centaur).
 
 ## 2. Findings
 
@@ -49,17 +53,19 @@
 | John Mayer | 3 + blend: '64 blackface 1×15 combo, boutique "steel string singer" head, signature prototype head, "3-in-1" mix | Clean boost (always on), envelope filter, Klon-style OD, dual-mode TS-10 / Bluesbreaker OD, short analog slapback, spring reverb + tremolo | 1×15 CTS, 1×12 EVM12L, 1×12 Greenback | Digital delay, hall/plate reverb, 4-band semi-param EQ + HPF/LPF, studio compressor | S9, S10 |
 | Mateus Asato | 3: British edge-of-breakup ("tighter, brighter, punchier"), Fender-style modern clean, high-gain lead | Opto comp, 2 ODs, trem/chorus/vibrato | Hundreds of IRs, 10 mics, user IR | 9-band GEQ per amp. Tape-style 80s delay, reverb | S12 |
 
-**Gate:** none of the product pages lists a gate module. One review places a continuously adjustable gate in the
-header next to the input/output knobs *(snippet, S13)*. Treat "global gate in the I/O header" as the convention.
+**Gate:** none of the product pages lists a gate module, but the public Gojira X manual (text layer) lists an
+"Input Gate" among the global features: a GATE on/off switch and threshold beside INPUT and OUTPUT, with the advice
+"increase the GATE threshold to tighten up your signal" (S37). A review says the same *(snippet, S13a)*. Users report
+that a high threshold makes the guitar sound "weak" (S13b). → Use one global gate in the I/O header as the convention.
 
 ### 2.2 Artist rigs (where a primary or rig source exists)
 
 | Inspiration | Amp | Boost / drive | Gate | Cab / other | Src |
 |---|---|---|---|---|---|
 | Gojira | 5150 III, EL34 and 6L6 versions, split after the pedals. EL34 → stage cabs, 6L6 → load box/cab sim → FOH | **Conflicting.** A community capture uses a TS808 boost (secondary). A rig interview says there is no drive pedal; the tone comes from the amp *(snippet)* | Smart Gate Pro in front of the amp *(snippet)* | Hall reverb + 2 delays in the loop, whammy *(snippet)*. Drop D / Drop C tunings (secondary) | S14, S15, S16, S17 |
-| Nolly | Modified amps (models not named publicly). Not verified as 5150-based | Two boosters. A tutorial: Amp 3 + red booster "to tighten the low end" | — | Interview: saturated single notes often "fall apart" when palm-muted, so tune gain for the mute, not the sustain *(snippet)* | S3, S4, S18, S19 |
+| Nolly | Modified amps (models not named publicly). Not verified as 5150-based | Two boosters. A tutorial: Amp 3 + red booster "to tighten the low end" | — | — | S3, S4, S18 |
 | Petrucci | Mark series (Mark V in 2011, signature JP-2C later). JP-2C ch. 2 is voiced for the "classic Mark IIC+ grinding rhythm" | An OD on the board that changes often. Compressor-limiter. Later: a signature-style red OD | — | Wah, PH-3 phaser, flanger, Axe-FX in the loop (2011). JP-2C: 2 assignable 5-band GEQs, 2 presence voicings | S20, S21, S22 |
-| Misha Mansoor | Fractal live. Earlier tube head with built-in gate | Precision Drive: **drive ≈ 0, volume high**, 6-position "attack" switch that progressively tightens the lows | Drive pedal gate **and** amp gate both on | Juggernaut 6-string with passive humbuckers | S11 |
+| Misha Mansoor | Fractal live. Earlier tube head with built-in gate | Precision Drive: **drive ≈ 0, volume high**, 6-position "attack" switch that progressively tightens the lows | Drive pedal gate **and** amp gate both on | Juggernaut 6-string with signature humbuckers | S11 |
 | Tom Morello | JCM800 2205 50 W, boost channel only. Presence 7, Bass 10, Middle 10, Treble 7, Gain 9 (volumes listed as 0 and 6, ambiguous) | **Flat 7-band EQ pedal used as a level boost** (100 Hz–6.4 kHz, ±18 dB) | — | 4×12 G12K-85. Two DD-3 delays (12.5–800 ms; one long for leads, one slapback/ping-pong). Whammy at +5th harmony | S8 |
 | John Mayer | See 2.1 (the plugin models his personal amps) | Always-on clean boost → Klon-style → TS-10 / Bluesbreaker | — | Users report the default presets are "excessively bass-heavy" and voiced for single coils *(aggregated user reports)* | S9, S10, S23 |
 | Mateus Asato | See 2.1 | 2 OD flavours, opto comp | — | — | S12 |
@@ -83,7 +89,7 @@ is placed before the amp, after the tuner/wah/comp (S27). Counterpoint: some mod
 
 **F4. Noise gate.** Gates pass the signal only above a threshold and are standard for guitar hum and hiss (S30).
 Users report that thresholds set too high make the guitar sound "weak". A suggested fix is a lower input level into
-the sensitive amp models (S13, forum). Rigs: Smart Gate in front of the amp (Gojira, *snippet*), drive gate + amp
+the sensitive amp models (S13b, forum). Rigs: Smart Gate in front of the amp (Gojira, *snippet*), drive gate + amp
 gate (Mansoor, S11). No source gives numbers. → Recommendation in §3.3.
 
 **F5. Mark-style graphic EQ.** All Mark-series amps use the same 5 bands: **80, 240, 750, 2200, 6600 Hz** (S31). The
@@ -124,29 +130,91 @@ high-gain amp model.
 | Polyphonic octave-down | −1, −2 oct, dry/oct levels | Filter-bank + frequency division or PSOLA. Decide in #11 | Own code / TBD |
 | Whammy pitch | ±24 st, glide time, detune ±0–25 cents | Granular/PSOLA, latency < 10 ms target | TBD (#11) |
 | Spring reverb + tremolo | decay 1–3 s, trem rate 1–10 Hz, depth 0–100 % | Dispersive allpass chain. Bias-style (opto) trem | Own code |
-| Doubler | delay 10–30 ms, ±10 cents mod, width | Two modulated delay lines + pitch | Own code |
+| Doubler | delay 10–30 ms, ±10 cents mod, width (*unverified*) | Two modulated delay lines + pitch | Own code |
 
 ### 3.2 Target preset types (original names chosen later by the preset designer)
 
-Spectral notes are *unverified* starting hypotheses. The preset designer turns them into measured long-term
-spectra (63 Hz–8 kHz octave bands) once renders exist.
+The settings column summarises the cited rig and EQ moves. §3.3 turns each preset type into numbers.
 
 | Inspiration ("aims at a tone similar to") | Preset types (3–5) | Key settings / spectral shape |
 |---|---|---|
 | Gojira | (1) Ultra-tight drop-tuned rhythm. (2) Pick-scrape / whammy-dive lead. (3) Clean arpeggio with tape delay + dark shimmer. (4) Crunch with phaser | 5150-style rhythm channel, TS boost (drive 0, level max), HPF ~100 Hz, gate thr ≈ −50 dBFS fast release. Dip ~400 Hz, lift 1–2 kHz |
-| Nolly | (1) Modern "djent" palm-mute rhythm (bright OD → high-gain). (2) Crunch with a British twist. (3) Full rhythm for 7/8-strings. (4) Clean with comp + room | OD bright on. Gain set so palm-mutes stay coherent (§2.2, Nolly row). HPF 80–100 Hz (gentler for ERG), mod-EQ narrow cut 3–5 kHz |
+| Nolly | (1) Modern "djent" palm-mute rhythm (bright OD → high-gain). (2) Crunch with a British twist. (3) Full rhythm for 7/8-strings. (4) Clean with comp + room | OD bright on. Gain set so palm-mutes stay coherent (*unverified*). HPF 80–100 Hz (gentler for ERG), mod-EQ narrow cut 3–5 kHz |
 | Petrucci | (1) Mark-style scooped rhythm (GEQ V). (2) Singing lead (lead ch. + delay + plate). (3) Chorus-clean with stereo delay. (4) Piezo-acoustic. (5) Wah lead | 5-band GEQ: 80 +2, 240 −1, 750 −3, 2200 +1, 6600 +2 dB (*unverified* V). Comp before the clean |
 | Misha Mansoor | (1) Tight 6/8-string rhythm (TS-style, drive 0, attack sw high). (2) Swedish-"chainsaw"-style distortion. (3) Glitch/laser ambient. (4) Shimmer clean | Attack-HPF 100–130 Hz. Pre-and-post gates. Chainsaw: big 1 kHz + 100 Hz boosts (*unverified*) |
 | Tom Morello | (1) Cranked 800-style with EQ-pedal boost. (2) Whammy +5th harmony. (3) Kill-switch / scratch wah. (4) Slapback + long-delay lead | Bass/mid 10, treble/presence 7, gain 9. Flat EQ boost +6 dB. Delays 12.5–800 ms |
 | John Mayer | (1) Blackface 1×15 clean with spring. (2) Boutique "singing" edge with Klon-style. (3) TS-10 blues lead. (4) Slapback trem clean. (5) 3-amp blend | Always-on clean boost (+3…+6 dB). Slapback ~100 ms. Watch the low end (users find it bass-heavy): HPF 70–90 Hz |
 | Mateus Asato | (1) British edge-of-breakup (tight, bright). (2) Glassy modern clean + opto comp. (3) Tape-delay lead. (4) Chorus/vibrato clean | Opto comp 3–6 dB GR. Tape delay 300–450 ms, 25–35 % fb, wow/flutter (*unverified*) |
 
-### 3.3 Gate calibration procedure (QA, Phase 3+)
+### 3.3 Measurable targets: spectrum and gain staging (*all values estimated / unverified*)
 
+These are starting hypotheses that QA and the preset designer replace with measured values once renders exist. They
+are **not** measurements of any commercial product.
+
+**Spectrum:** long-term average spectrum of the full preset output for the standard DI clip, in octave bands, given
+in dB relative to the 1 kHz band. Tolerance for a first-pass match: ±3 dB per band. Derivation:
+- Start from a base curve per family. High-gain 4×12: −10 / −3 / −2 / −2 / 0 / −1 / −5 / −15. Clean open-back:
+  −7 / −2 / −1 / −2 / 0 / −1 / −4 / −11. The base curves themselves are *unverified* guesses.
+- Then apply the cited moves:
+  - HPF 80–120 Hz → lower 63 Hz by 2–6 dB (F7)
+  - TS mid hump → lower 63/125 Hz and raise 1–2 kHz (F1, F2)
+  - Mark V curve → lower 500 Hz, raise 63 Hz and 8 kHz (F5)
+  - 2205 bass/mid 10 → raise 250/500 Hz (S8)
+  - Users find the Mayer presets bass-heavy → HPF 70–90 Hz (S23)
+
+**Gain staging:**
+- **DI input:** hard-strummed passive humbuckers peak at **−12 dBFS** at the plugin input. Single coils peak at about
+  −15 dBFS. All other numbers assume this. Forum guidance puts DI peaks at −12…−6 dBFS, with −12 dBFS and −18 dBFS
+  used as internal "zero" references in some plugins (S38, S39). The value is unverified until QA measures our DI clips.
+- **Boost:** level above unity with drive ≈ 0.
+- **Comp GR:** gain reduction on the DI's peaks.
+- **Gate thr:** set relative to the −12 dBFS DI peak. "—" means the gate is off.
+- **Output:** every preset is normalised to **−18 LUFS-I** (EBU R128 integrated) on the standard clip, ±1 LU. Lead
+  presets are normalised to −17 LUFS-I so they sit above rhythm presets. This matches the −18 dB "Normalized" convention
+  in `nam-runtime.md` [its S5] and MASTER_PROMPT's "LUFS-normalized output".
+
+| # | Preset type | 63 | 125 | 250 | 500 | 1k | 2k | 4k | 8k | Boost dB | Comp GR dB | Gate thr dBFS |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| G1 | Gojira: tight drop rhythm | −12 | −4 | −3 | −4 | 0 | 0 | −4 | −15 | +10 | — | −52 |
+| G2 | Gojira: whammy lead | −14 | −6 | −3 | −2 | 0 | +1 | −3 | −14 | +8 | — | −55 |
+| G3 | Gojira: clean arpeggio + shimmer | −8 | −2 | −1 | −2 | 0 | −2 | −5 | −12 | — | 3 | — |
+| G4 | Gojira: crunch + phaser | −10 | −3 | −2 | −2 | 0 | −1 | −5 | −15 | +6 | — | −58 |
+| N1 | Nolly: modern palm-mute rhythm | −14 | −5 | −3 | −3 | 0 | +1 | −2 | −13 | +10 | — | −50 |
+| N2 | Nolly: British crunch | −10 | −3 | −2 | −1 | 0 | −1 | −4 | −14 | +4 | — | −60 |
+| N3 | Nolly: 7/8-string rhythm | −8 | −3 | −3 | −4 | 0 | 0 | −3 | −14 | +10 | — | −50 |
+| N4 | Nolly: comp clean + room | −8 | −2 | −1 | −2 | 0 | −2 | −5 | −12 | — | 5 | — |
+| P1 | Petrucci: Mark-V rhythm | −9 | −2 | −3 | −5 | 0 | +1 | −2 | −11 | +8 | — | −55 |
+| P2 | Petrucci: singing lead | −12 | −5 | −3 | −2 | 0 | +1 | −3 | −13 | +6 | — | −60 |
+| P3 | Petrucci: chorus clean | −8 | −2 | −1 | −2 | 0 | −2 | −5 | −12 | — | 4 | — |
+| P4 | Petrucci: piezo acoustic | −10 | −3 | −1 | −1 | 0 | −1 | −3 | −6 | — | 3 | — |
+| P5 | Petrucci: wah lead | −14 | −6 | −4 | −2 | 0 | +1 | −3 | −14 | +6 | — | −60 |
+| M1 | Mansoor: tight 6/8-string rhythm | −16 | −6 | −3 | −3 | 0 | +1 | −2 | −13 | +10 | — | −50 (+ post gate) |
+| M2 | Mansoor: chainsaw dist | −6 | 0 | −3 | −4 | 0 | −1 | −4 | −13 | — | — | −50 |
+| M3 | Mansoor: glitch ambient | −8 | −2 | −1 | −2 | 0 | −2 | −5 | −11 | — | 3 | — |
+| M4 | Mansoor: shimmer clean | −8 | −2 | −1 | −2 | 0 | −2 | −4 | −9 | — | 3 | — |
+| T1 | Morello: cranked 800 + EQ boost | −11 | −3 | −1 | 0 | 0 | −1 | −5 | −16 | +4 | — | — |
+| T2 | Morello: whammy harmony | −12 | −4 | −1 | 0 | 0 | 0 | −4 | −15 | +4 | — | — |
+| T3 | Morello: kill-switch / scratch wah | −12 | −4 | −2 | −1 | 0 | +1 | −3 | −14 | +4 | — | — |
+| T4 | Morello: slapback + delay lead | −11 | −3 | −1 | 0 | 0 | −1 | −5 | −16 | +6 | — | — |
+| J1 | Mayer: 1×15 blackface + spring | −6 | −1 | −2 | −3 | 0 | −1 | −4 | −10 | +3 | — | — |
+| J2 | Mayer: singing edge, Klon-style | −8 | −2 | −1 | −1 | 0 | −1 | −4 | −12 | +3 (+ OD) | — | — |
+| J3 | Mayer: TS-10 blues lead | −10 | −4 | −2 | 0 | 0 | −1 | −5 | −14 | +6 | — | — |
+| J4 | Mayer: slapback trem clean | −6 | −1 | −2 | −3 | 0 | −1 | −4 | −10 | +3 | — | — |
+| J5 | Mayer: 3-amp blend | −7 | −1 | −1 | −2 | 0 | −1 | −4 | −11 | +3 | 2 (post) | — |
+| A1 | Asato: British edge | −9 | −3 | −2 | −1 | 0 | 0 | −3 | −11 | +4 | 3 | — |
+| A2 | Asato: glassy clean + opto | −8 | −2 | −2 | −3 | 0 | −1 | −3 | −9 | — | 5 | — |
+| A3 | Asato: tape-delay lead | −12 | −4 | −2 | −1 | 0 | 0 | −4 | −14 | +6 | 3 | −60 |
+| A4 | Asato: chorus/vibrato clean | −8 | −2 | −2 | −3 | 0 | −1 | −3 | −10 | — | 4 | — |
+
+Rows are tagged G/N/P/M/T/J/A by inspiration.
+
+**Gate calibration (QA, Phase 3+):**
 1. Measure the noise floor of each DI clip in `assets/di/` in silent sections (RMS, dBFS) and its peak level.
-2. Default threshold = noise floor + 10 dB, clamped to −70…−40 dBFS. Hysteresis 4 dB.
-3. Test: on a palm-muted 16th-note DI at 160 BPM, the gate must open on every note (no dropped transient > 1 ms
-   late) and close within 100 ms after each stop. Measure through the full high-gain preset.
+2. Shift the table's thresholds by (measured DI peak − (−12 dBFS)). Keep each threshold ≥ noise floor + 10 dB, with
+   hysteresis 4 dB.
+3. Test on a palm-muted 16th-note DI at 160 BPM, through the full high-gain preset:
+   - the gate opens within 1 ms of each note onset;
+   - the gate closes within 100 ms after each stop.
 
 ## 4. Open questions (for the architect)
 
@@ -176,13 +244,13 @@ spectra (63 Hz–8 kHz octave bands) once renders exist.
 | S10 | https://guitar.com/reviews/effects-pedal/hands-on-neural-dsp-archetype-john-mayer-review |
 | S11 | https://www.sweetwater.com/insync/how-to-dial-in-a-modern-metal-tone-with-misha-mansoor/ |
 | S12 | https://mixdownmag.com.au/news/neural-dsp-launch-archetype-mateus-asato/ |
-| S13 | https://www.bonedo.de/artikel/einzelansicht/neural-dsp-archetype-gojira-test.html ; https://unity.neuraldsp.com/t/guitar-noise/8116 |
+| S13a | https://www.bonedo.de/artikel/einzelansicht/neural-dsp-archetype-gojira-test.html (search snippet) |
+| S13b | https://unity.neuraldsp.com/t/guitar-noise/8116 (vendor community forum) |
 | S14 | https://reverb.com/news/inside-gojiras-touring-rig (fetch blocked, 403. Search snippet only) |
 | S15 | https://musicradar.com/news/gojira-joe-duplantier-interview (body truncated. Search snippet only) |
 | S16 | https://www.tone3000.com/tones/gojira-joe-duplantier-25477 (community capture, secondary) |
 | S17 | https://www.riffhard.com/how-to-get-a-gojira-guitar-tone/ |
 | S18 | https://musictech.com/news/gear/djent-guitar-tone-neural-dsp-plug-in-adam-nolly-getgood-periphery/ |
-| S19 | https://www.guitarworld.com/tag/tone (teaser of the "busts myths about high-gain tone" interview. Snippet only) |
 | S20 | https://www.premierguitar.com/gear/rig-rundown-dream-theaters-john-petrucci |
 | S21 | https://www.rig-talk.com/forum/threads/petruccis-new-touring-rig-for-2016.175765/ (forum, secondary) |
 | S22 | https://www.zzounds.com/item--MESJP2CHEAD (retail copy of the manufacturer's JP-2C description) |
@@ -200,3 +268,6 @@ spectra (63 Hz–8 kHz octave bands) once renders exist.
 | S34 | https://nailthemix.com/low-mean-eqing-modern-metal-guitars-for-max-impact |
 | S35 | https://nailthemix.com/low-pass-filter |
 | S36 | https://neuraldsp.com/pages/downloads (lineup and versions: Gojira X, Nolly X, Petrucci X, Misha Mansoor X, John Mayer X, Tom Morello, Mateus Asato) |
+| S37 | https://downloads.neuraldsp.com/file/archetype-gojira-x/Archetype%20Gojira%20X%20v1.0.0.pdf (public user manual, text layer read: Input Gate, DLY 7–3000 ms, REV HPF 50–700 Hz) |
+| S38 | https://support.mixwave.com/doc/guitar-input-level-calibration-guide (vendor calibration guide: aim peaks at the plugin's target meter level) |
+| S39 | https://thegearforum.com/threads/calibrating-input-level-for-plugins.816/page-3 ; https://www.kvraudio.com/forum/viewtopic.php?p=6752650 (forums: −12 dBFS and −18 dBFS internal references, 1 V peak = 0 dBFS) |
