@@ -1,0 +1,33 @@
+name: build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  windows-msvc:
+    name: windows-msvc (Release, /WX)
+    # VS 2022 / MSVC v143 is required by AGENTS.md section 3, so pin the image rather than windows-latest.
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Cache fetched dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: deps-${{ runner.os }}-${{ hashFiles('cmake/OspDependencies.cmake') }}
+      - name: Configure
+        run: cmake --preset windows-msvc-ci
+      - name: Build
+        run: cmake --build --preset ci
+      - name: Test
+        run: ctest --preset ci
