@@ -167,16 +167,18 @@ Block-level parameters:
 | Id | Name | Range | Unit | Def | Sk | Sm | Auto | Vis |
 |---|---|---|---|---|---|---|---|---|
 | `amp.channel` | Channel | 1, 2, 3 | enum | 1 | step | xf ADR-0004 | ✔ | H |
-| `amp.cleanBlendPct` | Clean blend (post-v1) | 0…100 | % | 0 | lin | 20 | — | reserved |
+| `amp.cleanBlendPct` | Clean blend | 0…100 | % | 0 | lin | 20 | ✔ | H |
 | `amp.cabLink` | Link cab to channel | bool | bool | true | step | — | — | P |
 
 - v1 has exactly **3 channels**. The schema allows up to 4 (ADR-0003) for later. A 4th channel would need new host
   parameters, which means a new plugin version.
 - In the preset, `amp.channel` is stored as `activeChannel` (0-based, ADR-0003). The host value is 1-based for
   readability.
-- `cleanBlendPct` is the parallel compressed DI path that skips amp, cab and EQ, latency-aligned (tone-targets-a T1,
-  open Q3 answered: global path on the amp block). REQ-420 lists "DI blend" as **P (post-v1)**, so the id is
-  **reserved** and is not in the v1 host list. The routing must appear in signal-flow.md when it is promoted.
+- `cleanBlendPct` is the v1 clean DI blend (REQ-424; tone-targets-a T1, open Q3 answered: a path on the amp block).
+  It is a parallel path tapped at the amp input (after `drive2` and the pre-amp modulation position) that skips amp,
+  cab and EQ. It is delayed by `L_slot + L_cab` and mixed linearly after the EQ, before post-cab modulation
+  (signal-flow §1/§4). 0 % = wet only. 100 % = the delayed amp input only (null ≤ −120 dBFS, REQ-424). The blend value
+  never changes `L_total`.
 
 Per-channel parameters (`amp.ch<N>.` …, N = 1…3; each channel is a built-in model or a NAM capture, ADR-0003):
 
@@ -366,11 +368,11 @@ Stored in `settings.json` (ADR-0003 §7). These are not host parameters.
 
 ## 5. Totals, requirements and open points
 
-**Host-visible parameters (v1): 225.**
-- Part 1: 68.
+**Host-visible parameters (v1): 226.**
+- Part 1: 69.
 - Part 2: 157, made up of cab 3 × 10, eq 3 × 29, mod 7, delay 11, reverb 10, doubler 4, output 2, plus 6 `enabled`
   (cab, eq, mod, delay, reverb, doubler).
-- Reserved for post-v1: `amp.cleanBlendPct`, `transpose.semitones` and `transpose.enabled`.
+- Reserved for post-v1: `transpose.semitones` and `transpose.enabled`.
 
 That is well within what VST3 hosts handle. REQ-PAR-001 makes CI fail if the list changes without a spec update.
 
