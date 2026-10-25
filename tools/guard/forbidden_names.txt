@@ -1,0 +1,40 @@
+# Names that must never appear in product paths (see AGENTS.md rule 2). One per line, matched case-insensitively
+# as whole words. Researchers: add every artist/company/product name you find in the reference lineup.
+Neural DSP
+Archetype
+Quad Cortex
+Plini
+Gojira
+Joe Duplantier
+Abasi
+Tosin Abasi
+Cory Wong
+Tim Henson
+Polyphia
+Nolly
+Adam Nolly Getgood
+Petrucci
+John Petrucci
+Rabea
+Rabea Massaad
+Mateus Asato
+Fortin
+Darkglass
+Soldano
+Parallax
+Morgan Amps
+Mesa Boogie
+Boogie
+Marshall
+Fender
+Vox
+Peavey
+EVH
+Diezel
+Bogner
+Friedman
+Revv
+Kemper
+Fractal
+Line 6
+Helix

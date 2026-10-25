@@ -1,0 +1,29 @@
+name: Research topic
+description: A web research sweep producing a sourced note in docs/research/
+labels: ["type:research", "role:researcher", "phase:1-research"]
+body:
+  - type: input
+    id: output
+    attributes:
+      label: Output file
+      placeholder: docs/research/<slug>.md
+    validations:
+      required: true
+  - type: textarea
+    id: questions
+    attributes:
+      label: Questions to answer
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ] Summary with actionable conclusions for the architect
+        - [ ] Every claim has a source (URL + access date) or is marked *unverified*
+        - [ ] Concrete recommendations (library/algorithm/parameters/license verdict)
+        - [ ] Open questions listed (for the architect, not the owner)
+        - [ ] No artist/company names leave docs/research/
+    validations:
+      required: true
