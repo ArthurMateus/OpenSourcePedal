@@ -151,3 +151,5 @@ Cockos
 Avid
 Bitwig
 Valhalla
+FabFilter
+Slate Digital
