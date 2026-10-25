@@ -148,3 +148,4 @@ Klon Centaur
 Cockos
 Avid
 Bitwig
+Valhalla
