@@ -1,8 +1,8 @@
 # Parameters
 
-- Issue #23, part 1 of 2: **conventions + pre-amp blocks** (`input`, `gate`, `comp`, `drive1`/`drive2`, `amp`). Part 2
-  adds the post-amp blocks (`cab`, `eq`, `mod`, `delay`, `reverb`, `transpose`, `doubler`, `output`) and the global
-  settings that are not part of a preset.
+- Issue #23. §1 conventions, §2 pre-amp blocks (`input`, `gate`, `comp`, `drive1`/`drive2`, `amp`), §3 post-amp blocks
+  (`cab`, `eq`, `mod`, `delay`, `reverb`, `transpose`, `doubler`, `output`), §4 global settings that are not part of a
+  preset, §5 totals, requirements and open points.
 - Author: architect (acct1/Lyra), 2026-10-25. Rests on `docs/research/reference-plugins.md` (§2.3 measured ranges,
   Rec. 2–7), `tone-targets-a.md` §3.1/§3.4, `tone-targets-b.md` §2.3/§3.1, `nam-runtime.md` (Calibration rec.),
   `oversampling.md` §1, ADR-0003 (preset schema, PR #49).
@@ -204,10 +204,174 @@ Per-channel parameters (`amp.ch<N>.` …, N = 1…3; each channel is a built-in 
 - The tone-stack topology per built-in model (and what the knob positions mean in dB) is defined in the amp block
   ticket. Only ids, ranges and defaults are fixed here.
 
-## 3. Open points (part 1)
+## 3. Post-amp blocks
+
+### 3.1 `cab`: two IR slots
+
+From reference-plugins Summary 4 and Rec. 3, and ADR-0003 §4/§5 (resources by uri + sha256). With `amp.cabLink` on, the
+cab state follows the amp channel (`perChannel`, ADR-0003), so the host ids are `cab.ch<N>.<key>`. With it off, ch1's
+values are used for every channel.
+
+| Key (`cab.ch<N>.`…) | Name | Range | Unit | Def | Sk | Sm | Auto | Vis |
+|---|---|---|---|---|---|---|---|---|
+| `ir1`, `ir2` (resources) | IR file | factory or user WAV | — | ir1 per amp model, ir2 none | — | xf 30 | — | P |
+| `irK.enabled` (K = 1, 2) | Slot on | bool | bool | ir1 true, ir2 false | step | xf 10 | ✔ | H |
+| `irK.levelDb` | Level | −60…+6 | dB | 0 | lin | 20 | ✔ | H |
+| `irK.pan` | Pan | −100…+100 | % | 0 | lin | 20 | ✔ | H |
+| `irK.invert` | Phase invert | bool | bool | false | step | xf 10 | ✔ | H |
+| `irK.delayMs` | Align | 0…2 | ms | 0 | lin | 20 | ✔ | H |
+
+- `irK.delayMs` time-aligns two IRs for the mic blend (comb-filter control). The reference has only phase invert, so
+  this is our addition.
+- Mic **position/distance** is not a parameter in v1. Choosing a position means choosing a different IR file from a
+  multi-position set (reference-plugins Rec. 3). Room send is deferred.
+- An IR change is preset-only, because loading and partitioning the IR happens on the loader thread.
+
+### 3.2 `eq`: one block, three voicings
+
+Answers tone-targets-b open Q5: **one block** with a `mode`. The bands come from reference-plugins Rec. 4 (9-band octave
+graphic plus HPF/LPF), tone-targets-b F5/§3.1 (5-band 80/240/750/2200/6600 Hz voicing) and §3.1 (4-band
+semi-parametric). Only the bands of the active mode process audio, but every mode's values are stored. The state is
+`perChannel` and follows the amp channel when `eq.followChannel` is on (the reference binds one EQ to each amp,
+reference-plugins §2.4).
+
+| Key (`eq.ch<N>.`…) | Name | Range | Unit | Def | Sk | Sm | Auto | Vis |
+|---|---|---|---|---|---|---|---|---|
+| `mode` | Mode | `graphic9`, `graphic5`, `parametric` | enum | `graphic9` | step | xf 20 | — | P |
+| `g63Db` … `g16kDb` (63, 125, 250, 500, 1k, 2k, 4k, 8k, 16k) | Graphic band | −12…+12 | dB | 0 | lin | 20 | ✔ | H |
+| `m80Db`, `m240Db`, `m750Db`, `m2200Db`, `m6600Db` | 5-band | −12…+12 | dB | 0 | lin | 20 | ✔ | H |
+| `pK.freqHz` (K = 1…4) | Band freq | 20…20000 | Hz | 100 / 500 / 2000 / 6000 | log | 20 | ✔ | H |
+| `pK.gainDb` | Band gain | −15…+15 | dB | 0 | lin | 20 | ✔ | H |
+| `pK.q` | Band Q | 0.3…6 | ratio | 0.7 | log | 20 | ✔ | H |
+| `p1.shape`, `p4.shape` | Edge band shape | `peak`, `shelf` | enum | `shelf` | step | xf 20 | — | P |
+| `lowCutHz` | Low cut | 20…500 | Hz | 20 | log | 20 | ✔ | H |
+| `highCutHz` | High cut | 2000…20000 | Hz | 20000 | log | 20 | ✔ | H |
+| `levelDb` | Level | −12…+12 | dB | 0 | lin | 20 | ✔ | H |
+
+- Block level: `eq.followChannel` (bool, default true, P).
+- Graphic Q is constant per voicing, not a parameter: about 1.0 for the octave bands and 0.7 for the 5-band voicing
+  (tone-targets-b §3.1 gives Q ≈ 0.7–1.0, *unverified*).
+- `lowCutHz` and `highCutHz` are 2nd order (12 dB/oct).
+
+### 3.3 `mod`: modulation
+
+From reference-plugins §2.3 (rate 0.10–10 Hz) and Rec. 5, and tone-targets-a §3.1 (chorus modes).
+
+| Id | Name | Range | Unit | Def | Sk | Sm | Auto | Vis |
+|---|---|---|---|---|---|---|---|---|
+| `mod.type` | Type | `chorus80s`, `chorusWide`, `flanger`, `phaser`, `vibe`, `tremolo` | enum | `chorusWide` | step | xf 30 | ✔ | H |
+| `mod.rateHz` | Rate | 0.1…10 | Hz | 0.8 | log | 20 | ✔ | H |
+| `mod.sync` | Sync | `off`, `1/1`, `1/2`, `1/4`, `1/8`, `1/16` (+ `D`/`T` variants) | enum | `off` | step | — | ✔ | H |
+| `mod.depthPct` | Depth | 0…100 | % | 50 | lin | 20 | ✔ | H |
+| `mod.mixPct` | Mix | 0…100 | % | 50 | lin | 20 | ✔ | H |
+| `mod.feedbackPct` | Feedback | −95…+95 | % | 0 | lin | 20 | ✔ | H |
+| `mod.widthPct` | Stereo width | 0…100 | % | 100 | lin | 20 | ✔ | H |
+| `mod.position` | Position | `post`, `pre` | enum | `post` | step | — | — | P |
+
+`mod.position` = `pre` places the block after `drive2`, as 3 reference products do (reference-plugins Summary 6). The
+schema already allows it (ADR-0003 §4). `docs/spec/signal-flow.md` (#22) confirms the allowed orders.
+
+### 3.4 `delay`
+
+From reference-plugins §2.3 (7–3000 ms, sync 1/64T…1/1D, low cut 50–800 Hz, high cut 0.5–5 kHz) and Rec. 5, plus
+tone-targets-a §3.1 (modes, ducking).
+
+| Id | Name | Range | Unit | Def | Sk | Sm | Auto | Vis |
+|---|---|---|---|---|---|---|---|---|
+| `delay.mode` | Mode | `digital`, `analog`, `tape` | enum | `digital` | step | xf 30 | ✔ | H |
+| `delay.timeMs` | Time | 7…3000 | ms | 400 | log | 80 glide | ✔ | H |
+| `delay.sync` | Sync | `off`, `1/64T` … `1/1D` (straight, dotted, triplet) | enum | `off` | step | 80 glide | ✔ | H |
+| `delay.feedbackPct` | Feedback | 0…100 | % | 30 | lin | 20 | ✔ | H |
+| `delay.mixPct` | Mix | 0…100 | % | 25 | lin | 20 | ✔ | H |
+| `delay.lowCutHz` | Low cut | 50…800 | Hz | 80 | log | 20 | ✔ | H |
+| `delay.highCutHz` | High cut | 500…16000 | Hz | 5000 | log | 20 | ✔ | H |
+| `delay.stereo` | Stereo | `mono`, `pingpong`, `wide` | enum | `mono` | step | xf 30 | ✔ | H |
+| `delay.modDepthPct` | Modulation | 0…100 | % | 0 | lin | 20 | ✔ | H |
+| `delay.saturationPct` | Saturation | 0…100 | % | 20 | lin | 20 | ✔ | H |
+| `delay.duckDb` | Ducking | 0…24 | dB | 0 | lin | 20 | ✔ | H |
+
+- Feedback is limited internally to a loop gain ≤ 0.995 at 100 %, so the delay rings but never runs away.
+- `highCutHz` extends the reference's 5 kHz top to 16 kHz for the digital mode. The 5 kHz default matches the reference.
+- Tap tempo is a UI action that writes `delay.timeMs`, or the tempo when synced. It is not a parameter.
+
+### 3.5 `reverb`
+
+From reference-plugins §2.3 (HPF 50–700 Hz, LPF 1–10 kHz, decay 1–8.5 s) and Rec. 5, and tone-targets-a §3.1 (freeze,
+shimmer +12 st).
+
+| Id | Name | Range | Unit | Def | Sk | Sm | Auto | Vis |
+|---|---|---|---|---|---|---|---|---|
+| `reverb.mode` | Mode | `room`, `hall`, `plate`, `spring`, `shimmer` | enum | `hall` | step | xf 50 | ✔ | H |
+| `reverb.decayS` | Decay | 0.3…20 | s | 2.5 | log | 20 | ✔ | H |
+| `reverb.preDelayMs` | Pre-delay | 0…200 | ms | 20 | lin | 80 glide | ✔ | H |
+| `reverb.mixPct` | Mix | 0…100 | % | 20 | lin | 20 | ✔ | H |
+| `reverb.lowCutHz` | Low cut | 50…700 | Hz | 100 | log | 20 | ✔ | H |
+| `reverb.highCutHz` | High cut | 1000…10000 | Hz | 6000 | log | 20 | ✔ | H |
+| `reverb.modPct` | Modulation | 0…100 | % | 20 | lin | 20 | ✔ | H |
+| `reverb.shimmerPct` | Shimmer | 0…100 | % | 0 | lin | 20 | ✔ | H |
+| `reverb.shimmerInterval` | Shimmer pitch | `octUp`, `fifthUp`, `octDown` | enum | `octUp` | step | xf 50 | ✔ | H |
+| `reverb.freeze` | Freeze | bool | bool | false | step | xf 50 | ✔ | H |
+
+The decay range extends the reference's 1–8.5 s to 0.3–20 s for the ambient targets (tone-targets-a A1/A6). `freeze`
+holds the tank (feedback = 1, input muted).
+
+### 3.6 `transpose`, `doubler`, `output` (Global-Lock blocks)
+
+| Id | Name | Range | Unit | Def | Sk | Sm | Auto | Vis |
+|---|---|---|---|---|---|---|---|---|
+| `transpose.semitones` | Transpose | −12…+12, integer | st | 0 | step | xf 30 | ✔ | H |
+| `doubler.amountPct` | Amount | 0…100 | % | 50 | lin | 20 | ✔ | H |
+| `doubler.widthPct` | Width | 0…100 | % | 100 | lin | 20 | ✔ | H |
+| `doubler.delayMs` | Offset | 10…30 | ms | 18 | lin | 80 glide | ✔ | H |
+| `doubler.detuneCents` | Detune | 0…25 | cents | 8 | lin | 20 | ✔ | H |
+| `output.levelDb` | Output | −60…+12 | dB | 0 | lin | 20 | ✔ | H |
+| `output.limiter` | Safety limiter | bool | bool | true | step | xf 10 | ✔ | H |
+
+- Transpose ±12 st is in every reference product (reference-plugins Summary 7).
+- The doubler ranges follow tone-targets-b §3.1 (10–30 ms, about ±10 cents, *unverified*).
+- `output.limiter` is a −0.3 dBFS true-peak safety limiter. Golden renders are made at −18 LUFS-I (tone-targets-a §3.4),
+  so they normally never reach it.
+- `output` has no `enabled` parameter.
+
+## 4. Global settings (not in presets)
+
+Stored in `settings.json` (ADR-0003 §7). These are not host parameters.
+
+| Key | Range / values | Default | Source |
+|---|---|---|---|
+| `inputMode` | `mono`, `stereo` | `mono` | reference-plugins §2.4 |
+| `globalLock` | bool (skips `input`, `gate`, `transpose`, `doubler`, `output` on preset load) | false | reference-plugins §2.4 |
+| `oversamplingQuality` | `eco`, `live`, `hq` | `live` (offline render: `hq`) | oversampling §1 item 2 |
+| `namInterfaceLevelDbu` | −60…+60 dBu | 12 | nam-runtime Calibration rec. |
+| `tuner.referenceHz` | 415…466 Hz | 440 | our choice |
+| `tuner.muteOutput` | bool | true | our choice |
+| `tempo.source` | `host`, `global` (the standalone always uses `global`) | `host` | reference-plugins §2.4 |
+| `tempo.bpm` | 20…300 | 120 | ADR-0003 `tempoBpm` fallback |
+| `metronome.*` | on/off, level, accents (standalone only) | off | reference-plugins §2.4 |
+| `midi.programChange` | `presets`, `channels`, `off` | `presets` | answers the part-1 open point |
+| `midi.mappings` | list of {source CC/note/PC, param id, absolute/relative, min, max} | empty | reference-plugins §2.4 |
+| `ui.scale` | 50…200 % | 100 | reference-plugins §2.4 (resizable) |
+
+`midi.programChange = channels` maps PC 0–2 to `amp.channel` 1–3, so a channel switch needs no reload (ADR-0003 §3).
+
+## 5. Totals, requirements and open points
+
+**Host-visible parameters: 228.**
+- Part 1: 69.
+- Part 2: 159, made up of cab 3 × 10, eq 3 × 29, mod 7, delay 11, reverb 10, transpose 1, doubler 4, output 2, plus
+  7 `enabled` (cab, eq, mod, delay, reverb, transpose, doubler).
+
+That is well within what VST3 hosts handle. REQ-PAR-001 makes CI fail if the list changes without a spec update.
+
+| ID | Requirement | Test |
+|---|---|---|
+| REQ-PAR-001 | The host parameter list (ids, ranges, defaults) equals this spec. Ids never disappear | `osp_tests` compares the engine parameter table with a generated `tests/spec/parameters.json` |
+| REQ-PAR-002 | Every parameter can sweep min→max in 10 ms with no NaN/Inf and no zipper noise above −90 dBFS on a 1 kHz sine | Smoothing test per class (§1.4), ADR-0007 parameter fuzz |
+| REQ-PAR-003 | The normalized ↔ value round-trip is exact to 1e-6 relative for every skew | Unit test |
 
 | Question | Decision / owner |
 |---|---|
 | Per-model knob curves and the exact `bright`/`tight` responses | amp block ticket (dsp-engineer), Phase 3 |
-| Should channel switching from MIDI program change select presets or channels? | part 2 (global MIDI settings) |
-| Count of host parameters | 69 after part 1: input 1, gate 7, comp 10, drives 2 × 7, amp 2 + 3 × 10, plus 5 `enabled` (input, gate, comp, drive1, drive2; amp is always on). The final count comes in part 2 |
+| Allowed orders (mod pre/post, drive slots) | `docs/spec/signal-flow.md` (#22) |
+| Transpose and doubler latency: report it only while enabled (the latency then changes at runtime), or always? | threading / signal-flow (#25, #22), together with the pitch-shifter choice (#11) |
+| Mic position as a continuous parameter (needs a multi-position IR set) | post-v1, after the IR asset ticket (#7) |
