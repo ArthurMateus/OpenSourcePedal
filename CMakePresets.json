@@ -1,0 +1,89 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "FETCHCONTENT_BASE_DIR": "${sourceDir}/build/_deps"
+      }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows MSVC Release (Ninja, run from a VS 2022 developer shell)",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "cl"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "windows-msvc-debug",
+      "displayName": "Windows MSVC Debug + RT checker",
+      "inherits": "windows-msvc",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "OSP_RT_CHECKER": "ON"
+      }
+    },
+    {
+      "name": "windows-msvc-ci",
+      "displayName": "Windows MSVC Release, warnings as errors (CI)",
+      "inherits": "windows-msvc",
+      "cacheVariables": {
+        "OSP_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "windows-vs",
+      "displayName": "Visual Studio 2022 solution (IDE convenience only)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/vs",
+      "cacheVariables": {
+        "FETCHCONTENT_BASE_DIR": "${sourceDir}/build/_deps"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "linux-clang",
+      "displayName": "Linux Clang, JUCE-free (sanitizer job)",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "OSP_BUILD_APP": "OFF"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "release", "configurePreset": "windows-msvc" },
+    { "name": "debug", "configurePreset": "windows-msvc-debug" },
+    { "name": "ci", "configurePreset": "windows-msvc-ci" }
+  ],
+  "testPresets": [
+    {
+      "name": "release",
+      "configurePreset": "windows-msvc",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
+      "name": "debug",
+      "inherits": "release",
+      "configurePreset": "windows-msvc-debug"
+    },
+    {
+      "name": "ci",
+      "inherits": "release",
+      "configurePreset": "windows-msvc-ci"
+    }
+  ]
+}
