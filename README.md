@@ -29,7 +29,7 @@ Requirements: Visual Studio 2022 (C++20, MSVC v143), CMake ≥ 3.25, Git LFS, Py
 git lfs install
 git clone https://github.com/ArthurMateus/OpenSourcePedal
 cd OpenSourcePedal
-cmake --preset windows-msvc        # fetches JUCE and the ASIO SDK at configure time
+cmake --preset windows-msvc        # fetches JUCE at configure time (ASIO headers ship with JUCE)
 cmake --build --preset release
 ctest --preset release
 ```

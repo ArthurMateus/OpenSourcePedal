@@ -1,5 +1,7 @@
 # Names that must never appear in product paths (see AGENTS.md rule 2). One per line, matched case-insensitively
 # as whole words. Researchers: add every artist/company/product name you find in the reference lineup.
+# NEVER add generic English or DSP words (e.g. Rectifier, Decimator, Logos): they would break code PRs.
+# When a name is generic on its own, add the distinctive multi-word form instead (e.g. 'Dual Rectifier').
 Neural DSP
 Archetype
 Quad Cortex
@@ -35,9 +37,12 @@ Bogner
 Friedman
 Revv
 Kemper
-Fractal
+Fractal Audio
 Line 6
-Helix
+Helix Native
+Helix Floor
+Helix LT
+HX Stomp
 TONE3000
 Tone King
 Blackstar
@@ -70,7 +75,6 @@ Cortex Control
 Darkglass Ultimate
 Omega Ampworks
 Granophyre
-Mesa
 SLO-100
 Mark IIC
 Horizon Devices
@@ -99,9 +103,54 @@ STL Tones
 Bogren Digital
 AmpliTube
 IK Multimedia
+# Added by #5 (tone-targets-b). Generic words are deliberately left out and checked by hand: Orange, Boss, CTS,
+# Victoria, Mark, Decimator, Rectifier, Two Notes, Periphery, Whammy, Greenback, Mesa, DOD, Centaur, Cry Baby, 5150,
+# Fractal, Helix (replaced by Fractal Audio and the Helix product names).
+# When a single word is generic, the multi-word form is listed instead (e.g. Dual Rectifier).
+Rage Against the Machine
+Precision Drive
+Two-Rock
+Ibanez
+Tube Screamer
+TS808
+TS-808
+TS9
+TS-10
+Maxon
+Keeley
+Electro-Harmonix
+Q-Tron
+Way Huge
+Celestion
+Electro-Voice
+EVM12L
+DigiTech
+MXR
+Dunlop
+TC Electronic
+Charvel
+Music Man
+DiMarzio
+Bare Knuckle
+Suhr
+JCM800
+JP-2C
+Axe-FX
+Distressor
+Nail The Mix
+Bluesbreaker
+Dual Rectifier
+Triple Rectifier
+Two Notes Engineering
+Mesa/Boogie
+DOD FX40B
+Klon Centaur
+5150 III
+6505
 Cockos
 Avid
 Bitwig
+Valhalla
 # Added by #7 (redistributable-assets). Licensors we may need to credit (guitarix, AIDA-X, freesound uploaders,
 # dataset names) are deliberately NOT listed, because assets/LICENSES.md must be able to name them.
 Korg

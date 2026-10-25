@@ -6,6 +6,6 @@ Every dependency must be AGPLv3-compatible. Add a row in the same PR that introd
 |---|---|---|---|---|---|
 | _none yet_ | | | | | |
 
-Planned (to be confirmed in Phase 1/2): JUCE 8 (AGPLv3), ASIO SDK (GPLv3 option; fetched at configure time, never committed),
+Planned (confirmed by ADR-0001 and ADR-0006 when they land): JUCE 9.0.4 (AGPLv3), ASIO SDK 2.3.4 headers bundled in JUCE (GPL-3.0-only option),
 VST3 SDK (MIT, via JUCE), NeuralAmpModelerCore (MIT, unverified), RTNeural (BSD-3, unverified), Eigen (MPL-2.0, unverified),
 Catch2 (BSL-1.0), nlohmann/json (MIT).
