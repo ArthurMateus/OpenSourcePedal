@@ -1,0 +1,4 @@
+# Python dependencies for offline tools/ scripts (ADR-0006 D2, ADR-0007)
+numpy==2.2.6
+scipy==1.18.1
+pyloudnorm==0.1.1
