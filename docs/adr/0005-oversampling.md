@@ -4,7 +4,7 @@
 - Deciders: architect (acct1/Sable). Issue #27.
 - Rests on: [`docs/research/oversampling.md`](../research/oversampling.md) (#10, cited as OS §x),
   [`docs/research/nam-runtime.md`](../research/nam-runtime.md) (NR §x), ADR-0001 (no JUCE in `dsp-core`),
-  ADR-0002 (#26, in review: NAM runtime), ADR-0006 (HIIR pin), ADR-0007 (the aliasing harness; ADR-0005 owns the
+  ADR-0002 (#26: NAM runtime, fixed amp-slot latency), ADR-0004 (#37: threading), ADR-0006 (HIIR pin), ADR-0007 (the aliasing harness; ADR-0005 owns the
   nonlinear thresholds).
 
 ## Context
@@ -70,10 +70,16 @@ designed to.
   chain with identity processing, so dry and wet stay phase-matched with either filter kind (this answers OS open
   question 5). Parallel blends at the graph level are compensated by the engine's latency alignment
   (`docs/spec/threading.md` and the signal-flow spec).
-- The engine sums block latencies along the chain and reports the total through `setLatencySamples` (ADR-0002 adds the
-  NAM resampler latency).
+- **Constant latency per (host rate, quality mode)** (REQ-303): each chain slot reports a fixed latency, computed in
+  `prepare()` as the maximum over the block types that slot can hold. Shorter blocks, and **bypassed** blocks, are
+  padded with a preallocated delay. Enabling, bypassing or swapping a block never changes the reported total, and
+  crossfades are time-aligned. The amp slot uses ADR-0002 D4's `L_slot`, which includes the classic amp's oversampler
+  latency from this ADR (`L_classic`).
+- The engine sums the slot latencies and reports the total through `setLatencySamples`, from the control thread, only
+  in `prepare()` (a Live/HQ change or SR/block change).
 - Expected magnitude (*unverified*, OS §3.4): IIR 2×/4× ≈ 1–5 samples, FIR 2×/4× ≈ 10–40 samples per block. Live mode
-  must stay at **≤ 8 samples total at 48 kHz** for the default preset chain (REQ-OS-005).
+  must stay at **≤ 16 samples total at 48 kHz** for the full chain at 48 kHz (REQ-302, confirmed here), excluding the
+  NAM resampler, which is 0 at 48 kHz (REQ-OS-005).
 
 ### D5. Aliasing thresholds (ADR-0007 harness; ASR excludes the fundamental)
 | Mode | f0 ≤ 2.5 kHz | 2.5 < f0 ≤ 8 kHz | Gate |
@@ -106,7 +112,7 @@ designed to.
 | REQ-OS-002 | Measured stopband and passband per stage meet D3 (impulse response → FFT). | `tests/dsp/oversampling` |
 | REQ-OS-003 | Every nonlinear block meets the D5 Live thresholds at 44.1 and 48 kHz, at −6 and 0 dBFS, at default and maximum gain. | ADR-0007 harness |
 | REQ-OS-004 | `Adaa1`/`Adaa2` match the closed-form linear-case kernels for `f(x) = x` (0.5 / 1 sample of delay), and stay finite for a slowly varying input (Δx < 1e-7) and for ±1e6 input. | `tests/dsp/adaa` |
-| REQ-OS-005 | The reported latency equals the measured 1 kHz delay ± 0.5 sample for every block and mode. The default preset chain in Live mode is ≤ 8 samples at 48 kHz. | `tests/dsp/latency` |
+| REQ-OS-005 | The reported latency equals the measured 1 kHz delay ± 0.5 sample for every block and mode. The full chain in Live mode is ≤ 16 samples at 48 kHz (REQ-302). Toggling the bypass of each block, and swapping the amp, leaves the reported latency and the measured 1 kHz delay unchanged (REQ-303). | `tests/dsp/latency` |
 | REQ-OS-006 | Changing the factor or quality never happens in `process()`. The RT checker (ADR-0007) sees no allocation while the quality toggles 100× with audio running. | RT checker |
 | REQ-OS-007 | A block with an internal dry/wet blend at 50% and identity processing nulls against its dry input (delayed by the reported latency) to ≤ −90 dBFS. | `tests/dsp/blend` |
 
