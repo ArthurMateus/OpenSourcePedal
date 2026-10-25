@@ -29,7 +29,7 @@
 5. **Pitch effects:** a polyphonic octave up/down (Plini, Rabea, Wong's octave pedals) and a **4-voice harmonizer**
    (Henson) (S1, S9, S14). The octave can share the poly-octave block from tone-targets-b. The harmonizer is post-v1
    (open question 1).
-6. **Spectral targets are given per octave band (63 Hz–8 kHz, dB relative to 1 kHz)** in §3.3 for 14 preset types,
+6. **Spectral targets are given per octave band (63 Hz–8 kHz, dB relative to 1 kHz)** in §3.3 for all 16 preset types,
    with gain-staging numbers in §3.4. They are starting hypotheses built from the vendor's EQ guide (S16) and the
    plugin ranges, *unverified* until rendered.
 7. **Add 30 names to `tools/guard/forbidden_names.txt`.** Generic single words (Ego, Kraken, Optimist, Clean
@@ -123,42 +123,46 @@ All values in this table are *unverified* starting points (no artist knob settin
 ### 3.3 Spectral targets: long-term average spectrum, dB per octave band, relative to the 1 kHz band
 
 Build: the vendor guide's band moves (T5) applied on top of a typical guitar-cab long-term spectrum, then rounded to
-1 dB. **All rows are *unverified*.** They are tolerance centres for the first preset pass (±3 dB per band), to be
-replaced by measured values from §3.4.
+1 dB. Boost = level above unity at drive ≈ 0, GR = gain reduction on DI peaks, gate threshold relative to the
+−12 dBFS DI reference ("—" = off), the same conventions as tone-targets-b §3.3.
+**All rows are *unverified*.** They are tolerance centres for the first preset pass (±3 dB per band), to be replaced
+by measured values from §3.4.
 
-| ID | 63 | 125 | 250 | 500 | 1k | 2k | 4k | 8k |
-|---|---|---|---|---|---|---|---|---|
-| A1 ambient clean | −12 | −3 | −1 | −1 | 0 | −2 | −5 | −11 |
-| A2 mid-gain lead | −16 | −6 | −2 | 0 | 0 | −1 | −5 | −14 |
-| A3 jazzy clean | −10 | −1 | +1 | 0 | 0 | −4 | −9 | −18 |
-| A4 thumpy clean | −8 | 0 | −1 | −2 | 0 | −2 | −4 | −10 |
-| A5 8-str djent | −13 | −4 | −4 | −3 | 0 | +1 | −2 | −12 |
-| A7 funk DI chop | −18 | −8 | −3 | −1 | 0 | 0 | −3 | −9 |
-| A8 Strat clean | −14 | −5 | −2 | −1 | 0 | −1 | −4 | −10 |
-| A9 edge-of-breakup | −14 | −5 | −1 | 0 | 0 | −2 | −6 | −14 |
-| A11 dry clean | −13 | −3 | −2 | −2 | 0 | −1 | −3 | −10 |
-| A12 acoustic-sim | −9 | −1 | 0 | −3 | 0 | −3 | −3 | −6 |
-| A13 hi-gain lead | −15 | −6 | −3 | −1 | 0 | 0 | −2 | −13 |
-| A14 hi-gain rhythm | −12 | −3 | −4 | −3 | 0 | +1 | −1 | −12 |
-| A15 octave fuzz | −8 | 0 | −1 | −2 | 0 | −2 | −6 | −15 |
-| A16 freeze clean | −11 | −3 | −1 | −1 | 0 | −2 | −5 | −12 |
+| ID | 63 | 125 | 250 | 500 | 1k | 2k | 4k | 8k | Boost dB | Comp GR dB | Gate thr dBFS |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| A1 ambient clean | −12 | −3 | −1 | −1 | 0 | −2 | −5 | −11 | — | 5 | — |
+| A2 mid-gain lead | −16 | −6 | −2 | 0 | 0 | −1 | −5 | −14 | +8 | 4 | −60 |
+| A3 jazzy clean | −10 | −1 | +1 | 0 | 0 | −4 | −9 | −18 | — | 2 | — |
+| A4 thumpy clean | −8 | 0 | −1 | −2 | 0 | −2 | −4 | −10 | — | 6 | — |
+| A5 8-str djent | −13 | −4 | −4 | −3 | 0 | +1 | −2 | −12 | +10 | — | −50 |
+| A6 piezo ambient | −9 | −1 | 0 | −2 | 0 | −2 | −3 | −7 | — | 3 | — |
+| A7 funk DI chop | −18 | −8 | −3 | −1 | 0 | 0 | −3 | −9 | — | 9 | — |
+| A8 Strat clean | −14 | −5 | −2 | −1 | 0 | −1 | −4 | −10 | — | 6 | — |
+| A9 edge-of-breakup | −14 | −5 | −1 | 0 | 0 | −2 | −6 | −14 | +6 | 6 | — |
+| A10 envelope funk | −16 | −5 | −1 | +1 | 0 | −1 | −6 | −15 | — | 6 | — |
+| A11 dry clean | −13 | −3 | −2 | −2 | 0 | −1 | −3 | −10 | — | 3 | — |
+| A12 acoustic-sim | −9 | −1 | 0 | −3 | 0 | −3 | −3 | −6 | — | 4 | — |
+| A13 hi-gain lead | −15 | −6 | −3 | −1 | 0 | 0 | −2 | −13 | +8 | — | −55 |
+| A14 hi-gain rhythm | −12 | −3 | −4 | −3 | 0 | +1 | −1 | −12 | +10 | — | −50 |
+| A15 octave fuzz | −8 | 0 | −1 | −2 | 0 | −2 | −6 | −15 | — | — | −58 |
+| A16 freeze clean | −11 | −3 | −1 | −1 | 0 | −2 | −5 | −12 | — | 5 | — |
 
 ### 3.4 Gain staging and measurement procedure
 
 | Stage | Target (*unverified* defaults) |
 |---|---|
-| DI input (factory DI clips) | Peaks −12 dBFS ±2 dB, RMS ≈ −24 dBFS on strummed chords. The gain settings in §3.2 assume this level |
+| DI input (factory DI clips) | Peaks −12 dBFS (humbuckers), about −15 dBFS (single coils), RMS ≈ −24 dBFS on strummed chords. Same reference as tone-targets-b §3.3. All gain settings assume it |
 | Compressor | GR as given per preset (3–10 dB), measured on the reference DI clip |
 | Boost / OD into amp | Level +6…+10 dB, drive ≤ 20 % for "clean-boost low-gain OD" (A2, A9, A13, A14) |
 | Amp output | Peaks −6…−3 dBFS before post FX (headroom for delay and reverb build-up) |
 | Wet mixes | Delay mix measured as wet/dry energy ratio at the first repeat. Reverb mix as late-tail level 500 ms after a staccato chord, −20…−10 dB relative to the dry peak |
-| Preset output | **−18 LUFS-I** integrated over the reference DI clip, ±1 LU (per MASTER_PROMPT LUFS normalization; −18 is our choice for headroom) |
+| Preset output | **−18 LUFS-I** integrated over the reference DI clip, ±1 LU. Lead presets (A2, A13) −17 LUFS-I. Same as tone-targets-b and the `nam-runtime.md` −18 dB convention |
 
 Procedure for the preset designer:
 1. Render each preset with `osp-render` over the same DI clip set (single-note lead, chords, 16th-note chops).
 2. Compute the octave-band LTAS (Welch, 8192-pt, Hann, 50 % overlap, sum power within each octave band), normalize
    to the 1 kHz band, and compare with §3.3 (±3 dB tolerance).
-3. Measure LUFS-I (ITU-R BS.1770-4), and normalize via the output level to −18 LUFS.
+3. Measure LUFS-I (ITU-R BS.1770-4), and normalize via the output level to −18 LUFS (leads −17).
 4. Commit the measured table back into this note (or `presets/targets.json`) and replace the hypotheses.
 
 ## 4. Open questions (for the architect)
@@ -172,7 +176,8 @@ Procedure for the preset designer:
    licensable IRs, see the IR research ticket)?
 5. Where do the spectral targets live: in this note, or in a machine-readable `presets/targets.json` that the QA
    golden-render tests read?
-6. LUFS target: −18 LUFS-I for all presets (our proposal), or per category (cleans quieter)?
+6. LUFS target: tone-targets-b and this note both use −18 LUFS-I with leads at −17. Should ambient cleans also get their own
+   offset (they read quieter at equal LUFS because of the long tails)?
 
 ## 5. Sources (all accessed 2026-10-25)
 
