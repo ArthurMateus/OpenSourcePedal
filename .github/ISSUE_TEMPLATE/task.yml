@@ -1,0 +1,32 @@
+name: Task
+description: A unit of work (one PR) with acceptance criteria
+labels: ["type:feature"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why this exists; links to spec/ADR/research.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What to build. What is explicitly out of scope.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Testable checklist. Each item maps to a test, a measurement or a file.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: input
+    id: branch
+    attributes:
+      label: Suggested branch
+      placeholder: role/123-short-name

@@ -1,0 +1,28 @@
+name: Bug
+description: Something is wrong (with repro steps)
+labels: ["type:bug"]
+body:
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands, preset, sample rate, buffer size, host.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output / measurements
+      render: text
+  - type: input
+    id: sha
+    attributes:
+      label: Commit SHA
+    validations:
+      required: true

@@ -1,0 +1,41 @@
+# Build output
+/build/
+/out/
+/cmake-build-*/
+CMakeUserPresets.json
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.lib
+*.exp
+*.vst3/
+
+# Fetched SDKs and dependencies: never commit (see ADR-0001)
+/third_party/_fetched/
+/third_party/asiosdk*/
+**/asiosdk*/
+**/ASIOSDK*/
+/_deps/
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Local renders and scratch
+/renders/
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Agent-local settings
+.claude/settings.local.json
