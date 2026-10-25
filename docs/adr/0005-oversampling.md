@@ -36,18 +36,24 @@ Waveshapers alias, and the effect is worst for high-gain and hard-clip stages at
 
 ### D2. Per-block factors (from OS §3.1; the thresholds in D5 make them binding)
 
-| Block | Live 44.1/48 kHz | Live 88.2/96 kHz | HQ (any rate) | ADAA |
-|---|---|---|---|---|
-| Drive / boost (soft clip) | 2× | 1× | 2× Live factor | 1st order |
-| Fuzz / hard clip | 4× | 2× | 2× Live factor | 2nd order |
-| Classic amp (preamp → tone stack → power amp) | 4×, **one shared domain** per amp | 2× | 2× Live factor (max 8×) | 1st order per stage |
-| Compressor, gate, EQ, cab IR, modulation, delay, reverb | 1× | 1× | 1× | none (except saturating delay/tape modes: 2× + ADAA1) |
-| NAM amp | 1× (native rate, ADR-0002 D4) | 1× | 1× in v1 (see D7) | n/a |
+Oversampled regions follow `docs/spec/signal-flow.md` (#52):
 
-- **OS open question 2 (shared domain):** each classic amp model owns **one** up/down pair around its whole
-  preamp → tone stack → power-amp chain, because the tone stack between stages is cheap and runs fine at the high rate.
-  Pedals each own their own oversampler, which keeps the blocks modular. Two adjacent oversampled pedals cost two
-  up/down pairs. We accept that.
+| Region | Blocks | Live 44.1/48 kHz | Live 88.2/96 kHz | HQ (any rate) | Filter | ADAA |
+|---|---|---|---|---|---|---|
+| **OS-1** | Drive A → Drive B (adjacent, every voicing) | 4× | 2× | 8× | IIR (Live), FIR (HQ) | Soft-clip voicings: 1st order. Fuzz/hard-clip voicings: 2nd order |
+| **OS-2** | Classic amp (preamp → tone stack → power amp) | 4× | 2× | 8× | IIR (Live), FIR (HQ) | 1st order per stage |
+| none | Compressor, gate, EQ, cab IR, modulation, delay, reverb, doubler | 1× | 1× | 1× | n/a | none (saturating delay/tape modes: 2× + ADAA1 inside the block, in a later ADR amendment) |
+| none | NAM amp | 1× (native rate, ADR-0002 D4) | 1× | 1× in v1 (see D7) | n/a | n/a |
+
+- **OS open question 2 (shared domain), decided by the orchestrator:**
+  - **OS-1** is one up/down pair shared by the adjacent Drive A + Drive B pair. It runs at the **hungriest voicing's
+    factor** (fuzz/hard clip: 4× Live at 44.1/48 kHz) for every voicing, so a voicing change never changes the factor
+    or the latency. The latency is constant without padding: one pair and one fixed ADAA delay (`a_max` = 1 sample at
+    the oversampled rate).
+  - **OS-2** is the classic amp's own region. It stays separate from OS-1 because NAM channels sit in the same amp slot
+    and must not be forced into OS-2 (signal-flow §OS regions).
+  - The cost is that soft-clip voicings in OS-1 run at 4× rather than the 2× the research suggests (OS §3.1). The
+    extra CPU is accepted for one pair and constant latency.
 
 ### D3. Filter specifications
 | Stage | IIR (Live) | FIR (HQ) |
