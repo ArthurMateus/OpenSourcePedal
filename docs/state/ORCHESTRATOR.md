@@ -4,8 +4,9 @@
 > To take over: paste `docs/MASTER_PROMPT.md` (from main) into a fresh agent with **RESUME** appended.
 
 ## Phase
-- Phase 0 (Bootstrap): **DONE.** PR #2 merged; reviewed by Corvid (gemini): APPROVE. Projects board blocked (B-001).
-- Phase 1 (Research): **IN PROGRESS** (issues #3–#13, milestone "Phase 1: Research").
+- Phase 0 (Bootstrap): **DONE** (PR #2). Projects board blocked (B-001).
+- Phase 1 (Research): **GATE PASSED 2026-10-25.** All 11 topics merged with dated sources (#14 #15 #16 #17 #18 #19 #20 #31 #32 #33 #36). Milestone closed.
+- Phase 2 (Spec & architecture): **IN PROGRESS** (#21–#29).
 
 ## Owner decisions (2026-10-25)
 - License AGPL-3.0-or-later + JUCE 8 (ADR-0001). The orchestrator runs on **acct2**, so keep acct2's worker load light.
@@ -30,36 +31,25 @@
 
 Unassigned Phase 1: #11 time-based-effects and #12 prior-art go to whoever frees first.
 
-## Phase 1 progress (5/11 merged)
-| Issue | PR | Author | Reviewer | Status |
+## Phase 2 progress
+| Issue | Owner | PR | Reviewer | Status |
 |---|---|---|---|---|
-| #3 reference-plugins | #18 | Lyra acct1 | Wren acct3 / acct2 re-review | MERGED |
-| #6 nam-runtime | #14 | Sable acct1 | Corvid gemini | MERGED |
-| #8 asio-low-latency | #16 | Moth acct3 | acct2 | MERGED |
-| #9 framework-comparison | #20 | Moth acct3 | acct2 | MERGED (pin JUCE 9.0.4) |
-| #13 test-tooling | #15 | Corvid gemini | acct2 | MERGED |
-| #5 tone-targets-b | #17 | Wren acct3 | Lyra acct1 (re-review queued) | fixed, awaiting re-review |
-| #10 oversampling | #19 | Sable acct1 | Moth acct3 (queued) | in review |
-| #4 tone-targets-a | | Lyra | | in progress |
-| #7 redistributable-assets | | Wren | | in progress |
-| #11 time-based-effects | | Corvid | | in progress |
-| #12 prior-art | | Sable | | in progress |
+| #28 ADR-0006 build/deps | Moth acct3 | #34 | Lyra acct1 | MERGED (status Proposed in file) |
+| #29 ADR-0007 test strategy | Corvid gemini | #35 | acct2 | MERGED |
+| #25 ADR-0004 threading + RT rules | Moth | #37 | Corvid (queued) | in review |
+| #21 requirements | Moth | | | in progress |
+| #22 signal flow | Moth | | | queued |
+| #26 ADR-0002 NAM runtime | Sable acct1 | | | in progress |
+| #27 ADR-0005 oversampling (owns the ASR thresholds) | Sable | | | queued |
+| #24 ADR-0003 preset schema | Lyra acct1 | | | in progress |
+| #23 parameters | Lyra | | | queued |
+| PR #38 guard exemption (assets/LICENSES.md, THIRD_PARTY.md) | acct2 | #38 | Lyra (queued) | in review |
 
-## Phase 2 (issues #21–#29, milestone 2), planned owners
-| Issue | Owner | Note |
-|---|---|---|
-| #28 ADR-0006 build/deps | Moth (acct3, architect) | first |
-| #25 threading + RT rules | Moth | |
-| #21 requirements | Moth | |
-| #22 signal flow | Moth | |
-| #26 ADR-0002 NAM runtime | Sable (acct1) | after #12 |
-| #27 ADR-0005 oversampling | Sable | |
-| #29 ADR-0007 test strategy | Corvid (gemini) | after #11 |
-| #23 parameters, #24 preset schema | Lyra (acct1) | after #4 |
-| PR #30 ADR-0001 amendment (JUCE 9.0.4, bundled ASIO) | acct2 | review: Corvid (queued) |
+Free agents: Wren (acct3) is idle after #7, a candidate for Phase 3 prep (walking skeleton) once ADR-0006 and ADR-0004 are merged.
+Phase 2 gate: spec (requirements, signal flow, parameters, preset schema, threading, RT rules) + ADRs 0001–0007 merged.
 
 ## Pending orchestrator follow-ups
-- ADR-0001 amendment is in PR #30.
+- ADR-0001 amendment merged (PR #30).
 - Add a header rule to forbidden_names.txt: no generic words. Consider a names.d/ directory, to stop append conflicts.
 - forbidden_names.txt conflicts: resolve with a union merge (merge origin/main into the PR branch in a helper worktree, take `git show :2:F` + `:3:F`, dedupe with `awk '!seen[$0]++'`). To merge: poll check-runs for the head SHA until guard completes, then `gh pr merge --squash`.
 
