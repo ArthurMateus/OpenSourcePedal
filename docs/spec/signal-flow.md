@@ -16,12 +16,12 @@ flowchart LR
     IN([Input<br/>mono, trim]) --> TUN{{Tuner tap}}
     IN --> GATE[Noise gate<br/>1×]
     GATE --> COMP[Compressor<br/>1×, blend]
-    COMP --> MODPRE[Modulation<br/>if position = pre-amp<br/>mono]
 
-    subgraph OS1 [Oversampled region OS-1: drive section]
+    subgraph OS1 [Oversampled region OS-1: shared drive domain]
         DA[Drive A] --> DB[Drive B]
     end
-    MODPRE --> DA
+    COMP --> DA
+    DB --> MODPRE[Modulation<br/>if position = pre-amp<br/>mono]
 
     subgraph AMP [Amp block: 3 channels, 1 active, ADR-0004 crossfade on switch]
         direction TB
@@ -30,8 +30,9 @@ flowchart LR
         end
         NAM[NAM model<br/>native rate or Lanczos resampler]
     end
-    DB --> CL
-    DB --> NAM
+    MODPRE --> CL
+    MODPRE --> NAM
+    MODPRE --> CLEAN[Clean DI path<br/>amp.cleanBlendPct<br/>delay = L_slot + L_cab]
 
     CL --> CAB
     NAM --> CAB
@@ -40,7 +41,9 @@ flowchart LR
         IR2[IR 2 · level · pan · phase] --> SUM
     end
     SUM --> EQ[EQ<br/>9-band graphic + HPF/LPF<br/>or 4-band parametric · stereo]
-    EQ --> MODPOST[Modulation<br/>if position = post-cab<br/>stereo]
+    EQ --> BLEND((clean blend<br/>linear mix))
+    CLEAN --> BLEND
+    BLEND --> MODPOST[Modulation<br/>if position = post-cab<br/>stereo]
     MODPOST --> DLY[Delay<br/>digital / BBD / tape · stereo]
     DLY --> REV[Reverb<br/>room / hall / plate / shimmer · stereo]
     REV --> DBL[Doubler<br/>stereo]
@@ -48,13 +51,18 @@ flowchart LR
 ```
 
 Notes:
-- The Modulation block exists **once** per preset. Its `position` parameter (pre-amp / post-cab) moves it
-  (REQ-415, ref Q1). In the pre-amp position it runs as a mono instance (stereo voices are summed). Changing the position
-  is a discrete change and crossfades like a channel switch.
+- The Modulation block exists **once** per preset. Its `position` parameter moves it between **pre-amp (after Drive B,
+  before the amp)** and **post-cab (after the EQ and the clean blend)** (REQ-415, ref Q1; parameters review decision).
+  In the pre-amp position it runs as a mono instance (stereo voices are summed). Changing the position is a discrete
+  change and crossfades like a channel switch.
+- **Clean DI blend (`amp.cleanBlendPct`, parameters.md):** a parallel path tapped at the amp input (after Drive B and the
+  pre-amp modulation position) that skips amp, cab and EQ. It is delayed by `L_slot + L_cab` (§4), duplicated to
+  centre-panned stereo, and mixed after the EQ: `out = (1 − b)·wet + b·clean`, b = cleanBlendPct / 100, smoothed per
+  parameters.md. It is part of the amp block's latency contract, so it never changes `L_total`. This answers ref Q4 and
+  tone-targets-a T1.
 - A "console" amp type (REQ-409) auto-bypasses the cab, and the cab's own bypass is a hard bypass.
-- Transpose, polyphonic octaver, whammy, amp blend and DI blend are post-v1 (REQ-420). Their future slots are: pitch
-  blocks between Comp and Drive A (tone-targets-b §1.1 puts pitch first), and DI blend as a parallel path from Comp to EQ.
-  Adding one is an amendment to this spec.
+- Transpose, polyphonic octaver, whammy and amp blend (several amps at once) are post-v1 (REQ-420). Their future slot:
+  pitch blocks between Comp and Drive A (tone-targets-b §1.1 puts pitch first). Adding one is an amendment to this spec.
 
 ## 2. Channel format (mono / stereo points)
 
@@ -107,6 +115,7 @@ the sample rate or the Live/HQ mode changes.
 | L_amp | Amp slot | ADR-0002 D4 `L_slot = max(L_res(fs, 48 kHz), L_classic(fs, q))`; every model is padded up to it | One value for all 3 channels and both model kinds |
 | L_classic | OS-2 cascade + ADAA | `round(D_os2)` | ADR-0005 D4 |
 | L_res | NAM resampler (Lanczos A = 12), 48 kHz model at host fs | `round(D_res)`; 0 at a 48 kHz host | ADR-0002 D4; ADR-0005 REQ-OS-005 |
+| L_clean | Clean DI path (`amp.cleanBlendPct`) | Delay line of exactly `L_slot + L_cab`, so it adds nothing to `L_total` | parameters.md (#51) |
 | L_cab | Convolution | **0**: zero-latency partitioned convolution (direct-form head + FFT tail) | Library choice deferred (ADR-0006 Deferred). If the cab ticket cannot meet 0 within budget, it amends this row with a fixed value |
 | L_eq | EQ | 0 | Minimum-phase biquads. A linear-phase EQ is post-v1 |
 | L_dly, L_rev, L_dbl | Delay, reverb, doubler | 0 | Wet paths are delayed by design. The dry path is not delayed |
@@ -138,7 +147,7 @@ Expected magnitude (ADR-0005 D4, *unverified*): IIR 2×/4× ≈ 1–5 samples an
 | Situation | Behaviour | Source |
 |---|---|---|
 | Internal dry/wet blend inside an oversampled block | The dry path goes through the **same** up/down chain with identity processing, so dry and wet are phase-matched with IIR and FIR | ADR-0005 D4, REQ-OS-007 |
-| Block bypass (user) | 5 ms linear ramp between processed and latency-matched dry signal. Latency is kept (padding stays in) | REQ-303, REQ-402 |
+| Block enable / bypass (user, `<blockId>.enabled`) | **10 ms constant-amplitude (linear) crossfade** between the processed and the latency-matched dry signal. Linear, not equal-power, because both signals are time-aligned and strongly correlated, so a linear fade keeps the level constant. Latency is kept (padding stays in). **This spec owns the length.** parameters.md references it | REQ-303, REQ-402 |
 | Delay / reverb bypass (user) | **Soft bypass (trails):** the input send is muted and tails ring out. `setSoftBypass(bool)` | time-based-effects Q4; ADR-0007 |
 | Hard bypass (tests, null test) | `setBypassed(true)`: output = latency-aligned input, nulls ≤ −120 dBFS | ADR-0007 REQ-TEST-004 |
 | Amp channel switch, model/IR change, modulation position change | ADR-0004 crossfade between the old and new instance | ADR-0004 §5 |
