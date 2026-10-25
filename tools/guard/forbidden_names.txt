@@ -159,3 +159,32 @@ Victory Amps
 Universal Audio
 Strat
 Stratocaster
+# NEVER add generic English or DSP words (e.g. Rectifier, Decimator, Logos): they would break code PRs.
+# When a name is generic on its own, add the distinctive multi-word form instead (e.g. 'Dual Rectifier').
+Valhalla
+# Added by #7 (redistributable-assets). Licensors we may need to credit (guitarix, AIDA-X, freesound uploaders,
+# dataset names) are deliberately NOT listed, because assets/LICENSES.md must be able to name them.
+Korg
+AX1500G
+Behringer
+BG412S
+Eminence
+DV77
+Vintage 30
+Audix
+SM57
+Pyle
+Gibson
+Les Paul
+Focusrite
+Voxengo
+Kalthallen
+Origin Effects
+ML Sound Lab
+God's Cab
+Wilkinson Audio
+ToneHunt
+Engl
+Splawn
+FabFilter
+Slate Digital

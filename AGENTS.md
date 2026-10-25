@@ -40,7 +40,7 @@ tests/         Unit tests (Catch2), golden-render regression, RT-safety and fuzz
 tools/         Offline render CLI (osp-render), analysis scripts (spectrum, LUFS, null test), preset linters.
 presets/       Factory presets (versioned JSON).
 assets/        Bundled IRs / captures / DI clips (Git LFS) + assets/LICENSES.md.
-cmake/         CMake helpers, dependency fetching (JUCE, ASIO SDK, NAM core, Eigen, ...).
+cmake/         CMake helpers, dependency fetching (JUCE, NAM core, Eigen, ...).
 docs/adr/      Architecture Decision Records (NNNN-title.md).
 docs/research/ Research notes with sources and dates.
 docs/spec/     Requirements, signal flow, parameters, preset schema, threading, RT rules.
@@ -53,7 +53,7 @@ docs/demos/    Rendered demo clips per milestone.
 Requirements: Visual Studio 2022 (MSVC v143, C++20), CMake ≥ 3.25, Ninja (optional), Git LFS, Python 3.11+ for tools.
 
 ```powershell
-cmake --preset windows-msvc              # configure (fetches JUCE + ASIO SDK at configure time; never committed)
+cmake --preset windows-msvc              # configure (fetches JUCE at configure time; ASIO headers come with JUCE)
 cmake --build --preset release           # build standalone, VST3, tests, tools
 ctest --preset release                   # unit + golden + RT-safety tests
 ./build/release/tools/osp-render --preset presets/factory/<name>.json --in assets/di/<clip>.wav --out out.wav
