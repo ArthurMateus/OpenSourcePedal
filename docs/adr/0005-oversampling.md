@@ -78,7 +78,7 @@ designed to.
 - The engine sums the slot latencies and reports the total through `setLatencySamples`, from the control thread, only
   in `prepare()` (a Live/HQ change or SR/block change).
 - Expected magnitude (*unverified*, OS §3.4): IIR 2×/4× ≈ 1–5 samples, FIR 2×/4× ≈ 10–40 samples per block. Live mode
-  must stay at **≤ 16 samples total at 48 kHz** for the full chain at 48 kHz (REQ-302, confirmed here), excluding the
+  must stay at **≤ 16 samples total** for the full chain at 48 kHz (REQ-302, confirmed here), excluding the
   NAM resampler, which is 0 at 48 kHz (REQ-OS-005).
 
 ### D5. Aliasing thresholds (ADR-0007 harness; ASR excludes the fundamental)
