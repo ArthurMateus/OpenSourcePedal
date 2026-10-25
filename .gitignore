@@ -39,3 +39,6 @@ Thumbs.db
 
 # Agent-local settings
 .claude/settings.local.json
+
+# Maestri canvas role launch dirs
+.maestri/
