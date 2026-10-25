@@ -36,13 +36,19 @@ pluginval levels 7–9 test exactly these races, oversized blocks and audio-thre
 
    The audio thread never runs a destructor that frees memory.
 5. **Crossfade:** model, IR and preset swaps fade over **25 ms** (round(0.025·fs) samples, 19 blocks at 48 kHz / 64),
-   inside the 20–30 ms range from nam-runtime §3. Swaps are allowed during playback, in the plugin and the standalone.
-   This answers nam-runtime Q5.
-6. **One producer per queue.** Control-side calls are serialised by an `EngineController` (a non-RT mutex that the audio
-   thread never touches). It is the single producer of the command queue. The worker is the single consumer of the
-   retire queue.
-7. **The controller owns the "desired state".** `getStateInformation` returns the last requested state immediately, even
-   before the audio thread has applied it, so pluginval's state round-trips are deterministic (test-tooling §2.5).
+   inside the 20–30 ms range from nam-runtime §3. 25 ms rather than 32 ms: it stays inside the researched range, and
+   it keeps the two-instance CPU peak (REQ-703) as short as possible. **ADR-0004 is the single owner of this value.**
+   Other documents (ADR-0002, ADR-0003, signal-flow.md, requirements.md) say "the ADR-0004 crossfade" and don't repeat
+   the number. Swaps are allowed during playback, in the plugin and the standalone. This answers nam-runtime Q5.
+6. **One producer and one consumer per queue.** Control-side calls are serialised by an `EngineController` (a non-RT
+   mutex that the audio thread never touches). The controller only enqueues **jobs** to the worker (a non-RT job
+   queue). The **worker is the sole producer** of the command queue, and the audio thread its sole consumer. The audio
+   thread is the sole producer of the retire queue, and the worker its sole consumer. Every SPSC index update uses
+   release on the producer side and acquire on the consumer side (threading.md §2). Naming: "worker" in this ADR is
+   the thread other documents may call the "loader thread"; "control" is any non-audio host thread.
+7. **The controller owns the "desired state".** `getStateInformation` and `setStateInformation` read and write the
+   parameter atomics **synchronously** under the controller mutex. Only heavy objects are rebuilt asynchronously.
+   Immediate round-trips (pluginval levels 6–8) are therefore deterministic (test-tooling §2.5, threading.md §6).
 8. **The app splits oversized host blocks** into chunks of at most `maxBlock` before calling the engine
    (pluginval level 8, nam-runtime §3 "Block size").
 9. **Generation tags:** every `prepare()` bumps a generation counter. Objects built for an old sample rate or block size
@@ -59,5 +65,5 @@ pluginval levels 7–9 test exactly these races, oversized blocks and audio-thre
   benchmark gate (requirements.md, #21).
 - − Applying a state is asynchronous (one worker job + one fade, typically tens of ms; *unverified* until measured).
   Hosts that render offline right after `setStateInformation` need the "drain" call described in threading.md §6.
-- − Retire-queue overflow (more than 64 pending objects) is handled by a fixed overflow array, never by freeing on the
-  audio thread. A debug assert flags it as a design bug.
+- \+ The retire queue cannot overflow. Its capacity is ≥ cap(command queue) + max active objects, and the worker
+  drains it before every command push (threading.md §4). No overflow array is needed.

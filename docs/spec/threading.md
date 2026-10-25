@@ -19,8 +19,8 @@ queue. The audio thread never signals it: signalling is a system call (realtime-
 
 ```
 EngineController (control side, mutex)          Engine (audio side, lock-free)
-  desiredState  ── job ──► Worker ── builds ──► Command{Install, ptr, gen} ──► cmdQueue (SPSC, cap 256) ──► audio
-  liveState mirror                                                    audio ──► retireQueue (SPSC, cap 64) ──► Worker deletes
+  desiredState  ── job ──► Worker ── builds ──► Command{Install, ptr, gen} ──► cmdQueue (SPSC, cap 64) ──► audio
+  liveState mirror                                                    audio ──► retireQueue (SPSC, cap 128) ──► Worker deletes
   paramAtomics* (registered once)  ◄──────────── read every block ─────────────── audio
   meters / telemetry (atomics)     ◄──────────── written every block ──────────── audio
 ```
@@ -35,6 +35,26 @@ EngineController (control side, mutex)          Engine (audio side, lock-free)
 
 `Chain` holds its blocks by value or in a worker-allocated arena. Installing a chain is one pointer write on the audio
 thread.
+
+**Queues.** Each queue has exactly one producer thread and one consumer thread:
+
+| Queue | Producer | Consumer | Capacity |
+|---|---|---|---|
+| job queue (non-RT, mutex + condition variable) | control (`EngineController`) | worker | unbounded (the control side may allocate) |
+| `cmdQueue` (SPSC) | **worker only** | audio | 64 |
+| `retireQueue` (SPSC) | audio | worker | 128 ≥ cap(`cmdQueue`) + `kMaxActiveObjects` (16) |
+| telemetry rings (SPSC) | audio | message | per stream, fixed |
+
+The SPSC implementation (`engine/rt/SpscQueue.hpp`) uses a power-of-two ring with monotonic `std::atomic<uint32_t>`
+`head` (written only by the producer) and `tail` (written only by the consumer). The producer writes the slot, then
+does `head.store(h + 1, std::memory_order_release)`. The consumer does `head.load(std::memory_order_acquire)` before
+reading the slot. Symmetrically, the consumer does `tail.store(t + 1, release)` after reading, and the producer does
+`tail.load(acquire)` before reusing a slot. The release/acquire pair on `head` makes every store the worker made while
+building the object happen-before the audio thread dereferences `ptr`. Payloads are trivially copyable
+(realtime-rules.md C5).
+
+`kMaxActiveObjects` = 16 bounds the heavy objects the audio side can hold at once (2 chains + 3 amp channels × 2 +
+2 IR slots × 2 during fades, plus spare). The engine asserts it in debug builds.
 
 ## 3. Parameter flow
 
@@ -61,10 +81,13 @@ thread.
 2. The worker builds the object off-thread and `prepare()`s it with the current `(sampleRate, maxBlock)`. It pre-touches
    every buffer (realtime-rules.md RT-12). On failure (bad file, `NamFileValidationError`), it posts an error to the
    message thread and enqueues nothing.
-3. The worker pushes `Command{Install, kind, ptr, g}`. If the command queue is full, it retries after 1 ms; the queue is
-   never grown.
+3. The worker first **drains `retireQueue` completely** (deleting each object), then pushes
+   `Command{Install, kind, ptr, g}`. If `cmdQueue` is full, it drains again and retries after 1 ms; the queue is never
+   grown. Every object on the audio side either arrived through `cmdQueue` (at most 64 in flight) or is active
+   (at most `kMaxActiveObjects`). Draining before each push therefore bounds `retireQueue` occupancy by
+   64 + 16 ≤ 128, so the audio thread's retire push can never fail. A debug assert checks it.
 4. At the next block start, the audio thread pops commands. If `g` ≠ the current generation, it pushes `ptr` straight
-   to the retire queue. Otherwise it starts a **25 ms crossfade**: old and new both run, mixed with a linear gain ramp,
+   to the retire queue. Otherwise it starts the **ADR-0004 crossfade** (ADR-0004 §5 owns the length): old and new both run, mixed with a linear gain ramp,
    because the two outputs are strongly correlated (*unverified*: equal-gain vs equal-power to be confirmed by listening
    in the first NAM ticket). At fade end the old object goes to the retire queue.
 5. If a newer install of the same kind arrives mid-fade, the fade restarts from the current mix toward the newest
@@ -77,18 +100,26 @@ thread.
 
 - `prepareToPlay(sr, maxBlock)` runs on a control thread while audio is stopped. This is JUCE's contract that
   `processBlock` does not overlap `prepareToPlay` (*unverified* for every host; we also guard with the generation).
-  It locks the controller, bumps the generation, cancels pending worker jobs, rebuilds the current `desiredState`
-  synchronously (allocation is fine here, including NAM `Reset`), installs it directly, then registers the parameter
-  atomics.
+  It locks the controller, bumps the generation, cancels pending worker jobs, **waits for any worker build in progress
+  to finish**, then drains `cmdQueue` (retiring its objects) and `retireQueue`. Audio is stopped, so the control thread
+  may consume both queues here. It then rebuilds the current `desiredState` synchronously (allocation is fine here,
+  including NAM `Reset`), installs it directly, and registers the parameter atomics.
 - `releaseResources` retires everything synchronously (audio is stopped).
 - Host blocks larger than `maxBlock` are split by the app into chunks of at most `maxBlock` (pluginval level 8).
   `numSamples == 0` returns immediately. Odd sizes (1, 127, …) are legal.
 
 ## 6. State save/restore
 
-- `getStateInformation` serialises `desiredState` under the controller mutex. It never reads audio-side objects.
-- `setStateInformation` parses on the calling thread (exceptions are caught there), updates `desiredState`, and
-  enqueues a build. It does not wait.
+Both calls take the controller mutex, so they are serialised against each other and against `prepareToPlay`.
+
+- `getStateInformation` snapshots **the current APVTS parameter values** (reading the atomics) together with the heavy
+  parts of `desiredState` (preset id, `.nam`/IR references, quality). It writes them in a canonical key order, so two
+  calls with no change in between are byte-identical (REQ-902). It never reads audio-side objects.
+- `setStateInformation` parses on the calling thread (exceptions are caught there). It then **synchronously writes every
+  restored parameter value into the APVTS parameters** before returning, with discrete and bool values snapped exactly
+  as the host's normalisation does. It updates `desiredState`. Only the heavy-object rebuild (Chain/NAM/IR) is enqueued
+  to the worker. A `getValue()` or `getStateInformation` on the next line therefore sees the restored state
+  (pluginval levels 6–8).
 - `Engine::drainPending(timeout)` (control thread only) waits until the live state matches `desiredState`. It is used by
   `osp-render`, golden tests, and offline renders when the host sets `isNonRealtime()`.
 
@@ -104,7 +135,7 @@ thread.
 
 | Question (source) | Resolution |
 |---|---|
-| Swap crossfade length, swaps during playback (nam-runtime Q5) | 25 ms; allowed during playback (ADR-0004 §5) |
+| Swap crossfade length, swaps during playback (nam-runtime Q5) | ADR-0004 §5 crossfade; allowed during playback |
 | Where the latency detector lives (asio-low-latency Q4) | Detector in `engine/`, capture in `app/`, analysis on the worker (§7) |
 | `VirtualLock` default (asio-low-latency Q5) | Off in v1. Pre-touch is mandatory (RT-12). Revisit if page-fault xruns are measured. Owner: audio-io-engineer |
 | Delay/reverb tails across preset switches | Deferred to `signal-flow.md` (#22). v1 baseline: the whole chain crossfades |
