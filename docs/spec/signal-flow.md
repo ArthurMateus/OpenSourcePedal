@@ -58,7 +58,7 @@ Notes:
 - **Clean DI blend (`amp.cleanBlendPct`, parameters.md):** a parallel path tapped at the amp input (after Drive B and the
   pre-amp modulation position) that skips amp, cab and EQ. It is delayed by `L_slot + L_cab` (§4), duplicated to
   centre-panned stereo, and mixed after the EQ: `out = (1 − b)·wet + b·clean`, b = cleanBlendPct / 100, smoothed per
-  parameters.md. It is part of the amp block's latency contract, so it never changes `L_total`. This answers ref Q4 and
+  parameters.md. It is part of the amp block's latency contract, so it never changes `L_total`. The amp path's residual IIR fraction (≤ 0.5 sample, ADR-0005 D4) against the integer-delayed clean path is accepted; the amp path is nonlinear, so blends are not null-tested (only b = 100 % is, REQ-424). This answers ref Q4 and
   tone-targets-a T1.
 - A "console" amp type (REQ-409) auto-bypasses the cab, and the cab's own bypass is a hard bypass.
 - Transpose, polyphonic octaver, whammy and amp blend (several amps at once) are post-v1 (REQ-420). Their future slot:

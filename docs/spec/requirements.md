@@ -71,7 +71,7 @@ Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges an
 | REQ-413 | **Cab:** 2 IR slots, each with IR (factory or user WAV/AIFF, any rate, resampled on load), Level −∞…+6 dB, Pan, Phase invert and On. Loading happens off the audio thread | M | U, RT | ref R3; ADR-0004 §4 |
 | REQ-414 | **EQ:** 9-band graphic (63 Hz–16 kHz octave centres, ±12 dB) + HPF 20–250 Hz + LPF 2–17 kHz, and a 4-band parametric mode | M | U | ref R4 |
 | REQ-415 | **Modulation:** chorus, flanger, phaser, vibe, tremolo, with a position switch **pre-amp / post-cab** (one block). This answers ref Q1 | M | U | ref Q1; tbe §1.5 |
-| REQ-416 | **Delay:** digital / analog (BBD) / tape modes, 1–2000 ms free time (`delay.time_ms`), tempo sync, tap tempo, ping-pong, feedback low/high cut, ducking | M | U, G | tbe §1.3; ref R5 |
+| REQ-416 | **Delay:** digital / analog (BBD) / tape modes, 1–2000 ms free time (`delay.time_ms`; the minimum must stay ≥ the saturating modes' oversampler latency, ADR-0005 D2, which is a few samples), tempo sync, tap tempo, ping-pong, feedback low/high cut, ducking | M | U, G | tbe §1.3; ref R5 |
 | REQ-417 | **Reverb:** room, hall, plate and shimmer ("dreamscape"); decay up to 8.5 s; HPF 50–700 Hz; LPF 1–10 kHz | M | U, G | tbe §1.1–1.2; ref R5 |
 | REQ-418 | **Doubler:** stereo double-tracking from a short modulated delay, with zero added latency | S | U | ref R6 |
 | REQ-419 | **Tuner:** chromatic, ±1 cent accuracy for 40–1000 Hz sine input; full page + always-visible strip; mutes output while open (option) | M | U, I | ref R6 |
