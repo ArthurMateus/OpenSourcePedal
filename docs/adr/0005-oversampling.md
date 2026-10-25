@@ -61,16 +61,19 @@ These are JUCE's max-quality defaults (OS §2.2), and our CI measures them (REQ-
 designed to.
 
 ### D4. Latency
-- Each block reports `getLatencySamples()` = `ceil(oversamplerDelay + adaaDelay / N)` in base-rate samples. It is
-  **measured in `prepare()`** with a 1 kHz tone burst (group delay at the 1 kHz reference) and padded with an integer
-  delay so that the total equals the reported integer at 1 kHz (OS §3.4).
-- **FIR:** exact at all frequencies. **IIR:** exact only at 1 kHz. Above that, the residual phase is part of the
-  block's sound and is covered by goldens.
+- Each block **measures** its delay `D` in `prepare()`: the 1 kHz group delay of oversampler + ADAA, in base-rate
+  samples (OS §3.4). It reports `getLatencySamples()` = `round(D)`, the nearest integer.
+- **FIR:** the halfband design (odd tap count per stage) and ADAA compensation are chosen so that `D` is an integer.
+  The block is then exactly a pure delay of `round(D)` at every frequency, so null tests apply.
+- **IIR:** `D` is fractional and frequency-dependent (non-linear phase). The **residual fraction** `D − round(D)`
+  (|·| ≤ 0.5 sample) is accepted and recorded per block and factor in the test log. Above and below 1 kHz, the phase
+  deviation is part of the block's sound and is covered by goldens. IIR blocks are therefore tested by magnitude and
+  group delay, **not** by a null against an integer-delayed input (REQ-OS-001b).
 - **Internal dry/wet blends** (for example a drive "blend" knob) send the dry path through the **same** up/down
   chain with identity processing, so dry and wet stay phase-matched with either filter kind (this answers OS open
   question 5). Parallel blends at the graph level are compensated by the engine's latency alignment
   (`docs/spec/threading.md` and the signal-flow spec).
-- **Constant latency per (host rate, quality mode)** (REQ-303): each chain slot reports a fixed latency, computed in
+- **Constant latency per (host rate, quality mode)** (REQ-303): each chain slot reports a fixed integer latency, computed in
   `prepare()` as the maximum over the block types that slot can hold. Shorter blocks, and **bypassed** blocks, are
   padded with a preallocated delay. Enabling, bypassing or swapping a block never changes the reported total, and
   crossfades are time-aligned. The amp slot uses ADR-0002 D4's `L_slot`, which includes the classic amp's oversampler
@@ -95,8 +98,12 @@ designed to.
 ### D6. Quality mode (OS open question 1)
 - A **global** app/plugin setting **"Processing quality: Live / HQ"**, stored in app settings and plugin state, not
   in presets. Changing it is non-RT: it re-prepares the graph on the message thread and updates the reported latency.
-- **No automatic switch on offline render in v1**, because changing the reported latency mid-session is unreliable
-  across hosts (*unverified*). Revisit after pluginval and host tests (owner: audio-io-engineer, Phase 4).
+- **No automatic switch on offline render in v1 inside hosts**, because changing the reported latency mid-session is
+  unreliable across hosts (*unverified*). Revisit after pluginval and host tests (owner: audio-io-engineer, Phase 4).
+- **`osp-render` (our own CLI) may force HQ** with `--quality hq`, because it prepares the engine itself and has no
+  host latency contract. Goldens are rendered in both modes (Consequences). `requirements.md` REQ-421 ("offline renders
+  use HQ") is to be reworded to cover `osp-render` and hosts' user setting only (owner: acct3/Moth, as requirements
+  author).
 
 ### D7. NAM and aliasing
 - v1 runs NAM at the native rate (ADR-0002 D4). A 2× "HQ" NAM via native SR adaptation is **deferred** until
@@ -108,13 +115,14 @@ designed to.
 
 | ID | Requirement | Test |
 |---|---|---|
-| REQ-OS-001 | `Oversampler<N>` (IIR and FIR, N = 2, 4, 8) with identity processing nulls against the input delayed by `getLatencySamples()` to ≤ −90 dBFS RMS (IIR, measured on a 1 kHz sine) and ≤ −120 dBFS (FIR, broadband noise band-limited to 18 kHz). | `tests/dsp/oversampling` |
+| REQ-OS-001a | **FIR** `Oversampler<N>` (N = 2, 4, 8) with identity processing: the measured delay is an integer, and the output nulls against the input delayed by `getLatencySamples()` to ≤ −120 dBFS RMS (broadband noise band-limited to 18 kHz at 44.1/48 kHz). | `tests/dsp/oversampling` |
+| REQ-OS-001b | **IIR** `Oversampler<N>` (N = 2, 4, 8) with identity processing: passband magnitude within ±0.1 dB up to 20 kHz, stopband per D3 (both from the impulse response FFT); measured 1 kHz group delay within ±0.5 sample of `getLatencySamples()`. The residual fraction is logged. No null test. | `tests/dsp/oversampling` |
 | REQ-OS-002 | Measured stopband and passband per stage meet D3 (impulse response → FFT). | `tests/dsp/oversampling` |
 | REQ-OS-003 | Every nonlinear block meets the D5 Live thresholds at 44.1 and 48 kHz, at −6 and 0 dBFS, at default and maximum gain. | ADR-0007 harness |
 | REQ-OS-004 | `Adaa1`/`Adaa2` match the closed-form linear-case kernels for `f(x) = x` (0.5 / 1 sample of delay), and stay finite for a slowly varying input (Δx < 1e-7) and for ±1e6 input. | `tests/dsp/adaa` |
 | REQ-OS-005 | The reported latency equals the measured 1 kHz delay ± 0.5 sample for every block and mode. The full chain in Live mode is ≤ 16 samples at 48 kHz (REQ-302). Toggling the bypass of each block, and swapping the amp, leaves the reported latency and the measured 1 kHz delay unchanged (REQ-303). | `tests/dsp/latency` |
 | REQ-OS-006 | Changing the factor or quality never happens in `process()`. The RT checker (ADR-0007) sees no allocation while the quality toggles 100× with audio running. | RT checker |
-| REQ-OS-007 | A block with an internal dry/wet blend at 50% and identity processing nulls against its dry input (delayed by the reported latency) to ≤ −90 dBFS. | `tests/dsp/blend` |
+| REQ-OS-007 | A block with an internal dry/wet blend and identity wet processing gives the same output at blend 0%, 50% and 100%, to ≤ −120 dBFS RMS (dry and wet share the same up/down chain, so this holds for IIR and FIR alike). | `tests/dsp/blend` |
 
 ## Consequences
 - + Aliasing is controlled with measurable gates, and the CPU stays low (2–4× instead of 8–16× without ADAA).
