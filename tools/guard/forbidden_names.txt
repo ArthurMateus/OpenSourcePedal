@@ -35,9 +35,12 @@ Bogner
 Friedman
 Revv
 Kemper
-Fractal
+Fractal Audio
 Line 6
-Helix
+Helix Native
+Helix Floor
+Helix LT
+HX Stomp
 TONE3000
 Tone King
 Blackstar
@@ -50,24 +53,61 @@ RTL Utility
 Oblique Audio
 Native Instruments
 RME
-# Added by #5 (tone-targets-b). Generic words are deliberately left out and checked by hand: Orange, Boss, CTS,
-# Victoria, Mark, Decimator, Rectifier, Two Notes, Periphery, Whammy, Greenback, Mesa, DOD, Centaur, Cry Baby, 5150.
-# When a single word is generic, the multi-word form is listed instead (e.g. Dual Rectifier).
-Getgood
-Duplantier
+# Added by #3 (docs/research/reference-plugins.md). Generic words seen in the lineup ("Mantra", "Logos",
+# "Periphery", "Rust", "Hot", "Pink", "Roses") are left out on purpose to avoid false positives.
 Misha Mansoor
 Mansoor
+John Mayer
+Mayer
 Tom Morello
 Morello
-Rage Against the Machine
-John Mayer
-Dream Theater
+Duplantier
+Henson
 Asato
+Massaad
+Getgood
+Meslin
+Dream Theater
+Nano Cortex
+Cortex Control
+Darkglass Ultimate
+Omega Ampworks
+Granophyre
+SLO-100
+Mark IIC
 Horizon Devices
+Klon
+Dumble
+Tealbreaker
+Justa Boost
+Halfman
+Gravity Tank
+Millipede Delay
+Antelope Filter
+Multivoicer
+Overlord Synth
+Postal Service
+Big Rig Overdrive
+Amp Snob
+Headroom Hero
+Funk Console
+Pathos
+Fatso
+Wham-1
+# Added by #3 review: competitors (multi-word forms only, no generic single words).
+Toneforge
+Joey Sturgis
+STL Tones
+Bogren Digital
+AmpliTube
+IK Multimedia
+# Added by #5 (tone-targets-b). Generic words are deliberately left out and checked by hand: Orange, Boss, CTS,
+# Victoria, Mark, Decimator, Rectifier, Two Notes, Periphery, Whammy, Greenback, Mesa, DOD, Centaur, Cry Baby, 5150,
+# Fractal, Helix (replaced by Fractal Audio and the Helix product names).
+# When a single word is generic, the multi-word form is listed instead (e.g. Dual Rectifier).
+Rage Against the Machine
 Precision Drive
 Two-Rock
-Dumble
-Klon
 Ibanez
 Tube Screamer
 TS808
@@ -92,13 +132,9 @@ DiMarzio
 Bare Knuckle
 Suhr
 JCM800
-Mark IIC
 JP-2C
 Axe-FX
-Omega Ampworks
-Granophyre
 Distressor
-Toneforge
 Nail The Mix
 Bluesbreaker
 Dual Rectifier

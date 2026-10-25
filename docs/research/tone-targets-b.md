@@ -35,7 +35,7 @@
    option. It is the main tool for the Petrucci-style scooped lead/rhythm sound (F5).
 7. **Clean/edge targets** (Mayer, Asato, the Gojira clean) need: an always-on clean boost, a Klon-style low-gain
    drive, an opto compressor, spring reverb + tremolo, slapback (~80–120 ms) and a 1×15/1×12 open-back cab (S6, S7).
-8. **Add 56 names to `tools/guard/forbidden_names.txt`**, distinctive names only. The file comment lists the generic
+8. **Add 40 names to `tools/guard/forbidden_names.txt`**, distinctive names only. The file comment lists the generic
    words that are checked by hand (Orange, Boss, Decimator, Rectifier, Two Notes, Periphery and others). Multi-word
    forms are used where one word is generic (Dual Rectifier, Two Notes Engineering, Klon Centaur).
 
