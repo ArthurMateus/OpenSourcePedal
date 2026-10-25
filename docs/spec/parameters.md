@@ -20,7 +20,9 @@
   string id, so renaming one breaks saved host projects. A rename needs a preset migration (ADR-0003 §5) **and** a
   deprecated alias kept forever.
 - The `enabled` flag of every block is a parameter too: `<blockId>.enabled` (bool, host-visible, automatable, smoothed
-  by a 10 ms equal-power crossfade between the processed and dry signal).
+  by a **constant-amplitude (linear)** crossfade between the processed and dry signal, because the two are highly
+  correlated and an equal-power fade would bump the level by up to +3 dB. The fade length is owned by
+  `docs/spec/signal-flow.md` §5 (#52).
 
 ### 1.2 Units and value types
 
@@ -57,7 +59,8 @@ Smoothing runs in the audio thread with no allocation (one-pole or linear ramp, 
 | Nonlinear drive (gain, drive knobs) | 30 ms | One-pole on the pre-gain |
 | Time (delay time) | 80 ms | Tape-style glide (modulated read pointer). A crossfade mode is in part 2 |
 | Envelope times (attack/release/hold), ratio, threshold | none / 20 ms | Read once per block. Threshold is smoothed at 20 ms |
-| `enum`, `bool`, channel switch | 10 ms crossfade | Old and new state run in parallel for the crossfade. Expensive switches (amp model, NAM) crossfade 30 ms once the new state is ready |
+| `enum`, `bool` inside one block | 10–50 ms crossfade (`xf N`) | Old and new state run in parallel for the crossfade |
+| Amp channel, amp model / NAM capture, IR file, preset swap | `xf ADR-0004` | The single owner is ADR-0004 §5 (25 ms), installed at a block boundary once the new state is ready. This spec never repeats the number |
 
 ### 1.5 Automatable and visibility
 
@@ -65,7 +68,8 @@ Smoothing runs in the audio thread with no allocation (one-pole or linear ramp, 
 - **Vis** `H` = host-visible (VST3 parameter list). `P` = preset-only: stored in the preset and editable in the UI, but
   not exposed to the host, because changing it needs a non-RT reload (model or IR choice) or because it is a structural
   option. Preset-only parameters are changed from the message thread and handed over through the snapshot mechanism
-  (threading spec, #25).
+  (threading spec, #25). `reserved` = a post-v1 feature (requirements.md priority P). The id is fixed now so it can
+  never be reused. It is not in the v1 host list, and a v1 build preserves it in presets but ignores it (ADR-0003 §3).
 - The host parameter list is **fixed at plugin load** (VST3 requires a static list). All 3 amp channels are always
   exposed.
 
@@ -73,9 +77,9 @@ Smoothing runs in the audio thread with no allocation (one-pole or linear ramp, 
 
 - Ranges are inclusive. Out-of-range preset values are clamped (ADR-0003 §6).
 - Defaults give a neutral, usable sound with the block enabled. Every block is **disabled by default** except `input`,
-  `amp`, `cab` and `output`. `amp` has no `enabled` parameter, and its preset `enabled` is always `true` (the chain always has an amp stage; a clean console model
-  covers "no amp").
-- The oversampling **quality** (Eco / Live / HQ, `oversampling.md` §1 item 2 and its table) is a global setting (part 2),
+  `amp`, `cab` and `output`. `amp` has no `enabled` parameter, and its preset `enabled` is always `true`
+  (the chain always has an amp stage; a clean console model covers "no amp").
+- The oversampling **quality** (Live / HQ, ADR-0005 D6) is a global setting (part 2),
   not a preset parameter, because it trades CPU for aliasing on the user's machine. The sound difference is limited to
   aliasing.
 
@@ -138,7 +142,7 @@ From tone-targets-b F1–F3 and §3.1 (TS-style boost, "attack" HPF), and refere
 
 | Id (`driveN.`…) | Name | Range | Unit | Def | Sk | Sm | Auto | Vis |
 |---|---|---|---|---|---|---|---|---|
-| `type` | Type | `mid` (TS-style), `transparent`, `dist`, `fuzz` | enum | `mid` | step | xf 30 | ✔ | H |
+| `type` | Type | `mid` (TS-style), `transparent`, `dist`, `fuzz` | enum | `mid` | step | xf 10 | ✔ | H |
 | `drive` | Drive | 0…10 | knob | 2 | lin | 30 | ✔ | H |
 | `tone` | Tone | 0…10 | knob | 5 | lin | 20 | ✔ | H |
 | `levelDb` | Level | −20…+12 | dB | 0 | lin | 20 | ✔ | H |
@@ -149,8 +153,9 @@ From tone-targets-b F1–F3 and §3.1 (TS-style boost, "attack" HPF), and refere
 - `lowCutHz` is the 2nd-order pre-clip HPF. The UI offers detents at 40/60/80/100/130/170 Hz (tone-targets-b F3), and
   20 Hz = off.
 - The tight-boost recipe is `type=mid, drive=0, levelDb=+8…+10, tone=5` (tone-targets-b F2 and §3.3 table).
-- Oversampling and ADAA per type follow `oversampling.md` §1 item 2: `mid`/`transparent`/`dist` 2× + ADAA1, `fuzz`
-  4× + ADAA2.
+- Oversampling: `drive1` and `drive2` share one oversampling region (OS-1) at the hungriest voicing's factor, so a
+  `type` change or bypass never changes the factor or the latency. See ADR-0005 D2 (#50). The ADAA order per voicing
+  is set there too.
 
 ### 2.5 `amp`: amplifier (3 channels)
 
@@ -161,8 +166,8 @@ Block-level parameters:
 
 | Id | Name | Range | Unit | Def | Sk | Sm | Auto | Vis |
 |---|---|---|---|---|---|---|---|---|
-| `amp.channel` | Channel | 1, 2, 3 | enum | 1 | step | xf 30 | ✔ | H |
-| `amp.cleanBlendPct` | Clean blend | 0…100 | % | 0 | lin | 20 | ✔ | H |
+| `amp.channel` | Channel | 1, 2, 3 | enum | 1 | step | xf ADR-0004 | ✔ | H |
+| `amp.cleanBlendPct` | Clean blend (post-v1) | 0…100 | % | 0 | lin | 20 | — | reserved |
 | `amp.cabLink` | Link cab to channel | bool | bool | true | step | — | — | P |
 
 - v1 has exactly **3 channels**. The schema allows up to 4 (ADR-0003) for later. A 4th channel would need new host
@@ -170,13 +175,14 @@ Block-level parameters:
 - In the preset, `amp.channel` is stored as `activeChannel` (0-based, ADR-0003). The host value is 1-based for
   readability.
 - `cleanBlendPct` is the parallel compressed DI path that skips amp, cab and EQ, latency-aligned (tone-targets-a T1,
-  open Q3 answered: global path on the amp block).
+  open Q3 answered: global path on the amp block). REQ-420 lists "DI blend" as **P (post-v1)**, so the id is
+  **reserved** and is not in the v1 host list. The routing must appear in signal-flow.md when it is promoted.
 
 Per-channel parameters (`amp.ch<N>.` …, N = 1…3; each channel is a built-in model or a NAM capture, ADR-0003):
 
 | Key | Name | Range | Unit | Def | Sk | Sm | Auto | Vis |
 |---|---|---|---|---|---|---|---|---|
-| `model` | Model | built-in id or NAM capture | — | ch1 `osp.amp.clean_a`, ch2 `osp.amp.crunch_a`, ch3 `osp.amp.lead_a` | — | xf 30 | — | P |
+| `model` | Model | built-in id or NAM capture | — | ch1 `osp.amp.clean_a`, ch2 `osp.amp.crunch_a`, ch3 `osp.amp.lead_a` | — | xf ADR-0004 | — | P |
 | `gain` | Gain | 0…10 | knob | ch1 3, ch2 5, ch3 6 | lin | 30 | ✔ | H |
 | `bass` | Bass | 0…10 | knob | 5 | lin | 20 | ✔ | H |
 | `mid` | Middle | 0…10 | knob | 5 | lin | 20 | ✔ | H |
@@ -187,7 +193,7 @@ Per-channel parameters (`amp.ch<N>.` …, N = 1…3; each channel is a built-in 
 | `levelDb` | Level | −24…+12 | dB | 0 | lin | 20 | ✔ | H |
 | `bright` | Bright | bool | bool | false | step | xf 10 | ✔ | H |
 | `tight` | Tight | bool | bool | false | step | xf 10 | ✔ | H |
-| `namLevelMode` | Capture level | `raw`, `normalized`, `calibrated` | enum | `normalized` | step | xf 30 | — | P |
+| `namLevelMode` | Capture level | `raw`, `normalized`, `calibrated` | enum | `normalized` | step | xf ADR-0004 | — | P |
 
 - `levelDb` is the tone-neutral channel output, the reference's LEVEL/OUTPUT ("volume without affecting tone",
   reference-plugins §2.3). `master` drives the power-amp stage and does change the tone.
@@ -214,7 +220,7 @@ values are used for every channel.
 
 | Key (`cab.ch<N>.`…) | Name | Range | Unit | Def | Sk | Sm | Auto | Vis |
 |---|---|---|---|---|---|---|---|---|
-| `ir1`, `ir2` (resources) | IR file | factory or user WAV | — | ir1 per amp model, ir2 none | — | xf 30 | — | P |
+| `ir1`, `ir2` (resources) | IR file | factory or user WAV | — | ir1 per amp model, ir2 none | — | xf ADR-0004 | — | P |
 | `irK.enabled` (K = 1, 2) | Slot on | bool | bool | ir1 true, ir2 false | step | xf 10 | ✔ | H |
 | `irK.levelDb` | Level | −60…+6 | dB | 0 | lin | 20 | ✔ | H |
 | `irK.pan` | Pan | −100…+100 | % | 0 | lin | 20 | ✔ | H |
@@ -268,8 +274,10 @@ From reference-plugins §2.3 (rate 0.10–10 Hz) and Rec. 5, and tone-targets-a 
 | `mod.widthPct` | Stereo width | 0…100 | % | 100 | lin | 20 | ✔ | H |
 | `mod.position` | Position | `post`, `pre` | enum | `post` | step | — | — | P |
 
-`mod.position` = `pre` places the block after `drive2`, as 3 reference products do (reference-plugins Summary 6). The
-schema already allows it (ADR-0003 §4). `docs/spec/signal-flow.md` (#22) confirms the allowed orders.
+`mod.position` = `pre` places the block **after `drive2`, before the amp**. That is the classic pedalboard order, and 3
+reference products do it (reference-plugins Summary 6). This is the orchestrator's decision on #51, and
+`docs/spec/signal-flow.md` (#52) is being updated to match. `post` (default) places it after the cab/EQ (REQ-415).
+The schema already allows both (ADR-0003 §4).
 
 ### 3.4 `delay`
 
@@ -301,7 +309,7 @@ shimmer +12 st).
 
 | Id | Name | Range | Unit | Def | Sk | Sm | Auto | Vis |
 |---|---|---|---|---|---|---|---|---|
-| `reverb.mode` | Mode | `room`, `hall`, `plate`, `spring`, `shimmer` | enum | `hall` | step | xf 50 | ✔ | H |
+| `reverb.mode` | Mode | `room`, `hall`, `plate`, `spring` (S), `shimmer` | enum | `hall` | step | xf 50 | ✔ | H |
 | `reverb.decayS` | Decay | 0.3…20 | s | 2.5 | log | 20 | ✔ | H |
 | `reverb.preDelayMs` | Pre-delay | 0…200 | ms | 20 | lin | 80 glide | ✔ | H |
 | `reverb.mixPct` | Mix | 0…100 | % | 20 | lin | 20 | ✔ | H |
@@ -313,13 +321,14 @@ shimmer +12 st).
 | `reverb.freeze` | Freeze | bool | bool | false | step | xf 50 | ✔ | H |
 
 The decay range extends the reference's 1–8.5 s to 0.3–20 s for the ambient targets (tone-targets-a A1/A6). `freeze`
-holds the tank (feedback = 1, input muted).
+holds the tank (feedback = 1, input muted). `spring` goes beyond REQ-417 (room/hall/plate/shimmer, priority M) and is
+priority **S**. If it slips, the enum value stays reserved and falls back to `plate`.
 
-### 3.6 `transpose`, `doubler`, `output` (Global-Lock blocks)
+### 3.6 `transpose` (reserved, post-v1), `doubler`, `output` (Global-Lock blocks)
 
 | Id | Name | Range | Unit | Def | Sk | Sm | Auto | Vis |
 |---|---|---|---|---|---|---|---|---|
-| `transpose.semitones` | Transpose | −12…+12, integer | st | 0 | step | xf 30 | ✔ | H |
+| `transpose.semitones` | Transpose (post-v1) | −12…+12, integer | st | 0 | step | xf 30 | — | reserved |
 | `doubler.amountPct` | Amount | 0…100 | % | 50 | lin | 20 | ✔ | H |
 | `doubler.widthPct` | Width | 0…100 | % | 100 | lin | 20 | ✔ | H |
 | `doubler.delayMs` | Offset | 10…30 | ms | 18 | lin | 80 glide | ✔ | H |
@@ -327,7 +336,8 @@ holds the tank (feedback = 1, input muted).
 | `output.levelDb` | Output | −60…+12 | dB | 0 | lin | 20 | ✔ | H |
 | `output.limiter` | Safety limiter | bool | bool | true | step | xf 10 | ✔ | H |
 
-- Transpose ±12 st is in every reference product (reference-plugins Summary 7).
+- Transpose ±12 st is in every reference product (reference-plugins Summary 7), but REQ-420 makes it **P (post-v1)**.
+  `transpose.semitones` and `transpose.enabled` are reserved and are not in the v1 host list.
 - The doubler ranges follow tone-targets-b §3.1 (10–30 ms, about ±10 cents, *unverified*).
 - `output.limiter` is a −0.3 dBFS true-peak safety limiter. Golden renders are made at −18 LUFS-I (tone-targets-a §3.4),
   so they normally never reach it.
@@ -341,7 +351,7 @@ Stored in `settings.json` (ADR-0003 §7). These are not host parameters.
 |---|---|---|---|
 | `inputMode` | `mono`, `stereo` | `mono` | reference-plugins §2.4 |
 | `globalLock` | bool (skips `input`, `gate`, `transpose`, `doubler`, `output` on preset load) | false | reference-plugins §2.4 |
-| `oversamplingQuality` | `eco`, `live`, `hq` | `live` (offline render: `hq`) | oversampling §1 item 2 |
+| `oversamplingQuality` | `live`, `hq` | `live` (offline render: `hq`) | ADR-0005 D6 (#50) |
 | `namInterfaceLevelDbu` | −60…+60 dBu | 12 | nam-runtime Calibration rec. |
 | `tuner.referenceHz` | 415…466 Hz | 440 | our choice |
 | `tuner.muteOutput` | bool | true | our choice |
@@ -356,10 +366,11 @@ Stored in `settings.json` (ADR-0003 §7). These are not host parameters.
 
 ## 5. Totals, requirements and open points
 
-**Host-visible parameters: 228.**
-- Part 1: 69.
-- Part 2: 159, made up of cab 3 × 10, eq 3 × 29, mod 7, delay 11, reverb 10, transpose 1, doubler 4, output 2, plus
-  7 `enabled` (cab, eq, mod, delay, reverb, transpose, doubler).
+**Host-visible parameters (v1): 225.**
+- Part 1: 68.
+- Part 2: 157, made up of cab 3 × 10, eq 3 × 29, mod 7, delay 11, reverb 10, doubler 4, output 2, plus 6 `enabled`
+  (cab, eq, mod, delay, reverb, doubler).
+- Reserved for post-v1: `amp.cleanBlendPct`, `transpose.semitones` and `transpose.enabled`.
 
 That is well within what VST3 hosts handle. REQ-PAR-001 makes CI fail if the list changes without a spec update.
 
