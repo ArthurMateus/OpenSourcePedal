@@ -14,7 +14,7 @@
 1. The reference line is **Neural DSP's "Archetype" series: 12 artist products** (§2.1), plus about 10 non-artist amp
    suites. Since 2023 the vendor has been replacing the originals with "X" editions that share one framework and UI
    ([S2], [S3]).
-2. **Every product shares one skeleton:** `Input + Gate → [special/pitch FX] → Pre FX (3–5 pedals in series) → Amp
+2. **Every X-generation product shares one skeleton** (non-X Abasi and Mateus Asato were not text-checked for Gate/Transpose/Doubler): `Input + Gate → [special/pitch FX] → Pre FX (3–5 pedals in series) → Amp
    (3–4 channels, 1 active) → Cab (mic'd IRs + IR loader) → EQ (one per amp) → Post FX (2–3 time-based pedals) →
    Transpose → Doubler → Output` ([S5]–[S18]). That skeleton is our minimum "complete" product.
 3. **Amps:** **3 channels is the norm** (clean / crunch-or-rhythm / lead). Two products have 4 channels and one has 1
@@ -47,18 +47,18 @@ Years are the first release unless marked. Shown as "X: yyyy" when an X edition 
 
 | Product (internal name) | First release | X edition | Amps (channels) | Source |
 |---|---|---|---|---|
-| Archetype: Plini | 2018 ("five years ago" in a 2023 manual) | X: 2023 | 3: Clean / Crunch / Lead | [S5], [S9] |
+| Archetype: Plini | 2019-04-18 | X: 2023 | 3: Clean / Crunch / Lead | [S5], [S9], [S25] |
 | Archetype: Abasi | *unverified* (≈2019) | none (v2.0.1, 2023) | 3: Clean / Rhythm / Lead | [S2], [S12] |
 | Archetype: Nolly | *unverified* (≈2020) | X: 2024 | 4: Clean / Crunch / Rhythm / Lead | [S8], [S11] |
 | Archetype: Cory Wong | 2020-07-06 | X: 2024 | 3: DI console / Clean / Edge-of-breakup | [S7], [S10], [S21] |
 | Archetype: Gojira | 2021 | X: 2023 | 3: Clean / Rust / Hot | [S6], [S9b] |
-| Archetype: Tim Henson | 2021-07-30 | X: *unverified* | 3: acoustic-sim / British low-gain (2 ch) / Lead | [S13], [S22] |
+| Archetype: Tim Henson | 2021-07-30 | X: listed, v1.1.0 2026-07-29 (X launch date not found) | 3: acoustic-sim / British low-gain (2 ch) / Lead | [S2], [S13], [S22] |
 | Archetype: Petrucci | 2021-12 | X: ≤2024-11 | 4: Piezo / Clean / Rhythm / Lead | [S2], [S14], [S23] |
-| Archetype: Rabea | *unverified* (≈2022) | X: *unverified* | 3: Clean / Rhythm / Lead | [S15] |
+| Archetype: Rabea | *unverified* (≈2022) | X: listed, v1.1.0 2026-07-29 (X launch date not found) | 3: Clean / Rhythm / Lead | [S2], [S15] |
 | Archetype: Tom Morello | ≤2023-05 (v1.0.0) | none, desktop only | 1 amp, 2 channels | [S2], [S18] |
 | Archetype: Mateus Asato | *unverified* (≈2023) | none (v1.1.0, 2024) | 3: Vintage Clean / Modern Clean / Lead | [S2], [S17b] |
 | Archetype: Misha Mansoor X | 2025-09-17 | born X | 3: Clean / Rhythm / Lead | [S16], [S20] |
-| Archetype: John Mayer X | *unverified* (≤2026-04) | born X | 3 in parallel ("three-in-one") | [S17], [S19] |
+| Archetype: John Mayer X | 2025-12-17 | born X | 3 selectable + "Three-in-One" blend mode (all 3 amps and cabs mixed) | [S4], [S17], [S19] |
 
 Non-artist suites from the same vendor (context only, not the reference): Fortin Nameless / Cali / NTS, Soldano
 SLO-100, Mesa Mark IIC+, Morgan, Omega Granophyre, Tone King Imperial MKII, Parallax and Darkglass Ultimate (bass),
@@ -81,7 +81,7 @@ single product and for one general chain with good factory presets.
 | Tim Henson X | Multivoicer (4 voices, chords, MIDI mode) | Boost (bass/treble) → Comp (slow/fast) → OD | 3 amps, room, 9-band GEQ per amp | Stereo chorus → Delay (ping-pong/wide/normal × 3 types) → Reverb | [S13] |
 | Rabea X | Synth (pre/post switch, arp, ladder filter) | Dual comp → Octaver → Fuzz → OD (vintage/modern sw) | 3 amps, room, 4-band semi-param EQ per amp | Stereo delay (pre/post sw) → Reverb (freeze, pitch) | [S15] |
 | Misha Mansoor X | Laser (ring mod/pitch), Glitch (granular) | Comp → Tape echo → Dual octaver → Drive → Chaos dist | 3 amps (Voice sw, Boost) + 3 cabs, 7 mics, room, 9-band GEQ | Modulator (chorus/flanger) → Stereo delay (ducker) → Reverb (shimmer) | [S16] |
-| John Mayer X | n/a | Boost → Envelope filter → OD → OD (2 modes) → short BBD delay | 3 parallel amps, harmonic tremolo + spring reverb unit, 11 mics, room S/M/L | Delay → Reverb (hall/plate) → 4-band EQ + Comp | [S17], [S19] |
+| John Mayer X | n/a | Boost → Envelope filter → OD → OD (2 modes) → short BBD delay | 3 amps + optional blend mode, harmonic tremolo + spring reverb unit, 11 mics, room S/M/L | Delay → Reverb (hall/plate) → 4-band EQ + Comp | [S17], [S19] |
 | Mateus Asato | n/a | Opto comp (tilt EQ, mix) → OD → Dist/fuzz → Trem + chorus/vibe | 3 amps, 10 mics, 9-band GEQ per amp | Tape echo → Reverb (hall/plate, near-infinite) | [S17b] |
 | Abasi | n/a | Lead-channel pedal → special comp | 3 amps (Clean "Blend", Lead booster), 9-band GEQ, multi-mic cab | Reverb + digital delay | [S12] |
 | Tom Morello | Dive bomb (±12 st glide), Whammy-style (±24 st / ±100 c detune), Wah | FX loop: delay, 7-band EQ, phaser | 1 amp (2 ch), 10 mics + room, 9-band GEQ | Stereo delay → Reverb | [S18] |
@@ -135,8 +135,8 @@ switches (Bright, Bite, Tight, Boost, Voice) ([S5], [S6], [S14], [S16]).
 3. **Cab:** 2 slots. Each slot has an IR (factory or user WAV), Level (−∞…+6 dB), Pan, Phase invert, and an
    on/off switch. Mic position and distance are only possible with multi-position IR sets, so for v1 use one
    **Position** selector over the IRs we can bundle (see the IR research ticket). Add an optional Room send later.
-4. **EQ:** 9-band graphic at octave centres 63 Hz–16 kHz, ±12 dB, plus HPF 20–250 Hz and LPF 2–17 kHz (ranges as in
-   [S7]). The band centres are our choice (*unverified* versus the reference).
+4. **EQ:** 9-band graphic at octave centres 63 Hz–16 kHz, ±12 dB, plus HPF 20–250 Hz and LPF 2–17 kHz (ranges borrowed
+   from the Cory Wong X *DI console amp* filters [S7], not from an EQ block, so they are our choice). The band centres are our choice (*unverified* versus the reference).
 5. **Delay:** 7–3000 ms free, sync 1/64T…1/1D, tap tempo, low cut 50–800 Hz, high cut 500 Hz–5 kHz, plus
    digital/analog(BBD)/tape modes and ping-pong. **Reverb:** decay 1–8.5 s (allow up to "freeze"), HPF 50–700 Hz,
    LPF 1–10 kHz, room/hall/plate/shimmer. **Modulation rate:** 0.1–10 Hz.
@@ -153,7 +153,7 @@ switches (Bright, Bite, Tight, Boost, Voice) ([S5], [S6], [S14], [S16]).
    modulation slot? Three references put phaser and chorus pre-amp.
 2. Transpose and Doubler need a pitch shifter and a short modulated delay. What is the latency budget? A
    granular/PSOLA shifter adds latency that must go through `setLatencySamples`. Is it zero-latency only when off?
-3. One active amp at a time, or **parallel amp blending** like the "three-in-one" amp in [S17] (2–3× amp CPU)?
+3. One active amp at a time, or an optional **amp blend mode** like the "Three-in-One" mode in [S4], [S17] (2–3× amp CPU while it is on)?
 4. Should we add a clean **DI blend** (parallel compressed DI around amp, cab and EQ, as in Plini X [S5])?
 5. Should a preset hold all 3 channels (switchable by MIDI without a reload), or one channel per preset?
 6. Should the "Global Lock" set (Input, Gate, Transpose, Doubler, Output) live in a separate global state file?
@@ -165,6 +165,7 @@ All accessed 2026-10-25.
 - [S1] Neural DSP, Plugins listing: https://neuraldsp.com/plugins
 - [S2] Neural DSP, Downloads (versions, dates, manual links): https://neuraldsp.com/downloads
 - [S3] Wikipedia, "Neural DSP": https://en.wikipedia.org/wiki/Neural_DSP
+- [S4] Neural DSP news, "Introducing Archetype: John Mayer X" (2025-12-17): https://neuraldsp.com/news/introducing-archetype-john-mayer-x
 - [S5] Archetype: Plini X user manual v1.0.0 (PDF): https://downloads.neuraldsp.com/file/archetype-plini-x-installers/v_1.0.0/Archetype-Plini-X-v1.0.0.pdf
 - [S6] Archetype: Gojira X user manual v1.0.0 (PDF): https://downloads.neuraldsp.com/file/archetype-gojira-x/Archetype%20Gojira%20X%20v1.0.0.pdf
 - [S7] Archetype: Cory Wong X user manual v1.0.0 (PDF): https://downloads.neuraldsp.com/file/archetype-cory-wong-x/Archetype%20Cory%20Wong%20X%20v1.0.0.pdf
@@ -187,3 +188,4 @@ All accessed 2026-10-25.
 - [S22] Gearspace, "Neural DSP releases Archetype: Tim Henson": https://gearspace.com/threads/neural-dsp-releases-archtype-tim-henson.1357878/
 - [S23] Sonicstate, "John Petrucci's Guitar Sound In Software" (2021-12-24): https://sonicstate.com/news/2021/12/24/john-petruccis-guitar-sound-in-software
 - [S24] Sound On Sound, "Neural DSP Archetype: Tom Morello" review: https://www.soundonsound.com/reviews/neural-dsp-archetype-tom-morello
+- [S25] Gearnews, "Neural DSP releases Archetype amp modelling plugin with help from Plini" (2019-04-18): https://www.gearnews.com/?p=44310
