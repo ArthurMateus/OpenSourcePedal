@@ -30,24 +30,38 @@
 
 Unassigned Phase 1: #11 time-based-effects and #12 prior-art go to whoever frees first.
 
-## Phase 1 progress
+## Phase 1 progress (5/11 merged)
 | Issue | PR | Author | Reviewer | Status |
 |---|---|---|---|---|
-| #6 nam-runtime | #14 | Sable acct1 | Corvid gemini APPROVE | MERGED |
-| #8 asio-low-latency | #16 | Moth acct3 | acct2 APPROVE | MERGED |
-| #13 test-tooling | #15 | Corvid gemini | acct2 CHANGES-REQ (pluginval levels, pin, LSD) | fixing |
-| #5 tone-targets-b | #17 | Wren acct3 | Lyra acct1 CHANGES-REQ (band dB targets, gain staging, generic words in names list) | fixing |
-| #3 reference-plugins | #18 | Lyra acct1 | Wren acct3 | in review |
-| #10 oversampling | | Sable | | in progress |
-| #9 framework-comparison | | Moth | | in progress (JUCE 8 vs 9 central) |
+| #3 reference-plugins | #18 | Lyra acct1 | Wren acct3 / acct2 re-review | MERGED |
+| #6 nam-runtime | #14 | Sable acct1 | Corvid gemini | MERGED |
+| #8 asio-low-latency | #16 | Moth acct3 | acct2 | MERGED |
+| #9 framework-comparison | #20 | Moth acct3 | acct2 | MERGED (pin JUCE 9.0.4) |
+| #13 test-tooling | #15 | Corvid gemini | acct2 | MERGED |
+| #5 tone-targets-b | #17 | Wren acct3 | Lyra acct1 (re-review queued) | fixed, awaiting re-review |
+| #10 oversampling | #19 | Sable acct1 | Moth acct3 (queued) | in review |
 | #4 tone-targets-a | | Lyra | | in progress |
-| #7 redistributable-assets | | Wren | | queued after #17 fixes |
-| #11 time-based-effects, #12 prior-art | | | | unassigned |
+| #7 redistributable-assets | | Wren | | in progress |
+| #11 time-based-effects | | Corvid | | in progress |
+| #12 prior-art | | Sable | | in progress |
+
+## Phase 2 (issues #21–#29, milestone 2), planned owners
+| Issue | Owner | Note |
+|---|---|---|
+| #28 ADR-0006 build/deps | Moth (acct3, architect) | first |
+| #25 threading + RT rules | Moth | |
+| #21 requirements | Moth | |
+| #22 signal flow | Moth | |
+| #26 ADR-0002 NAM runtime | Sable (acct1) | after #12 |
+| #27 ADR-0005 oversampling | Sable | |
+| #29 ADR-0007 test strategy | Corvid (gemini) | after #11 |
+| #23 parameters, #24 preset schema | Lyra (acct1) | after #4 |
+| PR #30 ADR-0001 amendment (JUCE 9.0.4, bundled ASIO) | acct2 | review: Corvid (queued) |
 
 ## Pending orchestrator follow-ups
-- After #9: amend ADR-0001 (JUCE version pin; ASIO = JUCE-bundled headers since 8.0.11, no FetchContent), and add the ASIO headers row to THIRD_PARTY.md.
+- ADR-0001 amendment is in PR #30.
 - Add a header rule to forbidden_names.txt: no generic words. Consider a names.d/ directory, to stop append conflicts.
-- forbidden_names.txt conflicts: resolve with a union merge (helper script: scratchpad union_merge.sh; logic: merge origin/main, take :2 + :3, dedupe with awk).
+- forbidden_names.txt conflicts: resolve with a union merge (merge origin/main into the PR branch in a helper worktree, take `git show :2:F` + `:3:F`, dedupe with `awk '!seen[$0]++'`). To merge: poll check-runs for the head SHA until guard completes, then `gh pr merge --squash`.
 
 ## Waiting on
 - Research PRs listed above.
