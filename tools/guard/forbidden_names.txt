@@ -38,3 +38,65 @@ Kemper
 Fractal
 Line 6
 Helix
+# Added by #5 (tone-targets-b). Generic words (Orange, Boss, CTS, Victoria, Mark) deliberately left out: check by hand.
+Getgood
+Duplantier
+Periphery
+Misha Mansoor
+Mansoor
+Tom Morello
+Morello
+Rage Against the Machine
+John Mayer
+Dream Theater
+Asato
+Horizon Devices
+Precision Drive
+Two-Rock
+Dumble
+Klon
+Centaur
+Ibanez
+Tube Screamer
+TS808
+TS-808
+TS9
+TS-10
+Maxon
+Keeley
+Electro-Harmonix
+Q-Tron
+Way Huge
+Celestion
+Greenback
+Electro-Voice
+EVM12L
+DigiTech
+Whammy
+MXR
+Dunlop
+Cry Baby
+DOD
+TC Electronic
+Two Notes
+Charvel
+Music Man
+DiMarzio
+Bare Knuckle
+Suhr
+Mesa
+JCM800
+5150
+Rectifier
+Mark IIC
+JP-2C
+Axe-FX
+Tone King
+Omega Ampworks
+Granophyre
+Distressor
+Toneforge
+Tone3000
+Nail The Mix
+Bluesbreaker
+Decimator
