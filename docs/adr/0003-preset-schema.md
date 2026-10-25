@@ -38,7 +38,7 @@ A plugin host stores one opaque state blob per instance.
    - Unknown parameter ids are preserved and ignored.
 4. **Structure:** an ordered **`blocks` array** of `{type, id, enabled, params, resources?, channels?}`.
    - The schema accepts any order. The v1 engine validates against the orders allowed by `docs/spec/signal-flow.md`,
-     which leaves the pre/post modulation question (reference-plugins Q1) to that spec without a schema change.
+     which leaves the pre/post modulation question (reference-plugins Q1) to that spec (#22) without a schema change.
    - Amp **channels** (3 by default, reference-plugins Summary 3) live in the amp block, together with `activeChannel`.
    - Blocks bound to the amp channel (EQ per amp, cab when linked, reference-plugins §2.4) use `perChannel: true` and a
      parallel `channels` array.
@@ -92,7 +92,7 @@ A plugin host stores one opaque state blob per instance.
 
 | Question | Owner |
 |---|---|
-| Allowed block orders (modulation pre/post, second drive slot) | signal-flow spec (architect, #23 follow-up) |
+| Allowed block orders (modulation pre/post, second drive slot) | `docs/spec/signal-flow.md` (#22) |
 | Exact parameter ids, ranges and defaults | `docs/spec/parameters.md` (#23) |
 | Lock-free snapshot handoff and loader thread | threading spec / ADR (#25) |
 | Factory preset categories and names | preset-designer (Phase 4) |

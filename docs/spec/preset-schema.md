@@ -3,7 +3,7 @@
 - Decision record: [ADR-0003](../adr/0003-preset-schema.md). Machine-readable schema:
   [`presets/schema/preset.v1.schema.json`](../../presets/schema/preset.v1.schema.json) (JSON Schema draft 2020-12).
   Worked example: [`presets/schema/examples/example.osp.json`](../../presets/schema/examples/example.osp.json).
-- Parameter ids, units and ranges: `docs/spec/parameters.md` (#23). Allowed block orders: `docs/spec/signal-flow.md`.
+- Parameter ids, units and ranges: `docs/spec/parameters.md` (#23). Allowed block orders: `docs/spec/signal-flow.md` (#22).
 
 ## 1. Files and locations
 
@@ -147,7 +147,7 @@ A zip file containing `manifest.json`, `presets/<…>.osp.json` and `resources/<
 | REQ-PRE-004 | The migration chain turns every `tests/presets/migration/vN` input into its expected output | Golden-fixture test |
 | REQ-PRE-005 | A preset with a missing resource loads, with only the owning block/channel bypassed | Unit test with a dangling `lib:` uri |
 | REQ-PRE-006 | A resource moved inside the library is found by its hash | Unit test with an index lookup |
-| REQ-PRE-007 | Files > 1 MiB or nesting > 16 are rejected without a crash. The fuzzed preset loader never crashes or hangs | Fuzz test (ADR-0007) |
+| REQ-PRE-007 | Files > 1 MiB or nesting > 16 are rejected without a crash. Malformed files never crash or hang the loader | Malformed-file corpus test (`tests/presets/malformed/`); a parser fuzz target is proposed as an ADR-0007 amendment |
 | REQ-PRE-008 | Out-of-range values are clamped to the `parameters.md` range | Unit test |
 | REQ-PRE-009 | Plugin state save → restore reproduces the audio output (null ≤ −120 dBFS) | Golden-render state round-trip (pluginval + `osp_tests`) |
 | REQ-PRE-010 | With Global Lock on, loading a preset leaves `input`/`gate`/`transpose`/`doubler`/`output` unchanged | Unit test |
