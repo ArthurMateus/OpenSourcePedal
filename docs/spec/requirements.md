@@ -61,12 +61,12 @@ Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges an
 | REQ-403 | **Noise gate:** threshold, hysteresis, attack, hold, release, range; keyed from the pre-boost input | M | U | tb §1.4 |
 | REQ-404 | **Compressor:** threshold, ratio, attack, release, makeup, blend (parallel), plus a dual-stage mode | M | U | ta §1.2 |
 | REQ-405 | **Drive A/B:** selectable voicings: tight-boost (pre-HPF ≈ 720 Hz in the clip loop), low-gain transparent OD, distortion, fuzz. The attack (pre-HPF) selector has 6 positions | M | U, G | tb §1.2; ta §1.5 |
-| REQ-406 | **Amp:** 3 channels (Clean, Crunch, Lead) stored in one preset. Switching channels is a parameter (no reload) and crossfades over 25 ms | M | U, I | ref Q5; ADR-0004 §5 |
+| REQ-406 | **Amp:** 3 channels (Clean, Crunch, Lead) stored in one preset. Switching channels is a parameter (no reload) and uses the ADR-0004 crossfade | M | U, I | ref Q5; ADR-0004 §5 |
 | REQ-407 | Each amp channel is either a **classic-DSP amp model** (the default in factory presets) or a user **`.nam` model** | M | U, G | MP §1; assets §1.3 |
 | REQ-408 | Amp channel controls: Gain, Bass, Mid, Treble, Presence, Master, Level (tone-neutral), Bright and Tight switches, and a pre-amp HPF 20–300 Hz | M | U | ref R2; tb §1.3 |
 | REQ-409 | An amp-slot **"console"** type (tube saturation + comp + EQ + HPF/LPF) auto-bypasses the cab | S | U | ta §1.3 |
 | REQ-410 | **NAM loading:** A1 Standard/Lite/Feather/Nano, A2 Full/Lite (incl. slimmable), and LSTM `.nam` versions 0.5.0–0.7.0. Multi-channel or invalid files are rejected with a user-visible error and no crash | M | U, I | nam §3 |
-| REQ-411 | NAM calibration: input interface level (dBu, default 12) and output mode Raw / Normalized (−18 dB) / Calibrated from file metadata | M | U | nam §3 |
+| REQ-411 | NAM calibration: input interface level (dBu, default 12; a **global setting**, ADR-0003 §7) and output mode Raw / Normalized (−18 dB) / Calibrated from file metadata (per preset) | M | U | nam §3; ADR-0003 |
 | REQ-412 | NAM models run at their native rate. Other host rates use the Lanczos resampler (A = 12), with its latency reported | M | U | nam §3; os §1.6 |
 | REQ-413 | **Cab:** 2 IR slots, each with IR (factory or user WAV/AIFF, any rate, resampled on load), Level −∞…+6 dB, Pan, Phase invert and On. Loading happens off the audio thread | M | U, RT | ref R3; ADR-0004 §4 |
 | REQ-414 | **EQ:** 9-band graphic (63 Hz–16 kHz octave centres, ±12 dB) + HPF 20–250 Hz + LPF 2–17 kHz, and a 4-band parametric mode | M | U | ref R4 |
@@ -78,7 +78,7 @@ Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges an
 | REQ-420 | **Transpose ±12 st**, polyphonic octaver, whammy, harmonizer, wah, envelope filter, amp blend mode, DI blend | P | — | ref R8, Q2–Q4; tb §1.1 |
 | REQ-421 | Oversampling quality is a **global** Live/HQ setting. Offline renders (host non-realtime flag, `osp-render`) use HQ. Factors and filters are defined by the oversampling ADR (#27) | M | U | os Q1 |
 | REQ-422 | Aliasing per nonlinear block meets the ASR thresholds of the oversampling ADR (#27), measured with the bin-centred method | M | U | os §3.3; tt §2.3 |
-| REQ-423 | Continuous parameters are smoothed (no zipper noise: a step change gives no spectral components above −90 dBFS beyond the smoothed step response) | M | U | AGENTS §4; realtime-rules RT-13 |
+| REQ-423 | Continuous parameters are smoothed: no zipper noise per ADR-0007 REQ-TEST-003 (a 50 ms min→max ramp on a 1 kHz sine gives spectral splatter outside f0 ± 50 Hz ≤ −60 dBc) | M | U | AGENTS §4; ADR-0007; realtime-rules RT-13 |
 
 ## 5. Presets (5xx)
 
@@ -86,12 +86,12 @@ Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges an
 |---|---|---|---|---|
 | REQ-501 | Presets are versioned JSON validated against `presets/schema/preset.v1.schema.json`. Older versions migrate forward automatically, and newer major versions are rejected with a message | M | U | MP §1; #24 |
 | REQ-502 | User presets: create, save, save-as, rename, duplicate, delete, import and export (single file and bank). Folders supported. Dirty marker shown | M | I | MP §1; ref §1.8 |
-| REQ-503 | A preset stores all block parameters, all 3 amp channels, and IR/`.nam` references (relative path + SHA-256 fallback). It never stores device, input mode, tuner, metronome, MIDI map or Global-Lock values | M | U | ref R7, Q6 |
-| REQ-504 | Global settings (device, Global Lock set, MIDI map, quality) live in a separate settings file | M | U | ref Q6 |
+| REQ-503 | A preset stores all block parameters (including the Global-Lock blocks `input`, `gate`, `transpose`, `doubler`, `output`), all 3 amp channels, and IR/`.nam` references (relative path + SHA-256 fallback). It never stores device settings, input mode, tuner, metronome, MIDI map, Global Lock on/off, UI scale or the NAM interface calibration level. With Global Lock on, loading a preset **skips applying** the Global-Lock blocks | M | U | ref R7, Q6; ADR-0003 §7 |
+| REQ-504 | Global settings (device, input mode, Global Lock on/off, MIDI map and program-change map, UI scale, NAM interface level, quality) live in a separate settings file | M | U | ref Q6; ADR-0003 §7 |
 | REQ-505 | Factory bank: **≥ 3 presets per inspiration** covered by tone-targets-a/-b, with original names only | M | R (guard), D | MP §1; ta, tb |
 | REQ-506 | Every factory preset renders at −18 LUFS-I ± 0.5 LU (leads −17) with true peak ≤ −1 dBTP on the reference DI | M | G | tt §3; tb §1.4b |
 | REQ-507 | Every factory preset matches its tone-target octave-band spectrum within 1.5 dB RMS (63 Hz–8 kHz, relative to 1 kHz) | S | G | tt §2.2; ta §1.6 |
-| REQ-508 | Preset switching never glitches audio: a 25 ms crossfade, no allocation on the audio thread | M | RT, I | ADR-0004 §4–5 |
+| REQ-508 | Preset switching never glitches audio: the ADR-0004 crossfade, no allocation on the audio thread | M | RT, I | ADR-0004 §4–5 |
 
 ## 6. User interface (6xx)
 
@@ -113,7 +113,7 @@ Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges an
 |---|---|---|---|---|
 | REQ-701 | Full chain (one amp channel active, all blocks on, Live quality) at 48 kHz / 64 samples uses **< 25 %** of one core, normalised to the reference kernel | M | B | MP §5; tt §2.6 |
 | REQ-702 | A NAM amp instance (A1 Standard) uses ≤ 8 % of one core at 48 kHz / 64 | M | B | nam §1.4 |
-| REQ-703 | During a 25 ms swap crossfade, CPU ≤ steady state + one NAM instance | M | B | ADR-0004 Consequences |
+| REQ-703 | During an ADR-0004 swap crossfade, CPU ≤ steady state + one NAM instance | M | B | ADR-0004 Consequences |
 | REQ-704 | CI fails on a > 10 % normalised regression per block or per preset | M | B | AGENTS §4; tt §2.6 |
 | REQ-705 | Zero xruns in the 10-minute soak test at 48 kHz / 64 on the reference machine (report-only on CI runners) | M | H, I | realtime-rules C7 |
 
@@ -136,7 +136,7 @@ Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges an
 | REQ-901 | The VST3 passes pluginval at strictness ≥ 8 (CI level set by #29; 9 recommended) on every PR | M | PV | AGENTS §4; tt §2.5 |
 | REQ-902 | State save/load round-trip: `getStateInformation` → `setStateInformation` → `getStateInformation` is byte-identical | M | U, PV | ADR-0004 §6 |
 | REQ-903 | No third-party trademark, company or artist name in product paths (`tools/guard/check_repo.py` passes) | M | R | AGENTS rule 2 |
-| REQ-904 | Every bundled asset has a row in `assets/LICENSES.md` (source, licence, SHA-256). Only CC0, CC BY 4.0, MIT or project-generated assets | M | R | assets §1.5–1.6 |
+| REQ-904 | Every bundled asset has a row in `assets/LICENSES.md` (source, licence, SHA-256). Accepted licences per redistributable-assets §3.6: CC0, CC BY 4.0, MIT, BSD, GPL-2.0-or-later, GPL-3.0, AGPL-3.0, or project-generated. NC, ND, "no redistribution" and "no profit" terms are rejected | M | R | assets §1.5–1.6, §3.6 |
 | REQ-905 | Every dependency is on the ADR-0006 approved list and in `THIRD_PARTY.md`. No ASIO SDK or other non-redistributable SDK is committed | M | R | ADR-0006 D2 |
 | REQ-906 | No GPLv2-only code (e.g. rakarrack-plus) is copied. Copied files keep their original headers | M | R | pa §1.2, §1.8 |
 | REQ-907 | The build follows ADR-0006: presets `windows-msvc`/`release`, `/fp:precise`, static CRT; CI produces Standalone + VST3 artefacts | M | I | ADR-0006 |
@@ -149,7 +149,7 @@ Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges an
 | ref Q2 Transpose/Doubler latency | Doubler v1 with zero latency (REQ-418). Transpose post-v1 (REQ-420). Constant-latency rule (REQ-303) |
 | ref Q3 amp blend, Q4 DI blend | Post-v1 (REQ-420) |
 | ref Q5 channels per preset | All 3 per preset; switching is a parameter (REQ-406) |
-| ref Q6 Global Lock storage | Separate settings file (REQ-504); format owned by the preset-schema ADR (#24) |
+| ref Q6 Global Lock storage | Lock on/off in the settings file (REQ-504); the locked blocks stay in the preset and are skipped on load (REQ-503, ADR-0003 §7) |
 | os Q1 global vs per-block HQ | Global; offline forces HQ (REQ-421). Factors: #27 |
 | os Q3 / tt Q4 ASR gates | Owned by #27 (thresholds) and #29 (gate vs warn). Verified by REQ-422 |
 | tt Q3 golden storage | Owned by #29 |
