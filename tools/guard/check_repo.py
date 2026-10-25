@@ -32,6 +32,8 @@ NAME_EXEMPT_PREFIXES = (
     "GEMINI.md",
     ".claude/",
     "tools/guard/",
+    "assets/LICENSES.md",   # must record original asset titles/provenance
+    "THIRD_PARTY.md",       # must name upstream projects and vendors
 )
 
 ASIO_SDK_MARKERS = ("asio.h", "asiodrvr.h", "asiosys.h", "asiolist.h", "iasiodrv.h", "asio.cpp")
