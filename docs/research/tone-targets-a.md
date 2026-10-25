@@ -32,7 +32,7 @@
 6. **Spectral targets are given per octave band (63 Hz–8 kHz, dB relative to 1 kHz)** in §3.3 for all 16 preset types,
    with gain-staging numbers in §3.4. They are starting hypotheses built from the vendor's EQ guide (S16) and the
    plugin ranges, *unverified* until rendered.
-7. **Add 30 names to `tools/guard/forbidden_names.txt`.** Generic single words (Ego, Kraken, Optimist, Clean
+7. **Add 9 names to `tools/guard/forbidden_names.txt`** (the lineup names are already in the list). Generic words (Ego, Kraken, Optimist, Clean
    Machine, Logos) were *not* added because they would false-positive on product code.
 
 ## 2. Findings

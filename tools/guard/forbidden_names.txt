@@ -148,3 +148,14 @@ Klon Centaur
 Cockos
 Avid
 Bitwig
+# Added by #4 (tone-targets-a). Generic words left out and checked by hand: Ego, Kraken, Optimist, Logos, EVM,
+# Clean Machine.
+Wampler
+Ploutone
+Animals as Leaders
+Javier Reyes
+Bad Cat
+Victory Amps
+Universal Audio
+Strat
+Stratocaster
