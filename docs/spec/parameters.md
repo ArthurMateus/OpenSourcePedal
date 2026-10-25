@@ -30,7 +30,7 @@
 | `ms`, `s` | time | float |
 | `Hz` | frequency | float |
 | `%` | proportion 0–100 | float |
-| `knob` | panel-style 0–10 control, the scale the research targets use (tone-targets-a T4, tone-targets-b §2.2 Morello) | float |
+| `knob` | panel-style 0–10 control, the scale the research targets use (tone-targets-a T4, tone-targets-b §2.2 rig table) | float |
 | `ratio` | compression ratio, n:1 | float |
 | `enum` | named choice | string (listed values only) |
 | `bool` | switch | boolean |
