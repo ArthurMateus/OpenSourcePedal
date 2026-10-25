@@ -30,8 +30,27 @@
 
 Unassigned Phase 1: #11 time-based-effects and #12 prior-art go to whoever frees first.
 
+## Phase 1 progress
+| Issue | PR | Author | Reviewer | Status |
+|---|---|---|---|---|
+| #6 nam-runtime | #14 | Sable acct1 | Corvid gemini APPROVE | MERGED |
+| #8 asio-low-latency | #16 | Moth acct3 | acct2 APPROVE | MERGED |
+| #13 test-tooling | #15 | Corvid gemini | acct2 CHANGES-REQ (pluginval levels, pin, LSD) | fixing |
+| #5 tone-targets-b | #17 | Wren acct3 | Lyra acct1 CHANGES-REQ (band dB targets, gain staging, generic words in names list) | fixing |
+| #3 reference-plugins | #18 | Lyra acct1 | Wren acct3 | in review |
+| #10 oversampling | | Sable | | in progress |
+| #9 framework-comparison | | Moth | | in progress (JUCE 8 vs 9 central) |
+| #4 tone-targets-a | | Lyra | | in progress |
+| #7 redistributable-assets | | Wren | | queued after #17 fixes |
+| #11 time-based-effects, #12 prior-art | | | | unassigned |
+
+## Pending orchestrator follow-ups
+- After #9: amend ADR-0001 (JUCE version pin; ASIO = JUCE-bundled headers since 8.0.11, no FetchContent), and add the ASIO headers row to THIRD_PARTY.md.
+- Add a header rule to forbidden_names.txt: no generic words. Consider a names.d/ directory, to stop append conflicts.
+- forbidden_names.txt conflicts: resolve with a union merge (helper script: scratchpad union_merge.sh; logic: merge origin/main, take :2 + :3, dedupe with awk).
+
 ## Waiting on
-- Research PRs from all five agents.
+- Research PRs listed above.
 
 ## Next actions
 1. As each research PR lands: route a cross-account review (Corvid preferred), then merge.
