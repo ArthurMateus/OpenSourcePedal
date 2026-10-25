@@ -1,0 +1,49 @@
+{
+  "$schema": "../preset.v1.schema.json",
+  "author": "OpenSourcePedal",
+  "blocks": [
+    { "enabled": true, "id": "input", "params": { "gainDb": 0.0 }, "type": "input" },
+    { "enabled": true, "id": "gate", "params": { "thresholdDb": -60.0 }, "type": "gate" },
+    { "enabled": true, "id": "comp", "params": { "attackMs": 20.0, "blendPct": 70.0, "ratio": 4.0 }, "type": "comp" },
+    { "enabled": false, "id": "drive1", "params": { "drive": 0.0, "levelDb": 8.0 }, "type": "drive" },
+    {
+      "activeChannel": 0,
+      "channels": [
+        { "model": { "id": "osp.amp.clean_a", "kind": "builtin" }, "name": "Clean", "params": { "gain": 3.0, "masterDb": -6.0 } },
+        { "model": { "id": "osp.amp.crunch_a", "kind": "builtin" }, "name": "Crunch", "params": { "gain": 5.5 } },
+        {
+          "model": {
+            "capture": { "displayName": "My lead capture", "sha256": "9f2c7a0e4b1d3c5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6", "uri": "lib:Captures/my-lead.nam" },
+            "kind": "nam"
+          },
+          "name": "Lead"
+        }
+      ],
+      "enabled": true,
+      "id": "amp",
+      "type": "amp"
+    },
+    {
+      "channels": [
+        { "params": { "ir1.levelDb": 0.0 }, "resources": { "ir1": { "uri": "factory:ir/open-1x12-a" } } },
+        { "params": { "ir1.levelDb": 0.0 }, "resources": { "ir1": { "uri": "factory:ir/closed-4x12-a" } } },
+        { "params": { "ir1.levelDb": -1.0, "ir2.levelDb": -4.0, "ir2.pan": 30.0 }, "resources": { "ir1": { "uri": "factory:ir/closed-4x12-a" }, "ir2": { "sha256": "0b1c2d3e4f5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0", "uri": "file:///D:/IRs/room.wav" } } }
+      ],
+      "enabled": true,
+      "id": "cab",
+      "perChannel": true,
+      "type": "cab"
+    },
+    { "enabled": true, "id": "delay", "params": { "feedbackPct": 30.0, "mixPct": 25.0, "mode": "tape", "sync": "1/4" }, "type": "delay" },
+    { "enabled": true, "id": "reverb", "params": { "decayS": 4.5, "mixPct": 30.0, "mode": "hall" }, "type": "reverb" },
+    { "enabled": true, "id": "output", "params": { "levelDb": 0.0 }, "type": "output" }
+  ],
+  "category": "Clean",
+  "createdWith": "0.1.0",
+  "format": "osp-preset",
+  "id": "3b0e6a2c-8f41-4d7a-9c1e-5a2b7d9e0f13",
+  "name": "Example Glass Clean",
+  "schemaVersion": 1,
+  "tags": ["clean", "ambient"],
+  "tempoBpm": 120
+}
