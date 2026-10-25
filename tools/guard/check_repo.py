@@ -7,6 +7,8 @@ Checks (see AGENTS.md section 1):
   2. No ASIO SDK files committed (ADR-0001).
   3. No file > 1 MB that is not tracked by Git LFS.
   4. Every file under assets/ has a row in assets/LICENSES.md.
+  5. Layering (ADR-0006 D3): no file under dsp-core/ and no public header under engine/include/ includes JUCE or
+     <windows.h>.
 
 Exit code 0 = clean, 1 = violations (printed one per line as `path: reason`).
 """
@@ -37,6 +39,11 @@ NAME_EXEMPT_PREFIXES = (
 )
 
 ASIO_SDK_MARKERS = ("asio.h", "asiodrvr.h", "asiosys.h", "asiolist.h", "iasiodrv.h", "asio.cpp")
+
+# Layering rule (ADR-0006 D3): pure-C++ code must not pull in JUCE or the Windows API.
+LAYERED_PREFIXES = ("dsp-core/", "engine/include/")
+CODE_SUFFIXES = {".h", ".hpp", ".c", ".cpp", ".cc", ".cxx", ".inl"}
+FORBIDDEN_INCLUDE = re.compile(r'^\s*#\s*include\s*[<"](juce_[^>"]*|windows\.h)[>"]', re.IGNORECASE | re.MULTILINE)
 
 TEXT_SUFFIXES = {
     ".h", ".hpp", ".c", ".cpp", ".cc", ".cxx", ".inl", ".cmake", ".txt", ".md", ".json", ".yml", ".yaml",
@@ -89,6 +96,13 @@ def main() -> int:
 
         if rel.startswith("assets/") and rel != "assets/LICENSES.md" and rel not in licenses_text:
             problems.append(f"{rel}: bundled asset without a row in assets/LICENSES.md")
+
+        if rel.startswith(LAYERED_PREFIXES) and path.suffix.lower() in CODE_SUFFIXES:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for match in FORBIDDEN_INCLUDE.finditer(text):
+                line_no = text.count("\n", 0, match.start()) + 1
+                problems.append(f"{rel}:{line_no}: includes '{match.group(1)}'; dsp-core and engine public headers stay "
+                                "JUCE- and OS-free (ADR-0006 D3)")
 
         if not rel.startswith(NAME_EXEMPT_PREFIXES) and path.suffix.lower() in TEXT_SUFFIXES and rel not in lfs:
             text = path.read_text(encoding="utf-8", errors="ignore")
