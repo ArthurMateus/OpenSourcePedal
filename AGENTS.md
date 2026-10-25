@@ -44,7 +44,7 @@ cmake/         CMake helpers, dependency fetching (JUCE, ASIO SDK, NAM core, Eig
 docs/adr/      Architecture Decision Records (NNNN-title.md).
 docs/research/ Research notes with sources and dates.
 docs/spec/     Requirements, signal flow, parameters, preset schema, threading, RT rules.
-docs/state/    ORCHESTRATOR.md, BLOCKERS.md, HANDOFF/<issue>.md.
+docs/state/    BLOCKERS.md, HANDOFF/<issue>.md, ORCHESTRATOR.md (a pointer: the LIVE copy is on the `state` branch, see §5).
 docs/demos/    Rendered demo clips per milestone.
 ```
 
