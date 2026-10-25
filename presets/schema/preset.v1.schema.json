@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ArthurMateus/OpenSourcePedal/presets/schema/preset.v1.schema.json",
+  "title": "OpenSourcePedal preset, schema v1",
+  "description": "See docs/spec/preset-schema.md and ADR-0003. Unknown properties are allowed and must be preserved by readers.",
+  "type": "object",
+  "required": ["format", "schemaVersion", "id", "name", "blocks"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": "osp-preset" },
+    "schemaVersion": { "const": 1 },
+    "id": { "$ref": "#/$defs/uuid" },
+    "name": { "$ref": "#/$defs/shortText", "minLength": 1, "maxLength": 64 },
+    "author": { "$ref": "#/$defs/shortText" },
+    "category": { "$ref": "#/$defs/shortText" },
+    "tags": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 32, "pattern": "^[^\\u0000-\\u001f]*$" }
+    },
+    "description": { "type": "string", "maxLength": 2000 },
+    "createdWith": {
+      "description": "App version that last wrote the file, e.g. 0.3.1.",
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?$"
+    },
+    "tempoBpm": {
+      "description": "Tempo for synced delays when no host tempo is available.",
+      "type": "number",
+      "minimum": 20,
+      "maximum": 300
+    },
+    "blocks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/block" }
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "shortText": { "type": "string", "maxLength": 256, "pattern": "^[^\\u0000-\\u001f]*$" },
+    "identifier": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9]{0,31}$" },
+    "paramKey": {
+      "description": "Parameter key inside a block; full id is <block id>.<key> (docs/spec/parameters.md).",
+      "type": "string",
+      "pattern": "^[a-z][a-zA-Z0-9]{0,31}(\\.[a-z][a-zA-Z0-9]{0,31}){0,2}$"
+    },
+    "params": {
+      "description": "Engineering-unit values (dB, ms, Hz, %, st); enums as strings; switches as booleans.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/paramKey" },
+      "maxProperties": 128,
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "number" },
+          { "type": "boolean" },
+          { "type": "string", "maxLength": 64 }
+        ]
+      }
+    },
+    "resourceRef": {
+      "type": "object",
+      "required": ["uri"],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "maxLength": 1024,
+          "pattern": "^(factory:[a-z0-9][a-z0-9/_.-]*|lib:[^\\u0000-\\u001f]+|file:///[^\\u0000-\\u001f]+)$"
+        },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "displayName": { "$ref": "#/$defs/shortText" }
+      },
+      "if": { "properties": { "uri": { "pattern": "^factory:" } } },
+      "else": { "required": ["uri", "sha256"] }
+    },
+    "resources": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/identifier" },
+      "maxProperties": 8,
+      "additionalProperties": { "$ref": "#/$defs/resourceRef" }
+    },
+    "channelState": {
+      "type": "object",
+      "properties": {
+        "params": { "$ref": "#/$defs/params" },
+        "resources": { "$ref": "#/$defs/resources" }
+      }
+    },
+    "ampModel": {
+      "description": "Built-in model id, or a user/factory .nam capture.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "id"],
+          "properties": { "kind": { "const": "builtin" }, "id": { "type": "string", "pattern": "^osp\\.amp\\.[a-z0-9_]+$" } }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "capture"],
+          "properties": { "kind": { "const": "nam" }, "capture": { "$ref": "#/$defs/resourceRef" } }
+        }
+      ]
+    },
+    "ampChannel": {
+      "allOf": [{ "$ref": "#/$defs/channelState" }],
+      "type": "object",
+      "required": ["model"],
+      "properties": {
+        "name": { "$ref": "#/$defs/shortText" },
+        "model": { "$ref": "#/$defs/ampModel" }
+      }
+    },
+    "block": {
+      "type": "object",
+      "required": ["type", "id", "enabled"],
+      "properties": {
+        "type": {
+          "description": "v1 types: input, gate, comp, drive, amp, cab, eq, mod, delay, reverb, transpose, doubler, output. Unknown types are preserved and bypassed.",
+          "$ref": "#/$defs/identifier"
+        },
+        "id": { "$ref": "#/$defs/identifier" },
+        "enabled": { "type": "boolean" },
+        "params": { "$ref": "#/$defs/params" },
+        "resources": { "$ref": "#/$defs/resources" },
+        "perChannel": {
+          "description": "true: state follows the amp's active channel and lives in 'channels'.",
+          "type": "boolean"
+        },
+        "channels": { "type": "array", "minItems": 1, "maxItems": 4 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "amp" } } },
+          "then": {
+            "required": ["activeChannel", "channels"],
+            "properties": {
+              "activeChannel": { "type": "integer", "minimum": 0, "maximum": 3 },
+              "channels": { "items": { "$ref": "#/$defs/ampChannel" } }
+            }
+          }
+        },
+        {
+          "if": { "required": ["perChannel"], "properties": { "perChannel": { "const": true } } },
+          "then": { "required": ["channels"], "properties": { "channels": { "items": { "$ref": "#/$defs/channelState" } } } }
+        }
+      ]
+    }
+  }
+}
