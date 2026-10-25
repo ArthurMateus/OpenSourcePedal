@@ -1,6 +1,6 @@
 # ADR-0006: Build system, dependencies and repository layout (CMake)
 
-- Status: **Proposed** (2026-10-25). Becomes Accepted when the cross-account review approves it.
+- Status: **Accepted** (2026-10-25; cross-account review approved and merged in Phase 2).
 - Deciders: architect (acct3/Moth). Issue #28.
 - Rests on: ADR-0001 (as amended by PR #30), `docs/research/framework-comparison.md`, `asio-low-latency.md`,
   `nam-runtime.md`, `test-tooling.md`, and the oversampling note (PR #19, not yet merged). Pins and licences were
