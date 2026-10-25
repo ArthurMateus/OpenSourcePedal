@@ -2,10 +2,12 @@
 
 - Status: draft spec (issue #22). Date: 2026-10-25. Owner: architect (acct3/Moth).
 - Rests on: `docs/research/reference-plugins.md` (R1, Q1–Q5), `oversampling.md` (§3.1, §3.4), `nam-runtime.md` (§3),
-  `time-based-effects.md` (Q1, Q2, Q4), `tone-targets-a.md`/`-b.md`, ADR-0002 draft (PR #39, NAM resampling),
-  ADR-0004 (threading), ADR-0007 (test strategy), `requirements.md` (#21, REQ-4xx/3xx).
-- Factors, filters and ASR thresholds inside the oversampling regions are owned by ADR-0005 (#27). This spec fixes
-  **where** the regions are and **how** latency is accounted for.
+  `time-based-effects.md` (Q1, Q2, Q4), `tone-targets-a.md`/`-b.md`, ADR-0002 (D4, amp-slot latency),
+  ADR-0004 (threading), ADR-0005 (#27/PR #50: D2 factors, D3 filters, D4 latency, D6 quality), ADR-0007 (test strategy),
+  `requirements.md` (REQ-3xx/4xx).
+- Factors, filter kinds, filter specs and ASR thresholds are owned by **ADR-0005**. This spec fixes **where** the
+  oversampled domains are and **how** latency is accounted for. Where the two disagree, ADR-0005 wins and this spec is
+  amended.
 
 ## 1. Per-preset chain
 
@@ -67,20 +69,27 @@ If the host gives a stereo input bus, the input is summed to mono (−6 dB per s
 
 ## 3. Oversampling regions
 
-| Region | Contents | Live @ 44.1/48 kHz | Live @ 88.2/96 kHz | HQ / offline | Filter | Source |
-|---|---|---|---|---|---|---|
-| OS-1 | Drive A + Drive B (all voicings) | 4× | 2× | 8× | IIR halfband (HIIR) | oversampling §3.1 |
-| OS-2 | Classic-DSP amp (preamp + power amp, one domain) | 4× | 2× | 8× | IIR (Live), FIR linear-phase (HQ) | oversampling §3.1 |
-| NAM | None. Runs at its model rate (resampled when the host rate differs) | 1× | 1× or dilation 2× | 2× where supported | Lanczos A = 12 | nam-runtime §3; ADR-0002 draft D4 |
-| All other blocks | Gate, comp, cab, EQ, mod, delay, reverb, doubler: 1× | 1× | 1× | 1× | — | oversampling §3.1 |
+Factors are ADR-0005 D2 and filter kinds are ADR-0005 D3: **IIR (HIIR) in Live, FIR equiripple in HQ, in every
+domain**. HQ uses 2× the Live factor.
+
+| Domain | Contents | Live @ 44.1/48 kHz | Live @ 88.2/96 kHz | HQ | Source |
+|---|---|---|---|---|---|
+| OS-1 (shared drive domain) | Drive A + Drive B, one up/down pair, at the factor of the hungriest voicing either drive can hold (fuzz/hard clip) | 4× | 2× | 8× | ADR-0005 D2 (shared drive domain) |
+| OS-2 (amp domain) | Classic-DSP amp: preamp → tone stack → power amp, one up/down pair | 4× | 2× | 8× | ADR-0005 D2 |
+| NAM | None. Model rate, resampled when the host rate differs | 1× | 1× | 1× in v1 | ADR-0002 D4; ADR-0005 D7 |
+| Delay (tape/BBD saturating modes) | Saturation inside the feedback loop | 2× | 1× | 4× | ADR-0005 D2 note |
+| All other blocks | Gate, comp, cab, EQ, modulation, reverb, doubler | 1× | 1× | 1× | ADR-0005 D2 |
 
 Decisions:
-- **OS-1 uses the factor of its hungriest voicing (fuzz/hard clip: 4×) for every voicing.** A voicing change must not
-  change latency (REQ-303). Drives are cheap, so 4× for a soft clipper costs little (*unverified* until `osp-bench`).
-- **The two regions stay separate.** Drives and amp are bypassed and switched independently, and a NAM channel sits
-  between them in the chain. A shared domain would force OS-2 on NAM channels. Open question 1 asks the oversampling
-  ADR to confirm.
-- ADAA (order per shaper, ADR-0005) runs **inside** each region at the oversampled rate.
+- **OS-1 is one shared domain for Drive A + Drive B** (orchestrator decision; ADR-0005 D2 adopts it). Its factor is that
+  of the hungriest voicing either drive can select, so changing voicing or bypassing one drive never changes the factor
+  or the latency (REQ-303). Two drives cost one up/down pair. A bypassed drive inside OS-1 is an identity stage at the
+  high rate.
+- **OS-1 and OS-2 stay separate.** A NAM channel sits in the amp slot between them, and NAM runs at 1×, so the amp
+  domain cannot extend over the drives.
+- ADAA (order per shaper, ADR-0005 D1–D2) runs **inside** each domain at the oversampled rate.
+- The delay's oversampler sits inside the wet feedback loop. Its latency is absorbed by shortening the delay line, so
+  the minimum delay time is ≥ that latency, and L_dly stays 0.
 
 ## 4. Latency contributors
 
@@ -94,10 +103,10 @@ the sample rate or the Live/HQ mode changes.
 | L_in | Input trim, DC blocker | 0 | Minimum-phase |
 | L_gate, L_comp | Gate, compressor | 0 | No look-ahead in v1 (look-ahead would be fixed padding; post-v1) |
 | L_mod | Modulation | 0 | No through-zero flanging in v1 (time-based-effects Q2) |
-| L_os1 | OS-1 up + down halfband cascade + ADAA delay / F | `ceil(G_up(F) + G_down(F) + a_max / F)`, where G is the group delay at 1 kHz and `a_max` = 1 (ADAA2) | oversampling §1.5, §3.4. Integer padding per oversampling §1.8 |
-| L_amp | Amp block | `max(L_os2, L_nam_max)`, padded | One value for all 3 channels |
-| L_os2 | OS-2 cascade + ADAA | same form as L_os1, with OS-2's filters | IIR in Live, FIR (larger) in HQ |
-| L_nam_max | Worst-case NAM resampler latency at this host rate | Lanczos (A = 12) delay for a 48 kHz model at a 44.1/88.2/96 kHz host. 0 at a 48 kHz host (*unverified* that all models are 48 kHz; non-48 kHz models are padded or resampled to fit) | nam-runtime §3; ADR-0002 draft D4 |
+| L_os1 | OS-1 (shared drive domain): up/down cascade + ADAA | `round(D_os1)`, where D is the **measured** 1 kHz group delay in base-rate samples in `prepare()` | ADR-0005 D4 (nearest integer) |
+| L_amp | Amp slot | ADR-0002 D4 `L_slot = max(L_res(fs, 48 kHz), L_classic(fs, q))`; every model is padded up to it | One value for all 3 channels and both model kinds |
+| L_classic | OS-2 cascade + ADAA | `round(D_os2)` | ADR-0005 D4 |
+| L_res | NAM resampler (Lanczos A = 12), 48 kHz model at host fs | `round(D_res)`; 0 at a 48 kHz host | ADR-0002 D4; ADR-0005 REQ-OS-005 |
 | L_cab | Convolution | **0**: zero-latency partitioned convolution (direct-form head + FFT tail) | Library choice deferred (ADR-0006 Deferred). If the cab ticket cannot meet 0 within budget, it amends this row with a fixed value |
 | L_eq | EQ | 0 | Minimum-phase biquads. A linear-phase EQ is post-v1 |
 | L_dly, L_rev, L_dbl | Delay, reverb, doubler | 0 | Wet paths are delayed by design. The dry path is not delayed |
@@ -106,34 +115,35 @@ the sample rate or the Live/HQ mode changes.
 **Total latency (reported via `setLatencySamples`, shown in the latency panel):**
 
 ```
-L_total(fs, q) = L_os1(fs, q) + L_amp(fs, q) + L_cab(fs)          // every other term is 0 in v1
-L_amp(fs, q)   = max(L_os2(fs, q), L_nam_max(fs))
-L_osX(fs, q)   = ceil( G_up,X(F_X(fs,q)) + G_down,X(F_X(fs,q)) + a_max,X / F_X(fs,q) )
+L_total(fs, q) = L_os1(fs, q) + L_slot(fs, q) + L_cab(fs)        // every other term is 0 in v1
+L_slot(fs, q)  = max(L_res(fs, 48 kHz), L_classic(fs, q))          // ADR-0002 D4
+L_X(fs, q)     = round(D_X(fs, q))                                 // ADR-0005 D4: D = measured 1 kHz group delay
 ```
 
 The standalone UI also shows `L_driver_in + L_driver_out + L_total` as the predicted round trip, next to the measured
 loopback value (REQ-304/305, asio-low-latency R10).
 
-Verification (REQ-301):
-- Per block, a unit test feeds an impulse and checks that the peak (FIR) or the 1 kHz group delay (IIR) equals
-  `getLatencySamples()` ± 1 at every (fs, q).
-- A chain-level test checks `L_total` = Σ block latencies, and that the latency is unchanged across every voicing,
-  channel and bypass permutation of a preset.
+Verification (REQ-301, ADR-0005 REQ-OS-001a/b, REQ-OS-005):
+- **FIR (HQ):** D is an integer by design. The block nulls against the input delayed by `getLatencySamples()`.
+- **IIR (Live):** the measured 1 kHz group delay is within ±0.5 sample of `getLatencySamples()`; the residual fraction
+  is logged; no null test (non-linear phase).
+- A chain-level test checks `L_total` = Σ slot latencies, and that the reported latency and measured 1 kHz delay are
+  unchanged across every voicing, channel, model and bypass permutation of a preset.
 
-Expected magnitude: the Live total at 48 kHz should be a few samples to low tens of samples (IIR halfbands have small
-group delay, oversampling §1.3). The target is ≤ 16 samples (REQ-302). *Unverified* until the first OS-1/OS-2
-implementations measure it. HQ adds the FIR halfband delay, typically tens of samples per stage (*unverified*).
+Expected magnitude (ADR-0005 D4, *unverified*): IIR 2×/4× ≈ 1–5 samples and FIR ≈ 10–40 samples per domain. Live total
+≤ 16 samples at 48 kHz (REQ-302, confirmed by ADR-0005 D4).
 
 ## 5. Bypass, mix and transitions
 
 | Situation | Behaviour | Source |
 |---|---|---|
+| Internal dry/wet blend inside an oversampled block | The dry path goes through the **same** up/down chain with identity processing, so dry and wet are phase-matched with IIR and FIR | ADR-0005 D4, REQ-OS-007 |
 | Block bypass (user) | 5 ms linear ramp between processed and latency-matched dry signal. Latency is kept (padding stays in) | REQ-303, REQ-402 |
 | Delay / reverb bypass (user) | **Soft bypass (trails):** the input send is muted and tails ring out. `setSoftBypass(bool)` | time-based-effects Q4; ADR-0007 |
 | Hard bypass (tests, null test) | `setBypassed(true)`: output = latency-aligned input, nulls ≤ −120 dBFS | ADR-0007 REQ-TEST-004 |
 | Amp channel switch, model/IR change, modulation position change | ADR-0004 crossfade between the old and new instance | ADR-0004 §5 |
 | Preset change | The whole chain uses the ADR-0004 crossfade. Delay/reverb tails of the old preset are **cut by the fade** in v1. Cross-preset spillover is post-v1 (needs both chains' tails to run) | threading.md §8 deferral, resolved here |
-| Quality change (Live ↔ HQ) | Rebuild on the worker → new latency reported on the message thread → ADR-0004 crossfade | threading.md §4.6 |
+| Quality change (Live ↔ HQ) | Global user setting (not in presets). Rebuild on the worker → new latency reported on the message thread → ADR-0004 crossfade. Hosts are **not** switched to HQ automatically for offline renders in v1. `osp-render --quality hq` may force HQ | ADR-0005 D6; threading.md §4.6 |
 | Wet/dry mixes inside a block (comp blend, delay/reverb mix, doubler width) | Mixed inside the block. Any wet-path latency is matched on the dry path inside the block, so `getLatencySamples()` stays the block's single value | §4 rule |
 
 ## 6. Tuner and meters
@@ -150,8 +160,7 @@ implementations measure it. HQ adds the FIR halfband delay, typically tens of sa
 
 | # | Question | Owner |
 |---|---|---|
-| 1 | Confirm separate OS-1 and OS-2 regions (vs one shared domain) and the fixed-factor-per-region rule | ADR-0005 (#27) |
-| 2 | Lanczos A = 12 resampler latency in samples per host rate (fills L_nam_max) | First NAM ticket (ADR-0002 owner) |
-| 3 | Zero-latency convolution feasibility within the CPU budget (L_cab = 0) | Cab block ticket (dsp-engineer) |
-| 4 | Mono-sum and stereo-input policy defaults in the settings file | Preset-schema ADR (#24) |
-| 5 | Cross-preset delay/reverb spillover | Post-v1 backlog (orchestrator) |
+| 1 | Lanczos A = 12 resampler latency in samples per host rate (fills L_nam_max) | First NAM ticket (ADR-0002 owner) |
+| 2 | Zero-latency convolution feasibility within the CPU budget (L_cab = 0) | Cab block ticket (dsp-engineer) |
+| 3 | Mono-sum and stereo-input policy defaults in the settings file | Preset-schema ADR (#24) |
+| 4 | Cross-preset delay/reverb spillover | Post-v1 backlog (orchestrator) |

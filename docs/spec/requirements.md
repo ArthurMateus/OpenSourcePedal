@@ -76,7 +76,7 @@ Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges an
 | REQ-418 | **Doubler:** stereo double-tracking from a short modulated delay, with zero added latency | S | U | ref R6 |
 | REQ-419 | **Tuner:** chromatic, ±1 cent accuracy for 40–1000 Hz sine input; full page + always-visible strip; mutes output while open (option) | M | U, I | ref R6 |
 | REQ-420 | **Transpose ±12 st**, polyphonic octaver, whammy, harmonizer, wah, envelope filter, amp blend mode, DI blend | P | — | ref R8, Q2–Q4; tb §1.1 |
-| REQ-421 | Oversampling quality is a **global** Live/HQ setting. Offline renders (host non-realtime flag, `osp-render`) use HQ. Factors and filters are defined by the oversampling ADR (#27) | M | U | os Q1 |
+| REQ-421 | Oversampling quality is a **global** Live/HQ user setting (app settings and plugin state, not presets). Inside hosts, offline renders use the user's setting in v1 (no automatic switch). `osp-render` may force HQ with `--quality hq`. Factors and filters: ADR-0005 D2/D3 | M | U | os Q1; ADR-0005 D6 |
 | REQ-422 | Aliasing per nonlinear block meets the ASR thresholds of the oversampling ADR (#27), measured with the bin-centred method | M | U | os §3.3; tt §2.3 |
 | REQ-423 | Continuous parameters are smoothed: no zipper noise per ADR-0007 REQ-TEST-003 (a 50 ms min→max ramp on a 1 kHz sine gives spectral splatter outside f0 ± 50 Hz ≤ −60 dBc) | M | U | AGENTS §4; ADR-0007; realtime-rules RT-13 |
 
@@ -150,7 +150,7 @@ Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges an
 | ref Q3 amp blend, Q4 DI blend | Post-v1 (REQ-420) |
 | ref Q5 channels per preset | All 3 per preset; switching is a parameter (REQ-406) |
 | ref Q6 Global Lock storage | Lock on/off in the settings file (REQ-504); the locked blocks stay in the preset and are skipped on load (REQ-503, ADR-0003 §7) |
-| os Q1 global vs per-block HQ | Global; offline forces HQ (REQ-421). Factors: #27 |
+| os Q1 global vs per-block HQ | Global user setting; only `osp-render` may force HQ (REQ-421, ADR-0005 D6) |
 | os Q3 / tt Q4 ASR gates | Owned by #27 (thresholds) and #29 (gate vs warn). Verified by REQ-422 |
 | tt Q3 golden storage | Owned by #29 |
 | ta Q1 harmonizer | Post-v1 (REQ-420) |
