@@ -13,7 +13,9 @@ orchestrator on the Maestri canvas. The full mission brief is in [`docs/MASTER_P
    If you are truly blocked by something only the owner can fix, follow §7 "Blockers".
 2. **"Inspired by" only.** No third-party trademarks, company names (including "Neural DSP" and "Archetype") or artist names
    in the product, UI, presets, shipped assets, release notes or marketing copy. Factory presets get original names.
-   Internal research notes (`docs/research/`) may say "aims at a tone similar to X".
+   Internal research notes (`docs/research/`) may say "aims at a tone similar to X". Attribution files
+   (`assets/LICENSES.md`, `THIRD_PARTY.md`, the in-app Credits text) may name upstream sources and original asset titles
+   only where a licence requires or provenance needs it.
    **Never** disassemble, decompile or extract anything from a commercial plugin. Every bundled asset (`.nam`
    capture, IR, DI clip, font, image) has an entry in `assets/LICENSES.md` with its source and license.
 3. **Never commit** secrets, SDKs we may not redistribute, large binaries outside Git LFS (> 1 MB → LFS), or any file
