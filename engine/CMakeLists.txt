@@ -1,0 +1,8 @@
+add_library(osp_engine STATIC
+    src/Version.cpp)
+add_library(osp::engine ALIAS osp_engine)
+
+target_include_directories(osp_engine PUBLIC include)
+target_link_libraries(osp_engine PUBLIC osp_dsp_core)
+target_compile_definitions(osp_engine PRIVATE OSP_VERSION_STRING="${PROJECT_VERSION}")
+osp_apply_settings(osp_engine)
