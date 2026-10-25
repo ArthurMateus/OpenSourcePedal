@@ -160,7 +160,7 @@ Expected magnitude (ADR-0005 D4, *unverified*): IIR 2×/4× ≈ 1–5 samples an
 
 | # | Question | Owner |
 |---|---|---|
-| 1 | Lanczos A = 12 resampler latency in samples per host rate (fills L_nam_max) | First NAM ticket (ADR-0002 owner) |
+| 1 | Lanczos A = 12 resampler latency in samples per host rate (fills L_res) | First NAM ticket (ADR-0002 owner) |
 | 2 | Zero-latency convolution feasibility within the CPU budget (L_cab = 0) | Cab block ticket (dsp-engineer) |
 | 3 | Mono-sum and stereo-input policy defaults in the settings file | Preset-schema ADR (#24) |
 | 4 | Cross-preset delay/reverb spillover | Post-v1 backlog (orchestrator) |
