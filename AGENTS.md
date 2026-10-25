@@ -98,6 +98,12 @@ Every DSP/audio change passes, in CI:
 3. `gh issue comment <N>` with a link to the note, then `gh issue edit <N> --add-label handoff`.
 4. Tell the orchestrator over Maestri: `maestri ask "<orchestrator name>" "HANDOFF #<N>: <one line>"`. Then stop.
 
+### Live state branch
+`main` is protected (PRs only). The orchestrator's **live** state (`docs/state/ORCHESTRATOR.md`, `docs/state/BLOCKERS.md`)
+is pushed directly to the unprotected branch **`state`**, so that heartbeat updates need no PR. Read it with
+`git fetch origin state && git show origin/state:docs/state/ORCHESTRATOR.md`. Only the orchestrator writes to `state`.
+Handoff notes stay on the feature branch of their issue.
+
 ### Talking to the team (Maestri)
 - Run `maestri list` to see your teammates and notes. The orchestrator is the terminal you are connected to.
 - When you finish a task you were given over Maestri, report back with `maestri ask "<orchestrator name>" "<result>"`.
