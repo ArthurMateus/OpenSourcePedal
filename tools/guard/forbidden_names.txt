@@ -148,3 +148,6 @@ Klon Centaur
 Cockos
 Avid
 Bitwig
+FabFilter
+Slate Digital
+Reaper
