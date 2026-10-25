@@ -38,3 +38,7 @@ Kemper
 Fractal
 Line 6
 Helix
+RTL Utility
+Oblique Audio
+Native Instruments
+RME
