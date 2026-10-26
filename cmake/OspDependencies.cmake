@@ -13,3 +13,22 @@ if(OSP_BUILD_TESTS)
     FetchContent_MakeAvailable(Catch2)
     list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras") # for include(Catch)
 endif()
+
+# Header-only or C sources that we compile ourselves (tools/CMakeLists.txt). SOURCE_SUBDIR points at a
+# directory without a CMakeLists.txt, so FetchContent only downloads them and never runs their own build/install rules.
+if(OSP_BUILD_TOOLS)
+    # libebur128 v1.2.6 (MIT). Lightweight tag, commit checked via the GitHub API on 2026-10-25.
+    FetchContent_Declare(libebur128
+        GIT_REPOSITORY https://github.com/jiixyj/libebur128.git
+        GIT_TAG        67b33abe1558160ed76ada1322329b0e9e058b02 # v1.2.6
+        GIT_SHALLOW    OFF
+        SOURCE_SUBDIR  osp-no-build)
+    # dr_libs (dr_wav 0.14.6, Unlicense OR MIT-0). dr_libs has no per-library tags. This commit's dr_wav.h reports
+    # 0.14.6 (DRWAV_VERSION_*, checked 2026-10-25).
+    FetchContent_Declare(dr_libs
+        GIT_REPOSITORY https://github.com/mackron/dr_libs.git
+        GIT_TAG        14423ee630e4b36596d042fa055d7f1d0a02ca38 # dr_wav 0.14.6
+        GIT_SHALLOW    OFF
+        SOURCE_SUBDIR  osp-no-build)
+    FetchContent_MakeAvailable(libebur128 dr_libs)
+endif()

@@ -1,5 +1,6 @@
 add_executable(osp_tests
     dsp/test_gain.cpp
+    engine/test_chain.cpp
     engine/test_version.cpp)
 
 target_link_libraries(osp_tests PRIVATE osp_engine Catch2::Catch2WithMain)
