@@ -46,8 +46,9 @@
 | #45 RT checker | Sable acct1 | #59 | MERGED |
 | #46 osp-render + osp-bench | Lyra acct1 | #77, #78 | MERGED |
 | #76 clang-format config + CI check | Wren | #79 | MERGED (clang-format 19.1.5 is a required check) |
-| #42 JUCE plugin target | Wren | #58 MERGED (290b69f). #61 base main, CHANGES-REQ acct2 (levelDb −60…+12) | Wren fixing, then acct2 re-reviews |
-| #43 CI artifacts, #44 pluginval 9 | Wren | | after #58/#61 |
+| #42 JUCE plugin target | Wren | #58 MERGED (290b69f). #61 reopened + base main (ce28ca9) but the levelDb range fix (−60…+12) is still MISSING, and it is DIRTY again | Wren fixing, then acct2 re-reviews |
+| #43 CI artifacts + RT-checker Debug job | Wren | #97 MERGED (2bf733a, acct2 approved) | DONE. TODO: make "windows-msvc-debug (RT checker)" a required check once #96 merges |
+| #44 pluginval 9 | Wren | | next after #61 |
 | #47 latency detector + UI | unassigned | | |
 | #83 CI r0 baselines + R gate | unassigned (release-devops) | | |
 
@@ -55,7 +56,7 @@
 | Issue | Owner | PR | Status |
 |---|---|---|---|
 | #62 measurement harness | Sable | #80, #84 | MERGED (Signalsmith dsp FFT, ADR-0006 A1) |
-| #63 oversampler + ADAA | Sable | #86 part 1 MERGED. #96 part 2 fixed at 1ac07d4 (FPU HIIR, 8x -93.3 dB, exact-zero idle test, 0.098% CPU) | re-review: Moth. Part 3 (FIR HQ) deferred |
+| #63 oversampler + ADAA | Sable | #86 MERGED. #96 APPROVED (Moth @1ac07d4); orchestrator main-merges 12a0851, 2b1da82 (conflict-only) | auto-merge on green. Part 3 (FIR HQ) deferred |
 | #67 drive | Sable | dsp/67-drive (WIP + handoff pushed) | ASR gates fail (~-30 dB @5 kHz vs -40) via D3 decimator transition band; investigating, outcome goes to #98 |
 | #98 ADR-0005 D3 wording + possible decimator amendment | Sable (with #67) | | filed |
 | #99 HIIR release-asset mirror | release-devops (Wren after #43) | | filed |
@@ -64,7 +65,7 @@
 | #65 gate | Moth | #88 MERGED (c1d1a45) | DONE (issue closed) |
 | #72 reverb part 1 | Moth | dsp/72-reverb | in progress (Moth review queue empty) |
 | #68 EQ | Lyra | #90 MERGED (3bf87fc), #91 MERGED (11939e1, Moth re-approved), #92 base main | review: Wren |
-| #69 cab IR | Lyra | #93 part 1 APPROVED (Moth @43baa27; head c65f9fd = main merges only) | auto-merge on green. Part 2 (dsp/69-cab-block): add IR cap / slot phase stagger (1 s IR peak 352 us = 26% of the 64-sample deadline) |
+| #69 cab IR (4 parts) | Lyra | #93 part 1 MERGED (f6ed825). #100 part 2 Cab block (+724, base main, retargeted before #93 merged) | review: Moth. Part 3: IR resampler + 1 s cap |
 | #94 third-party notices in Credits/installer (Signalsmith, HIIR, nlohmann, JUCE, VST3, ASIO) | — | | filed by Lyra; HIIR added |
 | #95 engine v1 signal graph (Phase 5) | unassigned (architect) | | filed 2026-10-26 from Moth's #88 note |
 | #89 compressor THD probe (82/110 Hz) | — (Lyra preferred) | | unblocked (#87 merged) |
