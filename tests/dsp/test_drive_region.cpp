@@ -152,9 +152,11 @@ TEST_CASE("DriveRegion: rate x block-size matrix, reset() and pre-prepare (REQ-T
     CHECK(std::all_of(out.begin(), out.end(), [](float v) { return v == 0.0f; }));
 }
 
-TEST_CASE("DriveRegion: stacked drives meet the Live ASR gate at 48 kHz (REQ-OS-003)", "[dsp][driveregion][asr]")
+TEST_CASE("DriveRegion: stacked drives meet the Live ASR gate at 48 kHz, logged at 96 kHz/2x (REQ-OS-003)",
+          "[dsp][driveregion][asr]")
 {
-    constexpr double fs = 48000.0;
+    // REQ-OS-003 gates 44.1/48 kHz only. At 88.2/96 kHz the Live factor is 2x (ADR-0005 D2): logged, not gated.
+    const double fs = GENERATE(48000.0, 96000.0);
     const double levelDbfs = GENERATE(-6.0, 0.0);
     const auto tone = m::coherentTone(1000.0, fs);
     DriveRegion region;
@@ -163,8 +165,10 @@ TEST_CASE("DriveRegion: stacked drives meet the Live ASR gate at 48 kHz (REQ-OS-
     region.prepare(fs, 64);
     const auto out = render(region, m::makeTone(tone, fs, levelDbfs, m::kWarmupSamples + m::kCoherentFftSize));
     const auto r = m::analyseCoherent(out, tone.bin);
-    std::printf("OS-1 mid -> dist(10) 1 kHz %+.0f dBFS: ASR %.1f dB (gate -60)\n", levelDbfs, r.asrDb);
-    CHECK(r.asrDb <= -60.0);
+    std::printf("OS-1 %dx @ %5.0f Hz, mid -> dist(10) 1 kHz %+.0f dBFS: ASR %.1f dB%s\n", region.getFactor(), fs,
+                levelDbfs, r.asrDb, fs <= 48000.0 ? " (gate -60)" : " (logged)");
+    if (fs <= 48000.0)
+        CHECK(r.asrDb <= -60.0);
 }
 
 TEST_CASE("DriveRegion: random parameters on both slots and 100 quality toggles stay RT-clean (REQ-OS-006)",
