@@ -7,6 +7,7 @@ target_link_libraries(osp_rt_checker PUBLIC osp_dsp_core)
 osp_apply_settings(osp_rt_checker)
 
 add_executable(osp_tests
+    dsp/test_compressor.cpp
     dsp/test_gain.cpp
     dsp/test_util.cpp
     engine/test_chain.cpp
