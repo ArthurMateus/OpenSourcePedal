@@ -11,8 +11,9 @@
 // J. F. Kaiser, "Nonrecursive digital filter design using the I0-sinh window function", Proc. IEEE ISCAS 1974. The
 // cutoff is kCutoff·min(rates) with kZeroCrossings sinc lobes per side and β = kKaiserBeta (about −90 dB stopband),
 // so the response is flat to about 0.41·min(rates) (19.6 kHz at 48 kHz). The taps are scaled by irRate/processRate
-// so the frequency response, not the tap sum, is preserved. The kernel is truncated at t < 0 (no added latency,
-// L_cab = 0), which only drops the pre-ringing of content near the cutoff.
+// so the frequency response, not the tap sum, is preserved. The kernel is symmetric (linear phase, no added delay,
+// L_cab = 0); only the band-limited pre-ringing that would fall before the IR's first sample is dropped.
+// besselI0 runs per tap (~0.1-0.3 s per 1 s IR on the worker, unverified); a window table can come in a perf pass.
 //
 // Length cap (own decision, #69): kMaxIrSeconds at the processing rate, the budget case of the cab block (2 × 1 s at
 // 48 kHz / 64). A longer IR is truncated with a raised-cosine fade over its last kCapFadeSeconds, so the cut adds no

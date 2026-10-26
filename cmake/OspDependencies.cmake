@@ -76,7 +76,7 @@ if(OSP_BUILD_TESTS OR OSP_BUILD_TOOLS)
         GIT_SHALLOW    OFF
         SOURCE_SUBDIR  osp-no-build)
     FetchContent_MakeAvailable(dr_libs)
-    add_library(osp_dr_wav STATIC "${CMAKE_SOURCE_DIR}/tools/render/dr_wav_impl.c")
+    add_library(osp_dr_wav STATIC "${PROJECT_SOURCE_DIR}/tools/render/dr_wav_impl.c")
     target_include_directories(osp_dr_wav SYSTEM PUBLIC "${dr_libs_SOURCE_DIR}")
     target_compile_definitions(osp_dr_wav PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif()
