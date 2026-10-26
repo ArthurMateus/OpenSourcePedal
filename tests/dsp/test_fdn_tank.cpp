@@ -1,10 +1,11 @@
-// Tests for the FDN reverb tank (issue #72, part 1): RT60 vs the decay parameter, stereo decorrelation, tail spectral
-// flatness (no metallic ringing), freeze, block-size invariance, reset, and the RT fuzz.
+// Tests for the FDN reverb tank (issue #72, part 1): RT60 (T_mid) vs the decay parameter, stereo decorrelation, tail
+// spectral flatness and echo density (no metallic ringing, fast diffusion), freeze, block-size invariance, reset, and
+// the RT fuzz with out-of-range and NaN/Inf parameters.
 
 #include "osp/dsp/reverb/FdnTank.h"
-#include "osp/dsp/util/Svf.h"
 
 #include "measure.hpp"
+#include "reverb_metrics.hpp"
 #include "rt_checker.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -12,7 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <numbers>
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -61,84 +62,6 @@ Stereo impulseResponse(FdnTank& t, double fs, double seconds)
     return render(t, x, x, 64);
 }
 
-// T30 of the 500 Hz…1 kHz band (ISO 3382-1 T_mid), from the Schroeder energy decay curve of L + R:
-// RT60 = 2·(t(−35 dB) − t(−5 dB)). The band edges are 4th-order Butterworth (two 2nd-order sections each).
-double rt60(const Stereo& y, double fs)
-{
-    using osp::dsp::SvfType;
-    const auto hp = osp::dsp::svfDesign(SvfType::highPass, fs, 500.0, 0.70710678, 0.0);
-    const auto lp = osp::dsp::svfDesign(SvfType::lowPass, fs, 1000.0, 0.70710678, 0.0);
-    auto band = [&](const std::vector<float>& x) {
-        osp::dsp::SvfState s[4];
-        std::vector<double> e(x.size());
-        for (std::size_t n = 0; n < x.size(); ++n) {
-            const float v = s[3].tick(lp, s[2].tick(lp, s[1].tick(hp, s[0].tick(hp, x[n]))));
-            e[n] = double(v) * v;
-        }
-        return e;
-    };
-    const auto el = band(y.l), er = band(y.r);
-    std::vector<double> edc(y.l.size() + 1, 0.0);
-    for (std::size_t n = y.l.size(); n-- > 0;)
-        edc[n] = edc[n + 1] + el[n] + er[n];
-    auto crossing = [&](double db) {
-        const double level = edc[0] * std::pow(10.0, db / 10.0);
-        std::size_t n = 0;
-        while (n < edc.size() && edc[n] > level)
-            ++n;
-        return static_cast<double>(n) / fs;
-    };
-    return 2.0 * (crossing(-35.0) - crossing(-5.0));
-}
-
-// Spectral flatness (geometric / arithmetic mean) over [loHz, hiHz] of a Hann-windowed Welch average. `global` uses
-// the power spectrum itself, so it also reflects broad coloration. `local` divides by the 1/3-octave smoothed
-// envelope first, so it sees only the fine structure: sparse resolved modes (metallic ringing) pull it down.
-struct Flatness {
-    double global, local;
-};
-Flatness
-flatness(const std::vector<float>& x, std::size_t from, std::size_t length, double fs, double loHz, double hiHz)
-{
-    constexpr std::size_t kFrame = 4096;
-    std::vector<double> power(kFrame / 2 + 1, 0.0), frame(kFrame);
-    for (std::size_t start = from; start + kFrame <= from + length; start += kFrame / 2) {
-        for (std::size_t i = 0; i < kFrame; ++i)
-            frame[i] = x[start + i] * (0.5 - 0.5 * std::cos(2.0 * std::numbers::pi * double(i) / kFrame));
-        const auto spec = osp::measure::realFft(frame);
-        for (std::size_t k = 0; k < power.size(); ++k)
-            power[k] += std::norm(spec[k]);
-    }
-    double logSum = 0.0, sum = 0.0, localLogSum = 0.0, localSum = 0.0;
-    int count = 0;
-    for (auto k = static_cast<std::size_t>(loHz * kFrame / fs); k <= static_cast<std::size_t>(hiHz * kFrame / fs);
-         ++k) {
-        const auto a = static_cast<std::size_t>(double(k) * 0.8909),
-                   b = static_cast<std::size_t>(double(k) * 1.1225) + 1;
-        double envelope = 0.0;
-        for (std::size_t j = a; j <= b; ++j)
-            envelope += power[j];
-        envelope /= static_cast<double>(b - a + 1);
-        logSum += std::log(power[k]);
-        sum += power[k];
-        localLogSum += std::log(power[k] / envelope);
-        localSum += power[k] / envelope;
-        ++count;
-    }
-    return {std::exp(logSum / count) / (sum / count), std::exp(localLogSum / count) / (localSum / count)};
-}
-
-double correlation(const std::vector<float>& a, const std::vector<float>& b, std::size_t from)
-{
-    double ab = 0.0, aa = 0.0, bb = 0.0;
-    for (std::size_t i = from; i < a.size(); ++i) {
-        ab += double(a[i]) * b[i];
-        aa += double(a[i]) * a[i];
-        bb += double(b[i]) * b[i];
-    }
-    return ab / std::sqrt(aa * bb);
-}
-
 double rms(const std::vector<float>& x, std::size_t from, std::size_t length)
 {
     double s = 0.0;
@@ -149,17 +72,19 @@ double rms(const std::vector<float>& x, std::size_t from, std::size_t length)
 
 } // namespace
 
-TEST_CASE("FdnTank: measured RT60 within 10 % of the decay parameter", "[dsp][reverb]")
+TEST_CASE("FdnTank: measured T_mid RT60 within 10 % of the decay parameter", "[dsp][reverb]")
 {
     const double fs = GENERATE(44100.0, 48000.0, 88200.0, 96000.0);
     const bool hall = GENERATE(false, true);
     const float decay = GENERATE(0.3f, 1.0f, 2.5f, 8.0f);
     CAPTURE(fs, hall, decay);
     FdnTank t = makeTank(fs, hall ? kHall : kRoom, decay);
-    const double measured = rt60(impulseResponse(t, fs, 1.3 * decay + 0.3), fs);
+    const auto y = impulseResponse(t, fs, 1.3 * decay + 0.3);
+    const double measured = osp::test::tMid(y.l, y.r, fs);
     CAPTURE(measured);
-    WARN("RT60 (T30, 500 Hz-1 kHz) fs=" << fs << (hall ? " hall" : " room") << " decay " << decay << " s: measured "
-                                        << measured << " s (" << 100.0 * (measured / decay - 1.0) << " %)");
+    WARN("RT60 (T_mid: mean of the 500 Hz and 1 kHz octave T30s) fs=" << fs << (hall ? " hall" : " room") << " decay "
+                                                                      << decay << " s: measured " << measured << " s ("
+                                                                      << 100.0 * (measured / decay - 1.0) << " %)");
     REQUIRE(std::abs(measured / decay - 1.0) <= 0.10);
 }
 
@@ -170,7 +95,7 @@ TEST_CASE("FdnTank: stereo outputs are decorrelated on a mono input", "[dsp][rev
     CAPTURE(hall);
     FdnTank t = makeTank(fs, hall ? kHall : kRoom, 2.5f);
     const auto y = impulseResponse(t, fs, 2.0);
-    const double rho = correlation(y.l, y.r, static_cast<std::size_t>(0.05 * fs)); // tail after 50 ms
+    const double rho = osp::test::correlation(y.l, y.r, static_cast<std::size_t>(0.05 * fs)); // tail after 50 ms
     CAPTURE(rho);
     WARN((hall ? "hall" : "room") << " L/R correlation of the tail (mono impulse in): " << rho);
     REQUIRE(std::abs(rho) <= 0.2);
@@ -185,10 +110,11 @@ TEST_CASE("FdnTank: no metallic ringing (local spectral flatness of the tail); t
     auto tail = [&](const FdnTank::Config& c) {
         FdnTank t = makeTank(fs, c, decay);
         const auto y = impulseResponse(t, fs, 1.3);
-        return flatness(y.l, from, length, fs, 200.0, 5000.0);
+        return osp::test::flatness(y.l, from, length, fs, 200.0, 5000.0);
     };
     const auto room = tail(kRoom), hall = tail(kHall);
-    // Control: no diffuser, 3-4 ms lines, no modulation. A comb-like tank whose tail is a sparse set of lines.
+    // Control: no diffuser, 3-4 ms lines, no modulation, a comb-like tank whose tail is a sparse set of lines. It
+    // proves only that a gross comb is detected; slower diffusion is the echo-density test's job (the next test case).
     const auto metallic = tail({0, 0.0, 3.0, 4.0, 0.0, 0.4});
     WARN("tail flatness, decay " << decay << " s (Welch, 200 Hz-5 kHz, local / global): room " << room.local << " / "
                                  << room.global << ", hall " << hall.local << " / " << hall.global
@@ -196,6 +122,34 @@ TEST_CASE("FdnTank: no metallic ringing (local spectral flatness of the tail); t
     REQUIRE(room.local >= 0.75);
     REQUIRE(hall.local >= 0.75);
     REQUIRE(metallic.local < 0.3);
+}
+
+TEST_CASE("FdnTank: the tail becomes diffuse fast (echo density); plausible weaker voicings are rejected",
+          "[dsp][reverb]")
+{
+    const double fs = GENERATE(44100.0, 48000.0);
+    CAPTURE(fs);
+    auto density = [&](const FdnTank::Config& c, float mod) {
+        FdnTank t = makeTank(fs, c, 2.5f, mod);
+        const auto y = impulseResponse(t, fs, 0.6);
+        return osp::test::echoDensity(y.l, fs, 0.1, 0.3);
+    };
+    const auto room = density(kRoom, 0.2f), hall = density(kHall, 0.2f);
+    // Negatives: the 2-stage 15-45 ms room draft (PR #103 review) and the hall without its diffuser.
+    const auto draft = density({2, 30.0, 15.0, 45.0, 6.0, 0.6}, 0.2f);
+    const auto noDiffuser = density({0, 80.0, 35.0, 110.0, 12.0, 0.4}, 0.2f);
+    WARN("echo density (Abel & Huang 2006), mixing time to 0.9 / mean over 100-300 ms: room "
+         << room.mixingMs << " ms / " << room.meanLate << ", hall " << hall.mixingMs << " ms / " << hall.meanLate
+         << ", room draft " << draft.mixingMs << " ms / " << draft.meanLate << ", hall without diffuser "
+         << noDiffuser.mixingMs << " ms / " << noDiffuser.meanLate);
+    REQUIRE(room.mixingMs > 0.0);
+    REQUIRE(room.mixingMs <= 50.0);
+    REQUIRE(hall.mixingMs > 0.0);
+    REQUIRE(hall.mixingMs <= 80.0);
+    REQUIRE(room.meanLate >= 0.9);
+    REQUIRE(hall.meanLate >= 0.9);
+    REQUIRE((draft.mixingMs < 0.0 || draft.mixingMs > 50.0)); // fails the room gate
+    REQUIRE(noDiffuser.meanLate < 0.9); // fails the late-density gate
 }
 
 TEST_CASE("FdnTank: freeze holds the tail losslessly and mutes the input", "[dsp][reverb]")
@@ -231,6 +185,37 @@ TEST_CASE("FdnTank: freeze holds the tail losslessly and mutes the input", "[dsp
     REQUIRE(std::abs(osp::measure::toDb(c / a)) <= 0.5); // and the input at 3.0-3.5 s added nothing
 }
 
+TEST_CASE("FdnTank: a 60 s freeze does not drift", "[dsp][reverb]")
+{
+    const double fs = 48000.0;
+    FdnTank t = makeTank(fs, kHall, 2.5f);
+    std::vector<float> in(64), l(64), r(64);
+    std::mt19937 rng(60u);
+    std::uniform_real_distribution<float> u(-0.5f, 0.5f);
+    double first = 0.0, last = 0.0;
+    const int blocks = static_cast<int>(61.0 * fs) / 64, window = static_cast<int>(0.5 * fs) / 64;
+    const auto rt = osp::rt::test::runAsAudioThread([&] {
+        for (int b = 0; b < blocks; ++b) {
+            for (auto& v : in)
+                v = b < window ? u(rng) : 0.0f; // 0.5 s of noise, frozen from 0.6 s on
+            if (b == window + window / 5)
+                t.setFreeze(true);
+            t.process(in.data(), in.data(), l.data(), r.data(), 64);
+            double e = 0.0;
+            for (float v : l)
+                e += double(v) * v;
+            if (b >= 2 * window && b < 3 * window) // 1.0-1.5 s
+                first += e;
+            if (b >= blocks - window) // the last 0.5 s, about 60.5 s
+                last += e;
+        }
+    });
+    OSP_REQUIRE_RT_CLEAN(rt);
+    const double drift = osp::measure::powerToDb(last / first);
+    WARN("freeze drift over 59 s: " << drift << " dB");
+    REQUIRE(std::abs(drift) <= 0.5);
+}
+
 TEST_CASE("FdnTank: rate x block-size invariance, reset() bit-identical, pre-prepare", "[dsp][reverb]")
 {
     const double fs = GENERATE(44100.0, 48000.0, 88200.0, 96000.0);
@@ -258,19 +243,26 @@ TEST_CASE("FdnTank: rate x block-size invariance, reset() bit-identical, pre-pre
     REQUIRE(std::all_of(zr.begin(), zr.end(), [](float v) { return v == 0.0f; }));
 }
 
-TEST_CASE("FdnTank: RT checker, 1000 random parameter vectors, full-scale noise, then 10 s of silence",
+TEST_CASE("FdnTank: RT checker, 1000 random parameter vectors (out of range, NaN, Inf), then 10 s of silence",
           "[dsp][reverb][rt]")
 {
     const double fs = 48000.0;
     FdnTank t = makeTank(fs, kHall, 2.5f);
     std::mt19937 rng(1000u);
     std::uniform_real_distribution<float> u(0.0f, 1.0f);
+    auto wild = [&](float v) {
+        const float pick = u(rng);
+        return pick < 0.03f   ? std::numeric_limits<float>::quiet_NaN()
+               : pick < 0.05f ? std::numeric_limits<float>::infinity()
+               : pick < 0.07f ? -std::numeric_limits<float>::infinity()
+                              : v;
+    };
     std::vector<float> l(512), r(512), ol(512), orr(512), all;
-    all.reserve(1000 * 512 + static_cast<std::size_t>(10.0 * fs));
+    all.reserve(2 * 1000 * 512 + static_cast<std::size_t>(10.0 * fs));
     const auto rt = osp::rt::test::runAsAudioThread([&] {
         for (int v = 0; v < 1000; ++v) {
-            t.setDecaySeconds(-5.0f + 40.0f * u(rng)); // out of range on both sides
-            t.setModulation(-0.2f + 1.4f * u(rng));
+            t.setDecaySeconds(wild(-5.0f + 40.0f * u(rng))); // out of range on both sides, NaN, +-Inf
+            t.setModulation(wild(-10.0f + 20.0f * u(rng)));
             t.setFreeze(u(rng) < 0.1f);
             for (std::size_t i = 0; i < l.size(); ++i) {
                 l[i] = 2.0f * u(rng) - 1.0f;
@@ -279,6 +271,7 @@ TEST_CASE("FdnTank: RT checker, 1000 random parameter vectors, full-scale noise,
             const int n = 1 + static_cast<int>(u(rng) * 511.0f);
             t.process(l.data(), r.data(), ol.data(), orr.data(), n);
             all.insert(all.end(), ol.begin(), ol.begin() + n);
+            all.insert(all.end(), orr.begin(), orr.begin() + n);
         }
         t.setFreeze(false);
         t.setDecaySeconds(0.3f);
