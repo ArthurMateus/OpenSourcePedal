@@ -180,8 +180,8 @@ void Reverb::processChunk(const float* inL, const float* inR, float* outL, float
         engines_[static_cast<std::size_t>(previous_)].process(tL, tR, pL, pR, n);
         for (int i = 0; i < n; ++i) {
             const float g = modeFade_.next();
-            wL[i] = pL[i] + g * (wL[i] - pL[i]);
-            wR[i] = pR[i] + g * (wR[i] - pR[i]);
+            wL[i] = (1.0f - g) * pL[i] + g * wL[i]; // exactly the new engine at g = 1
+            wR[i] = (1.0f - g) * pR[i] + g * wR[i];
         }
     }
 

@@ -163,6 +163,50 @@ TEST_CASE("Reverb: pre-delay shifts the wet signal by exactly the set time", "[d
     REQUIRE(energy(y50.l, 0, shift) == 0.0); // nothing before the pre-delay
 }
 
+TEST_CASE("Reverb: mix steps leave <= -60 dBc residual against the linear-ramp law (REQ-TEST-003)",
+          "[dsp][reverb][zipper]")
+{
+    const double fs = GENERATE(44100.0, 48000.0, 96000.0);
+    const int block = GENERATE(37, 64, 512);
+    const bool up = GENERATE(true, false);
+    CAPTURE(fs, block, up);
+    const auto tone = osp::measure::coherentTone(1000.0, fs);
+    const int n = static_cast<int>(0.4 * fs);
+    const auto in = osp::measure::makeTone(tone, fs, -12.0, static_cast<std::size_t>(n));
+    const int step = n / 2 + 7;                           // a non-block-aligned step ...
+    const int at = (step + block - 1) / block * block;    // ... delivered at the next block boundary
+    const float m0 = up ? 0.0f : 100.0f, m1 = up ? 100.0f : 0.0f;
+    Reverb::Params p;
+    p.modPct = 0.0f; // with the LFO off the wet path is LTI and independent of the mix, so the reference is exact
+    // The wet signal alone: the same input at mix 100 (dry weight 0).
+    p.mixPct = 100.0f;
+    Reverb wetOnly = makeReverb(fs, p);
+    const auto wet = render(wetOnly, in, in, block);
+    p.mixPct = m0;
+    Reverb r = makeReverb(fs, p);
+    const auto out = render(r, in, in, block, [&](Reverb& rv, int pos) {
+        if (pos == at) {
+            Reverb::Params q = p;
+            q.mixPct = m1;
+            rv.setParameters(q);
+        }
+    });
+    // Reference: out = dry·(1 − m) + wet·m, m a 20 ms linear ramp from the delivery sample (parameters.md §1.4).
+    const int len = static_cast<int>(std::lround(0.020 * fs));
+    std::vector<double> ref(static_cast<std::size_t>(n));
+    for (int i = 0; i < n; ++i) {
+        const double a = m0 / 100.0, b = m1 / 100.0;
+        const double m = i < at ? a : a + (b - a) * std::min(1.0, static_cast<double>(i - at + 1) / len);
+        const auto k = static_cast<std::size_t>(i);
+        ref[k] = double(in[k]) * (1.0 - m) + double(wet.l[k]) * m;
+    }
+    const double residual = osp::measure::residualDbc(out.l, ref);
+    CAPTURE(residual);
+    if (block == 64 && fs == 48000.0)
+        WARN("REQ-TEST-003 reverb mix residual (" << (up ? "0 -> 100" : "100 -> 0") << " %): " << residual << " dBc");
+    REQUIRE(residual <= -60.0);
+}
+
 TEST_CASE("Reverb: low and high cut shape the wet signal", "[dsp][reverb]")
 {
     const double fs = 48000.0;

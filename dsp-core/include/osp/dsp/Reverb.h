@@ -10,6 +10,11 @@
 // mix (20 ms ramp) and e = the enable ramp (10 ms). Disabled = soft bypass with trails (the tank input is muted, the
 // tail rings out, signal-flow.md §5); setHardBypass is the exact-copy bypass used by null tests (ADR-0007
 // REQ-TEST-004). TPT one-pole: V. Zavalishin, "The Art of VA Filter Design", rev. 2.1.2, 2018, §3.
+//
+// Mode fade: the incoming engine starts cold (reset), so the wet level dips while its tail builds up and the outgoing
+// tail fades out over the same 50 ms. Accepted: a warm start would need every engine running all the time.
+// Denormals: the cut filters' and tanks' decaying states rely on FTZ/DAZ at callback entry (realtime-rules RT-8),
+// with no per-state snap.
 
 #include "osp/dsp/reverb/FdnTank.h"
 #include "osp/dsp/util/Crossfader.h"
