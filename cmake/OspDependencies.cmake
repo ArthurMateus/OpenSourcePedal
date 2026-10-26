@@ -3,6 +3,14 @@
 include_guard(GLOBAL)
 include(FetchContent)
 
+# nlohmann/json v3.12.0 (MIT): preset and state JSON in engine/ (PRIVATE, never in a public header). ADR-0006 D2.
+FetchContent_Declare(nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        55f93686c01528224f448c19128836e7df245f72 # v3.12.0
+    GIT_SHALLOW    OFF
+    SYSTEM)
+FetchContent_MakeAvailable(nlohmann_json)
+
 if(OSP_BUILD_APP)
     # JUCE 9.0.4 (AGPLv3 option of the dual licence). Bundles the VST3 SDK (MIT) and ASIO headers (GPL-3.0). ADR-0006 D2.
     FetchContent_Declare(JUCE
