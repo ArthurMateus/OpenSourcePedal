@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numbers>
 #include <random>
 #include <vector>
@@ -127,7 +128,8 @@ TEST_CASE("Gate: hysteresis and hold state machine", "[dsp][gate]")
     // RMS of a sine is −3 dB from its peak. Levels below are RMS values.
     auto level = [&](float rmsDb, double s) { return tone(fs, 1000.0, rmsDb + 3.0103f, s); };
     std::vector<float> key;
-    for (auto [l, s] : {std::pair{-48.0f, 0.2}, std::pair{-53.0f, 0.3}, std::pair{-60.0f, 0.3}, std::pair{-53.0f, 0.3}}) {
+    for (auto [l, s] :
+         {std::pair{-48.0f, 0.2}, std::pair{-53.0f, 0.3}, std::pair{-60.0f, 0.3}, std::pair{-53.0f, 0.3}}) {
         const auto seg = level(l, s);
         key.insert(key.end(), seg.begin(), seg.end());
     }
@@ -137,10 +139,10 @@ TEST_CASE("Gate: hysteresis and hold state machine", "[dsp][gate]")
     REQUIRE(t.closings == 1);
     REQUIRE_FALSE(g.isOpen());
 
-    // Hold: after the level falls below the close threshold, the gain stays at 1 for the hold time.
+    // Hold: after the level falls below the close threshold, the gain stays at 1 for the 25 ms debounce plus the hold.
     const auto dropAt = static_cast<std::size_t>(0.5 * fs); // start of the −60 dB segment
-    const auto holdEnd = dropAt + static_cast<std::size_t>(0.020 * fs);
-    REQUIRE(t.gain[dropAt + static_cast<std::size_t>(0.012 * fs)] == 1.0f); // inside hold (RMS detector lag < 8 ms)
+    const auto holdEnd = dropAt + static_cast<std::size_t>((0.025 + 0.020) * fs);
+    REQUIRE(t.gain[dropAt + static_cast<std::size_t>(0.037 * fs)] == 1.0f); // inside hold (RMS detector lag < 8 ms)
     REQUIRE(t.gain[holdEnd + static_cast<std::size_t>(0.030 * fs)] < 1.0f);
 }
 
@@ -179,7 +181,7 @@ TEST_CASE("Gate: measured attack and release time constants, range floor", "[dsp
     REQUIRE(std::abs(static_cast<double>(r - closeAt + 1) / fs - 0.050) <= 0.005);
     REQUIRE(t.gain.back() <= floor * 1.05f); // settles on the floor
     WARN("gate timing fs=" << fs << ": attack63 " << 1e3 * double(a) / fs << " ms (spec 2), release63 "
-                            << 1e3 * double(r - closeAt + 1) / fs << " ms (spec 50)");
+                           << 1e3 * double(r - closeAt + 1) / fs << " ms (spec 50)");
 }
 
 TEST_CASE("Gate: no chatter on a decaying tone", "[dsp][gate]")
@@ -196,15 +198,53 @@ TEST_CASE("Gate: no chatter on a decaying tone", "[dsp][gate]")
     std::normal_distribution<float> noise(0.0f, db(-90.0f));
     for (std::size_t i = 0; i < key.size(); ++i) {
         const double t = static_cast<double>(i) / fs;
-        key[i] = db(static_cast<float>(-12.0 - 30.0 * t)) * static_cast<float>(std::sin(2.0 * std::numbers::pi * 82.4 * t)) +
-                 noise(rng);
+        key[i] =
+            db(static_cast<float>(-12.0 - 30.0 * t)) * static_cast<float>(std::sin(2.0 * std::numbers::pi * 82.4 * t)) +
+            noise(rng);
     }
     const auto tr = trace(g, key);
     REQUIRE(tr.openings == 1);
     REQUIRE(tr.closings == 1);
 }
 
-TEST_CASE("Gate: disabled is an exact copy (hard bypass null); range 0 dB passes; reset is bit-identical", "[dsp][gate]")
+TEST_CASE("Gate: no chatter on a steady low note just above threshold (PR #88 review)", "[dsp][gate]")
+{
+    const double fs = 48000.0;
+    const auto detector = GENERATE(Gate::Detector::Peak, Gate::Detector::Rms);
+    const float hysteresisDb = GENERATE(0.0f, 2.0f);
+    const double f = GENERATE(61.7, 82.4, 110.0); // low B (7-string), low E, A
+    CAPTURE(detector == Gate::Detector::Rms, hysteresisDb, f);
+    Gate::Params p;
+    p.thresholdDb = -40.0f;
+    p.hysteresisDb = hysteresisDb;
+    p.holdMs = 0.0f;
+    p.releaseMs = 10.0f; // shortest release: deepest modulation if it chatters
+    p.detector = detector;
+    Gate g = makeGate(fs, p);
+
+    // Level 0.5 dB above threshold as the detector sees it (RMS of a sine is its peak − 3 dB).
+    const float peakDb = -40.0f + 0.5f + (detector == Gate::Detector::Rms ? 3.0103f : 0.0f);
+    const auto t = trace(g, tone(fs, f, peakDb, 2.0)); // 0.5 s warm-up + 1.5 s
+    REQUIRE(t.openings == 1);
+    REQUIRE(t.closings == 0);
+    const auto warm = t.gain.begin() + static_cast<long>(0.5 * fs);
+    REQUIRE(*std::min_element(warm, t.gain.end()) == 1.0f);
+}
+
+TEST_CASE("Gate: NaN parameters clamp to the range minimum", "[dsp][gate]")
+{
+    const double fs = 48000.0;
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    Gate::Params p;
+    p.thresholdDb = p.hysteresisDb = p.attackMs = p.holdMs = p.releaseMs = p.rangeDb = nan;
+    Gate g = makeGate(fs, p);
+    const auto in = tone(fs, 440.0, -12.0f, 0.5);
+    const auto out = render(g, in, 64); // OSP_REQUIRE_OUTPUT_CLEAN: no NaN/Inf
+    REQUIRE(g.isOpen()); // threshold → −90 dB, so a −12 dBFS tone opens it
+}
+
+TEST_CASE("Gate: disabled is an exact copy (hard bypass null); range 0 dB passes; reset is bit-identical",
+          "[dsp][gate]")
 {
     const double fs = 48000.0;
     const auto in = tone(fs, 440.0, -70.0f, 0.5); // below threshold: the gate would close
@@ -283,7 +323,8 @@ TEST_CASE("Gate: open gate is linear (ADR-0007 alias-to-fundamental <= -80 dB)",
     p.thresholdDb = -90.0f; // always open for a −12 dBFS tone
     Gate g = makeGate(fs, p);
     const auto tone = osp::measure::coherentTone(f0, fs);
-    const auto in = osp::measure::makeTone(tone, fs, -12.0, osp::measure::kWarmupSamples + osp::measure::kCoherentFftSize);
+    const auto in =
+        osp::measure::makeTone(tone, fs, -12.0, osp::measure::kWarmupSamples + osp::measure::kCoherentFftSize);
     const auto out = render(g, in, 64);
     const auto r = osp::measure::analyseCoherent(out, tone.bin);
     CAPTURE(r.aliasToFundamentalDb, r.thd, r.fundamentalDbfs);

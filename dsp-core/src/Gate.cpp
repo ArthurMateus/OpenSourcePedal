@@ -8,10 +8,20 @@ namespace {
 
 constexpr double kDetectorSeconds = 0.010;
 constexpr double kParamSmoothingSeconds = 0.020; // parameters.md §2.2: threshold and range, 20 ms
+// Fixed close debounce before the hold starts: one period of about 40 Hz, below the low B of a 7-string (61.7 Hz).
+// Without it, the peak envelope dips between the half-cycle peaks of a low note held just above threshold, and with
+// hold 0 and hysteresis <= 3 dB the gate closed and reopened every half-cycle (PR #88 review, 494 transitions/1.5 s).
+constexpr double kCloseDebounceSeconds = 0.025;
 
 float dbToLin(float db) noexcept
 {
     return std::pow(10.0f, db / 20.0f);
+}
+
+// NaN-safe clamp: a NaN host value maps to `lo` instead of propagating (std::clamp passes NaN through).
+float clampSafe(float v, float lo, float hi) noexcept
+{
+    return v > lo ? (v < hi ? v : hi) : lo;
 }
 
 float coeffFor(double seconds, double sampleRate) noexcept
@@ -41,18 +51,18 @@ void Gate::reset() noexcept
     envelope_ = 0.0f;
     target_ = rangeLin_.current();
     deviation_ = 0.0f;
-    holdLeft_ = 0;
+    closeDelayLeft_ = 0;
     open_ = false;
 }
 
 void Gate::setParameters(const Params& p) noexcept
 {
-    params_.thresholdDb = std::clamp(p.thresholdDb, -90.0f, -20.0f);
-    params_.hysteresisDb = std::clamp(p.hysteresisDb, 0.0f, 10.0f);
-    params_.attackMs = std::clamp(p.attackMs, 0.1f, 10.0f);
-    params_.holdMs = std::clamp(p.holdMs, 0.0f, 200.0f);
-    params_.releaseMs = std::clamp(p.releaseMs, 10.0f, 500.0f);
-    params_.rangeDb = std::clamp(p.rangeDb, -90.0f, 0.0f);
+    params_.thresholdDb = clampSafe(p.thresholdDb, -90.0f, -20.0f);
+    params_.hysteresisDb = clampSafe(p.hysteresisDb, 0.0f, 10.0f);
+    params_.attackMs = clampSafe(p.attackMs, 0.1f, 10.0f);
+    params_.holdMs = clampSafe(p.holdMs, 0.0f, 200.0f);
+    params_.releaseMs = clampSafe(p.releaseMs, 10.0f, 500.0f);
+    params_.rangeDb = clampSafe(p.rangeDb, -90.0f, 0.0f);
     params_.detector = p.detector;
 
     thresholdLin_.setTarget(dbToLin(params_.thresholdDb));
@@ -61,7 +71,8 @@ void Gate::setParameters(const Params& p) noexcept
     if (sampleRate_ > 0.0) {
         attackCoeff_ = coeffFor(params_.attackMs * 1e-3, sampleRate_);
         releaseCoeff_ = coeffFor(params_.releaseMs * 1e-3, sampleRate_);
-        holdSamples_ = static_cast<int>(std::lround(params_.holdMs * 1e-3 * sampleRate_));
+        closeDelaySamples_ =
+            static_cast<int>(std::lround((kCloseDebounceSeconds + params_.holdMs * 1e-3) * sampleRate_));
     }
 }
 
@@ -90,12 +101,12 @@ void Gate::computeGain(const float* key, float* gain, int numSamples) noexcept
         if (!open_) {
             if (level >= open) {
                 open_ = true;
-                holdLeft_ = holdSamples_;
+                closeDelayLeft_ = closeDelaySamples_;
             }
         } else if (level >= close) {
-            holdLeft_ = holdSamples_;
-        } else if (holdLeft_ > 0) {
-            --holdLeft_;
+            closeDelayLeft_ = closeDelaySamples_;
+        } else if (closeDelayLeft_ > 0) {
+            --closeDelayLeft_;
         } else {
             open_ = false;
         }

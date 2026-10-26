@@ -175,9 +175,8 @@ int main(int argc, char** argv)
     gate.prepare(kSampleRate, kBlock);
     gate.setEnabled(true);
     gate.reset();
-    results.push_back({"gate", measure(bench, "gate", input, [&](const float* in, float* out, int n) {
-                           gate.process(in, out, n);
-                       })});
+    results.push_back(
+        {"gate", measure(bench, "gate", input, [&](const float* in, float* out, int n) { gate.process(in, out, n); })});
 
     // Pass-through chain (the full engine chain as it stands), at 0 dB.
     osp::engine::Chain chain;
