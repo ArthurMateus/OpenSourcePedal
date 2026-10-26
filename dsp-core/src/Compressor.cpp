@@ -3,11 +3,9 @@
 #include <cmath>
 #include <initializer_list>
 
-namespace osp::dsp
-{
+namespace osp::dsp {
 
-namespace
-{
+namespace {
 
 // Maps NaN to lo, so a broken host value can never poison the detector.
 float clampf(float v, float lo, float hi) noexcept
@@ -33,8 +31,7 @@ float Compressor::staticGainReductionDb(float xDb, float thresholdDb, float rati
     const float slope = 1.0f - 1.0f / ratio;
     if (2.0f * d <= -kneeDb)
         return 0.0f;
-    if (2.0f * d < kneeDb)
-    {
+    if (2.0f * d < kneeDb) {
         const float t = d + 0.5f * kneeDb;
         return slope * t * t / (2.0f * kneeDb);
     }
@@ -105,8 +102,7 @@ void Compressor::setKneeDb(float dB) noexcept
 void Compressor::setAttackMs(float ms) noexcept
 {
     const float v = clampf(ms, 0.1f, 100.0f);
-    if (v != attackMs_)
-    {
+    if (v != attackMs_) {
         attackMs_ = v;
         updateCoefficients();
     }
@@ -115,8 +111,7 @@ void Compressor::setAttackMs(float ms) noexcept
 void Compressor::setReleaseMs(float ms) noexcept
 {
     const float v = clampf(ms, 20.0f, 1000.0f);
-    if (v != releaseMs_)
-    {
+    if (v != releaseMs_) {
         releaseMs_ = v;
         updateCoefficients();
     }
@@ -160,8 +155,7 @@ void Compressor::updateCoefficients() noexcept
 
 void Compressor::updateAutoMakeup() noexcept
 {
-    const float dB =
-        autoMakeup_ ? staticGainReductionDb(kAutoMakeupRefDb, thresholdTarget_, ratio_, kneeDb_) : 0.0f;
+    const float dB = autoMakeup_ ? staticGainReductionDb(kAutoMakeupRefDb, thresholdTarget_, ratio_, kneeDb_) : 0.0f;
     autoGain_.setTarget(dbToGain(dB));
 }
 
@@ -169,27 +163,23 @@ void Compressor::process(const float* in, float* out, int numSamples) noexcept
 {
     if (numSamples <= 0)
         return;
-    if (!isPrepared())
-    {
+    if (!isPrepared()) {
         for (int i = 0; i < numSamples; ++i)
             out[i] = 0.0f;
         return;
     }
-    if (bypassed_)
-    {
+    if (bypassed_) {
         for (int i = 0; i < numSamples; ++i)
             out[i] = in[i];
         return;
     }
 
     // Mode switches start at a block boundary, one at a time (xf 10: old and new run in parallel).
-    if (!modeFade_.isRamping())
-    {
+    if (!modeFade_.isRamping()) {
         if (modeFade_.current() > 0.0f)
             modeFrom_ = modeTo_;
         modeFade_.reset(0.0f);
-        if (pendingMode_ != modeTo_)
-        {
+        if (pendingMode_ != modeTo_) {
             modeTo_ = pendingMode_;
             modeFade_.setTarget(1.0f);
         }
@@ -197,18 +187,15 @@ void Compressor::process(const float* in, float* out, int numSamples) noexcept
 
     const float rootRatio = std::sqrt(ratio_);
     float gr[3] = {};
-    for (int i = 0; i < numSamples; ++i)
-    {
+    for (int i = 0; i < numSamples; ++i) {
         const float x = in[i];
         const float thr = threshold_.next();
-        const float xDb =
-            std::fmin(std::fmax(20.0f * std::log10(std::fmax(std::abs(x), 1.0e-6f)), -120.0f), 60.0f);
+        const float xDb = std::fmin(std::fmax(20.0f * std::log10(std::fmax(std::abs(x), 1.0e-6f)), -120.0f), 60.0f);
 
         // Every mode runs every sample, so a mode switch fades between two warm detectors.
         const float s = staticGainReductionDb(xDb, thr, ratio_, kneeDb_);
         gr[static_cast<int>(CompMode::vca)] = vca_.next(s);
-        gr[static_cast<int>(CompMode::opto)] =
-            std::fmax(optoFast_.next(s), optoSlow_.next(kOptoSlowDepth * s));
+        gr[static_cast<int>(CompMode::opto)] = std::fmax(optoFast_.next(s), optoSlow_.next(kOptoSlowDepth * s));
         const float g1 = dual1_.next(staticGainReductionDb(xDb, thr, rootRatio, kneeDb_));
         gr[static_cast<int>(CompMode::dual)] =
             g1 + dual2_.next(staticGainReductionDb(xDb - g1, thr, rootRatio, kneeDb_));

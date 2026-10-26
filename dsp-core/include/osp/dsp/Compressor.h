@@ -4,39 +4,30 @@
 //
 // Feed-forward compressor, `comp.*` in parameters.md §2.3. Latency 0 (signal-flow §4: no look-ahead in v1).
 //
-// Algorithm: log-domain gain computer with a quadratic soft knee and a smooth branching peak detector applied
-// to the gain reduction, as in D. Giannoulis, M. Massberg, J. D. Reiss, "Digital Dynamic Range Compressor
-// Design - A Tutorial and Analysis", J. Audio Eng. Soc. 60(6), 2012 (eqs. 4 and 17). Attack/release are the
-// 0→63 % time constants of that detector (parameters.md §1.4).
+// Algorithm: log-domain gain computer with a quadratic soft knee and a smooth branching peak detector applied to
+// the gain reduction, as in D. Giannoulis, M. Massberg, J. D. Reiss, "Digital Dynamic Range Compressor Design - A
+// Tutorial and Analysis", J. Audio Eng. Soc. 60(6), 2012 (eqs. 4 and 17). Attack/release are the 0→63 % time
+// constants of that detector (parameters.md §1.4).
 //
 // Modes (own design; the constants are not matched to any hardware, unverified):
 // - vca:  one detector.
-// - opto: program-dependent two-stage release. A fast detector (attack, release) runs in parallel with a slow
-// one
-//         that tracks kOptoSlowDepth of the gain reduction with kOptoSlowAttack x attack and kOptoSlowRelease
-//         x release. GR = max(fast, slow): short peaks release fast; sustained compression charges the slow
-//         stage, so the release drops quickly to the slow level and then tails off.
-// - dual: two stages in series, each with ratio sqrt(R) and the same threshold, so the hard-knee static curve
-//         is exactly R. The second stage sees the first stage's output and has 4x the attack.
+// - opto: program-dependent two-stage release. A fast detector (attack, release) runs in parallel with a slow one
+//         that tracks kOptoSlowDepth of the gain reduction with kOptoSlowAttack x attack and kOptoSlowRelease x
+//         release. GR = max(fast, slow): short peaks release fast; sustained compression charges the slow stage,
+//         so the release drops quickly to the slow level and then tails off.
+// - dual: two stages in series, each with ratio sqrt(R) and the same threshold, so the hard-knee static curve is
+//         exactly R. The second stage sees the first stage's output and has 4x the attack.
 //
-// Auto makeup = the static gain reduction at the DI nominal peak level kAutoMakeupRefDb (tone-targets-a
-// §3.4), so a DI at nominal level leaves at the same peak. It adds to the manual makeup. Makeup applies to
-// the wet path.
+// Auto makeup = the static gain reduction at the DI nominal peak level kAutoMakeupRefDb (tone-targets-a §3.4), so
+// a DI at nominal level leaves at the same peak. It adds to the manual makeup. Makeup applies to the wet path.
 
 #include "osp/dsp/util/Smoothers.h"
 
-namespace osp::dsp
-{
+namespace osp::dsp {
 
-enum class CompMode
-{
-    opto,
-    vca,
-    dual
-};
+enum class CompMode { opto, vca, dual };
 
-class Compressor
-{
+class Compressor {
 public:
     static constexpr float kAutoMakeupRefDb = -12.0f;
     static constexpr float kOptoSlowDepth = 0.5f;
@@ -77,8 +68,7 @@ public:
     static float staticGainReductionDb(float xDb, float thresholdDb, float ratio, float kneeDb) noexcept;
 
 private:
-    struct Detector
-    {
+    struct Detector {
         float attack = 0.0f, release = 0.0f, y = 0.0f;
         float next(float x) noexcept;
     };

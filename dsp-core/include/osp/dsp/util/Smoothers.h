@@ -17,6 +17,8 @@ namespace osp::dsp {
 // accumulated, so the ramp lands exactly on the target and never drifts.
 class LinearRamp {
 public:
+    explicit LinearRamp(float initial = 0.0f) noexcept : current_(initial), target_(initial) {}
+
     // Non-RT. Ramp length = round(fs · seconds), at least 1 sample.
     void prepare(double sampleRate, double seconds) noexcept
     {
@@ -64,8 +66,8 @@ public:
 private:
     int length_ = 0;
     int remaining_ = 0;
-    float current_ = 0.0f;
-    float target_ = 0.0f;
+    float current_;
+    float target_;
     float step_ = 0.0f;
 };
 
