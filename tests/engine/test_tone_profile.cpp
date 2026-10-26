@@ -2,6 +2,7 @@
 // feature ignores linear filtering and rises with clipping.
 
 #include "osp/dsp/Eq.h"
+#include "osp/dsp/conv/IrLoader.h"
 #include "osp/engine/ToneProfile.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -9,6 +10,7 @@
 
 #include <dr_wav.h>
 
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 #include <string>
@@ -70,6 +72,23 @@ TEST_CASE("tonematch: pickSource takes the side channel of a wide mix and the mi
         CHECK_THAT(side[i], WithinAbs(0.5f * wide[i], 1e-6)); // the centred part cancels
     tmatch::pickSource(r.data(), r.data(), r.size(), 48000.0, tmatch::Source::automatic, &used);
     CHECK(used == tmatch::Source::mid);
+
+    // A loud centred bass under 200 Hz and a moderate wide guitar: full-band, the side holds well under kSideShare of
+    // the mid (the bass dominates), so only the guitar-band comparison picks the side (#118 review).
+    const auto bass = sine(60.0, 48000.0, 0.5, 0.8);
+    const auto gtr = sine(800.0, 48000.0, 0.5, 0.15);
+    for (std::size_t i = 0; i < l.size(); ++i) {
+        l[i] = bass[i] + gtr[i];
+        r[i] = bass[i];
+    }
+    double mid = 0.0, sideE = 0.0;
+    for (std::size_t i = 0; i < l.size(); ++i) {
+        mid += 0.25 * (l[i] + r[i]) * (l[i] + r[i]);
+        sideE += 0.25 * (l[i] - r[i]) * (l[i] - r[i]);
+    }
+    REQUIRE(sideE < 0.1 * tmatch::kSideShare * mid); // the case a full-band ratio gets wrong
+    tmatch::pickSource(l.data(), r.data(), l.size(), 48000.0, tmatch::Source::automatic, &used);
+    CHECK(used == tmatch::Source::side);
 }
 
 TEST_CASE("tonematch: the flatness feature ignores EQ and rises with clipping", "[tonematch]")
@@ -105,4 +124,31 @@ TEST_CASE("tonematch: the flatness feature ignores EQ and rises with clipping", 
         rise += d.flatnessDb[i] - clean.flatnessDb[i];
     WARN("mean flatness rise with a tanh clipper at +30 dB: " << rise / tmatch::kFlatnessBands << " dB");
     CHECK(rise / tmatch::kFlatnessBands > 1.0);
+}
+
+TEST_CASE("tonematch: the profile does not depend on the sample rate", "[tonematch]")
+{
+    unsigned rate = 0;
+    const auto di = readDi(rate);
+    // The frame length scales with the rate but stays a power of two, so 44.1 and 48 kHz share one size and differ by
+    // ~9 % in time/frequency resolution (measured 0.52 dB of flatness), while 48 and 96 kHz scale exactly. That is why
+    // the tool resamples the reference to the DI rate and match() refuses profiles from different rates.
+    const auto at = [&](double fs) {
+        return fs == rate ? tmatch::analyse(di, rate)
+                          : tmatch::analyse(
+                                osp::dsp::IrLoader::resample(di.data(), static_cast<int>(di.size()), rate, fs), fs);
+    };
+    const auto a = at(44100.0), b = at(48000.0), c = at(96000.0);
+    CHECK(c.sampleRate == 96000.0);
+    double worstAB = 0.0, worstBC = 0.0;
+    for (int i = 0; i < tmatch::kFlatnessBands; ++i) {
+        worstAB = std::max(worstAB, std::abs(a.flatnessDb[i] - b.flatnessDb[i]));
+        worstBC = std::max(worstBC, std::abs(b.flatnessDb[i] - c.flatnessDb[i]));
+    }
+    WARN("worst flatness difference 44.1 vs 48 kHz " << worstAB << " dB, 48 vs 96 kHz " << worstBC
+                                                     << " dB; spectral residual 44.1 vs 96 kHz "
+                                                     << tmatch::residualDb(a.levelDb, c.levelDb) << " dB");
+    CHECK(worstBC < 0.05);
+    CHECK(worstAB < 0.6);
+    CHECK(tmatch::residualDb(a.levelDb, c.levelDb) < 0.25);
 }

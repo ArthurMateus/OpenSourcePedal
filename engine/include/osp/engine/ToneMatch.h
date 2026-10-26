@@ -48,6 +48,7 @@ constexpr float kDiPeakDb = -12.0f;
 struct CabIr {
     std::string name;       // shown in the report and used for factory:ir/<name>
     std::string uri;        // preset resource uri
+    std::string sha256;     // lower-case hex of the WAV file, required unless uri is factory:
     std::vector<float> ir;  // conditioned to the DI's rate (IrLoader::condition)
 };
 
@@ -67,7 +68,7 @@ struct MatchOptions {
 struct Candidate {
     Setting setting;
     double flatnessDistance = 0.0; // RMS dB over the flatness bands
-    double residualDb = 0.0;       // weighted RMS dB, predicted (additive model)
+    double residualDb = 0.0;       // robust (Huber) residual in dB, predicted (additive model)
     double score = 0.0;
 };
 
@@ -76,20 +77,28 @@ struct MatchResult {
     Profile reference;
     Profile matched;              // profile of the final end-to-end render
     double residualDb = 0.0;      // weighted RMS spectral difference, measured on the final render
+    double robustResidualDb = 0.0; // the same with Huber weights: leakage bands count less (used for the choice)
     double flatnessDistance = 0.0;
     double unmatchedResidualDb = 0.0; // the DI through the default chain (clean, cab 0, flat EQ), for comparison
-    std::vector<Candidate> ranking; // best few, best first
+    std::vector<Candidate> ranking; // the chosen setting's candidate first, then the next best by predicted score
 };
 
-// `di` is the player's dry guitar, `reference` the profiled target. Throws std::invalid_argument on empty input or
-// an empty cab list.
+// `di` is the player's dry guitar at `sampleRate`, `reference` the profiled target, analysed at that same rate.
+// Throws std::invalid_argument on empty or silent input, an empty cab list, or a reference at another rate.
 MatchResult match(const Profile& reference,
                   const std::vector<float>& di,
                   double sampleRate,
                   const std::vector<CabIr>& cabs,
                   const MatchOptions& options = {});
 
-// Preset JSON (preset.v1.schema.json) for a result. `uuid` is the preset id (lower-case RFC 4122 text).
+// Preset names are at most this many characters (preset.v1.schema.json).
+constexpr std::size_t kMaxNameChars = 64;
+// `in` as valid UTF-8 (invalid bytes become '?', control characters a space), cut to maxChars code points.
+std::string sanitiseUtf8(const std::string& in, std::size_t maxChars);
+
+// Preset JSON (preset.v1.schema.json) for a result. `uuid` is the preset id (lower-case RFC 4122 text). The name is
+// sanitised and cut to kMaxNameChars. Throws std::invalid_argument when the chosen cab is not a factory: IR and has
+// no sha256.
 std::string
 toPresetJson(const MatchResult& r, const std::vector<CabIr>& cabs, const std::string& name, const std::string& uuid);
 

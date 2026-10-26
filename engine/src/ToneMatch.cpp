@@ -2,6 +2,8 @@
 
 #include "osp/engine/ToneMatch.h"
 
+#include "osp/engine/Version.h"
+
 #include "osp/dsp/Cab.h"
 #include "osp/dsp/DriveRegion.h"
 #include "osp/dsp/Eq.h"
@@ -101,8 +103,13 @@ EqModel buildEqModel(double fs)
     return m;
 }
 
+struct GainFit {
+    std::array<float, 9> gains{};
+    double offset = 0.0; // the fitted level offset
+};
+
 // Weighted ridge least squares for the 9 band gains plus a free level offset: t ≈ Σ g_j B_j + offset.
-std::array<float, 9> fitGains(const EqModel& m, const Bands& t, const Bands& weights)
+GainFit fitGains(const EqModel& m, const Bands& t, const Bands& weights)
 {
     constexpr std::size_t n = 10;
     std::vector<double> A(n * n, 0.0), b(n, 0.0);
@@ -126,10 +133,11 @@ std::array<float, 9> fitGains(const EqModel& m, const Bands& t, const Bands& wei
     for (std::size_t j = 0; j < 9; ++j)
         A[j * n + j] += kRidge * wSum;
     const auto x = solve(A, b);
-    std::array<float, 9> g{};
+    GainFit f;
     for (std::size_t j = 0; j < 9; ++j)
-        g[j] = static_cast<float>(std::clamp(x[j], -12.0, 12.0));
-    return g;
+        f.gains[j] = static_cast<float>(std::clamp(x[j], -12.0, 12.0));
+    f.offset = x[9];
+    return f;
 }
 
 Bands predictEq(const EqModel& m, const std::array<float, 9>& g, std::size_t lc, std::size_t hc)
@@ -154,23 +162,52 @@ Bands defaultWeights()
 
 // Huber IRLS (P. J. Huber, "Robust Statistics", 1981): a band the EQ cannot reach (bass or vocal leakage in a full
 // mix) is down-weighted by kHuberDb / |residual| instead of dragging every other band to the +-12 dB limits.
-std::array<float, 9> fitGainsRobust(const EqModel& m, const Bands& t, std::size_t lc, std::size_t hc)
+// `t` excludes the cuts, so the residual is t - Σ g_j B_j - offset, around the fitted offset (#119 review).
+std::array<float, 9> fitGainsRobust(const EqModel& m, const Bands& t)
 {
     Bands w = defaultWeights();
     std::array<float, 9> g{};
     for (int it = 0; it < kHuberIterations; ++it) {
-        g = fitGains(m, t, w);
-        const Bands pred = predictEq(m, g, lc, hc);
-        Bands r{};
-        for (int k = 0; k < kBands; ++k)
-            r[k] = t[k] + m.lowCut[lc][k] + m.highCut[hc][k] - pred[k];
-        const double off = weightedMean(r);
+        const GainFit f = fitGains(m, t, w);
+        g = f.gains;
         for (int k = 0; k < kBands; ++k) {
-            const double a = std::abs(r[k] - off);
+            double pred = f.offset;
+            for (std::size_t j = 0; j < 9; ++j)
+                pred += g[j] * m.basis[j][k];
+            const double a = std::abs(t[k] - pred);
             w[k] = fitWeight(k) * (a > kHuberDb ? kHuberDb / a : 1.0);
         }
     }
     return g;
+}
+
+// Huber loss of the weighted band difference a - b around its robust location, as an RMS-equivalent dB figure
+// (equal to residualDb when every band is within kHuberDb). The cut choice and the candidate ranking use it, so
+// the leakage bands the robust fit ignores do not decide them either (#119 review).
+double robustResidualDb(const Bands& a, const Bands& b)
+{
+    Bands d{}, w = defaultWeights();
+    for (int k = 0; k < kBands; ++k)
+        d[k] = a[k] - b[k];
+    double loc = weightedMean(d);
+    for (int it = 0; it < kHuberIterations; ++it) {
+        double s = 0.0, ws = 0.0;
+        for (int k = 0; k < kBands; ++k) {
+            const double e = std::abs(d[k] - loc);
+            const double wk = fitWeight(k) * (e > kHuberDb ? kHuberDb / e : 1.0);
+            w[k] = wk;
+            s += wk * d[k];
+            ws += wk;
+        }
+        loc = ws > 0.0 ? s / ws : loc;
+    }
+    double loss = 0.0, wsum = 0.0;
+    for (int k = 0; k < kBands; ++k) {
+        const double e = std::abs(d[k] - loc);
+        loss += fitWeight(k) * (e <= kHuberDb ? 0.5 * e * e : kHuberDb * (e - 0.5 * kHuberDb));
+        wsum += fitWeight(k);
+    }
+    return std::sqrt(2.0 * loss / wsum);
 }
 
 struct EqFit {
@@ -189,20 +226,12 @@ EqFit fitEq(const EqModel& m, const Bands& need)
             Bands t{};
             for (int k = 0; k < kBands; ++k)
                 t[k] = need[k] - m.lowCut[lc][k] - m.highCut[hc][k];
-            const auto g = fitGainsRobust(m, t, lc, hc);
-            const double r = residualDb(need, predictEq(m, g, lc, hc));
+            const auto g = fitGainsRobust(m, t);
+            const double r = robustResidualDb(need, predictEq(m, g, lc, hc));
             if (r < best.residualDb)
                 best = {g, lc, hc, r};
         }
     return best;
-}
-
-std::size_t indexOf(const auto& table, float v)
-{
-    for (std::size_t i = 0; i < table.size(); ++i)
-        if (table[i] == v)
-            return i;
-    return 0;
 }
 
 double peakDb(const std::vector<float>& x)
@@ -326,6 +355,8 @@ MatchResult match(
 {
     if (di.empty() || cabs.empty())
         throw std::invalid_argument("tonematch: empty DI or no cab IRs");
+    if (ref.sampleRate > 0.0 && ref.sampleRate != fs) // the profile is not rate-exact (ToneProfile.h)
+        throw std::invalid_argument("tonematch: reference profiled at a different rate than the DI; resample it");
     const double diPeak = peakDb(di);
     if (!std::isfinite(diPeak))
         throw std::invalid_argument("tonematch: DI is silent");
@@ -336,7 +367,8 @@ MatchResult match(
         cabBands.push_back(impulseBandsDb(c.ir, fs));
 
     Setting base;
-    base.inputGainDb = static_cast<float>(kDiPeakDb - diPeak);
+    // input.gainDb is -24...+24 dB (parameters.md §2.1): score the gain the preset will really apply (#119 review).
+    base.inputGainDb = static_cast<float>(std::clamp(kDiPeakDb - diPeak, -24.0, 24.0));
 
     // Drive candidates: each is rendered and profiled once; cab and EQ are scored on top of it.
     std::vector<Setting> drives{base};
@@ -366,7 +398,7 @@ MatchResult match(
             cand.setting.eqLowCutHz = kLowCutHz[fit.lowCut];
             cand.setting.eqHighCutHz = kHighCutHz[fit.highCut];
             cand.flatnessDistance = flat;
-            cand.residualDb = fit.residualDb;
+            cand.residualDb = fit.residualDb; // robust
             cand.score = o.flatnessWeight * flat * flat + o.spectrumWeight * fit.residualDb * fit.residualDb;
             all.push_back(cand);
         }
@@ -375,7 +407,9 @@ MatchResult match(
 
     MatchResult result;
     result.reference = ref;
+    result.setting = all.front().setting; // defined even if every refined score is NaN
     double bestScore = HUGE_VAL;
+    int winner = 0;
     for (int i = 0; i < std::min<int>(kRefineCandidates, static_cast<int>(all.size())); ++i) {
         Setting s = all[static_cast<std::size_t>(i)].setting;
         // Refine the gains against the real Eq's response: the additive model's bell shapes are approximate.
@@ -399,18 +433,20 @@ MatchResult match(
             Bands err{};
             for (int k = 0; k < kBands; ++k)
                 err[k] = need[k] - actual[k];
-            const auto delta = fitGainsRobust(eqModel, normalised(err), indexOf(kLowCutHz, s.eqLowCutHz),
-                                              indexOf(kHighCutHz, s.eqHighCutHz));
+            const auto delta = fitGainsRobust(eqModel, normalised(err));
             for (std::size_t j = 0; j < 9; ++j)
                 s.eqDb[j] = std::clamp(s.eqDb[j] + delta[j], -12.0f, 12.0f);
         }
         const auto out = renderStages(di, fs, s, cabs, kFull, 256);
         const Profile got = analyse(out, fs, o.analysis);
         const double res = residualDb(ref.levelDb, got.levelDb);
+        const double robust = robustResidualDb(ref.levelDb, got.levelDb);
         const double flat = flatnessDistance(ref, got);
-        const double score = o.flatnessWeight * flat * flat + o.spectrumWeight * res * res;
+        const double score = o.flatnessWeight * flat * flat + o.spectrumWeight * robust * robust;
         if (score < bestScore) {
             bestScore = score;
+            winner = i;
+            result.robustResidualDb = robust;
             s.outputDb = static_cast<float>(std::clamp(-18.0 - rmsDb(out), -60.0, 12.0));
             result.setting = s;
             result.matched = got;
@@ -418,12 +454,41 @@ MatchResult match(
             result.flatnessDistance = flat;
         }
     }
-    for (int i = 0; i < std::min<int>(kRankingSize, static_cast<int>(all.size())); ++i)
-        result.ranking.push_back(all[static_cast<std::size_t>(i)]);
+    // The refined winner first, then the next best by predicted score (#119 review: it could be 2nd or 3rd).
+    result.ranking.push_back(all[static_cast<std::size_t>(winner)]);
+    for (int i = 0; i < static_cast<int>(all.size()) && result.ranking.size() < static_cast<std::size_t>(kRankingSize);
+         ++i)
+        if (i != winner)
+            result.ranking.push_back(all[static_cast<std::size_t>(i)]);
 
     const Profile untouched = analyse(renderStages(di, fs, base, cabs, kFull, 256), fs, o.analysis);
     result.unmatchedResidualDb = residualDb(ref.levelDb, untouched.levelDb);
     return result;
+}
+
+std::string sanitiseUtf8(const std::string& in, std::size_t maxChars)
+{
+    std::string out;
+    std::size_t chars = 0, i = 0;
+    while (i < in.size() && chars < maxChars) {
+        const auto c = static_cast<unsigned char>(in[i]);
+        const std::size_t len = c < 0x80 ? 1 : (c >> 5) == 0x6 ? 2 : (c >> 4) == 0xE ? 3 : (c >> 3) == 0x1E ? 4 : 0;
+        bool ok = len > 0 && i + len <= in.size();
+        for (std::size_t k = 1; ok && k < len; ++k)
+            ok = (static_cast<unsigned char>(in[i + k]) & 0xC0) == 0x80;
+        if (!ok) {
+            out += '?';
+            ++i;
+        } else if (c < 0x20) {
+            out += ' '; // shortText forbids control characters
+            ++i;
+        } else {
+            out.append(in, i, len);
+            i += len;
+        }
+        ++chars;
+    }
+    return out;
 }
 
 std::string
@@ -437,11 +502,10 @@ toPresetJson(const MatchResult& r, const std::vector<CabIr>& cabs, const std::st
     };
     const auto esc = [](const std::string& v) {
         std::string o;
-        for (char c : v) {
+        for (char c : sanitiseUtf8(v, 1024)) {
             if (c == '"' || c == '\\')
                 o += '\\';
-            if (static_cast<unsigned char>(c) >= 0x20)
-                o += c;
+            o += c;
         }
         return o;
     };
@@ -452,24 +516,31 @@ toPresetJson(const MatchResult& r, const std::vector<CabIr>& cabs, const std::st
         eq += std::string("\"") + kEqKeys[j] + "\": " + num(s.eqDb[j]) + ", ";
     eq += "\"highCutHz\": " + num(s.eqHighCutHz) + ", \"lowCutHz\": " + num(s.eqLowCutHz) + ", \"mode\": \"graphic9\"";
     const auto& cab = cabs[static_cast<std::size_t>(std::clamp(s.cab, 0, static_cast<int>(cabs.size()) - 1))];
+    // preset.v1: a resource that is not factory: needs its sha256 (ADR-0003 §5).
+    const bool factory = cab.uri.rfind("factory:", 0) == 0;
+    if (!factory && cab.sha256.size() != 64)
+        throw std::invalid_argument("tonematch: a non-factory cab IR needs its sha256 for the preset");
+    const std::string hash = factory ? "" : ", \"sha256\": \"" + cab.sha256 + "\"";
     const bool driveOn = s.drive != DriveKind::clean;
 
-    std::string j =
-        "{\n  \"$schema\": \"../schema/preset.v1.schema.json\",\n  \"author\": \"osp-tonematch\",\n  \"blocks\": [\n";
+    std::string j = "{\n  \"author\": \"osp-tonematch\",\n  \"blocks\": [\n";
     j += "    { \"enabled\": true, \"id\": \"input\", \"params\": { \"gainDb\": " + num(s.inputGainDb) +
          " }, \"type\": \"input\" },\n";
     j += std::string("    { \"enabled\": ") + (driveOn ? "true" : "false") +
          ", \"id\": \"drive1\", \"params\": { \"drive\": " + num(s.driveKnob) + ", \"lowCutHz\": " + num(s.tightHz) +
          ", \"type\": \"" + (driveOn ? toString(s.drive) : "mid") + "\" }, \"type\": \"drive\" },\n";
     j += "    { \"channels\": [ { \"params\": { \"ir1.levelDb\": 0.00 }, \"resources\": { \"ir1\": { \"uri\": \"" +
-         esc(cab.uri) + "\" } } } ], \"enabled\": true, \"id\": \"cab\", \"perChannel\": true, \"type\": \"cab\" },\n";
+         esc(cab.uri) + "\"" + hash +
+         " } } } ], \"enabled\": true, \"id\": \"cab\", \"perChannel\": true, \"type\": \"cab\" },\n";
     j += "    { \"channels\": [ { \"params\": { " + eq +
          " } } ], \"enabled\": true, \"id\": \"eq\", \"perChannel\": true, \"type\": \"eq\" },\n";
     j += "    { \"enabled\": true, \"id\": \"output\", \"params\": { \"levelDb\": " + num(s.outputDb) +
          " }, \"type\": \"output\" }\n";
-    j += "  ],\n  \"category\": \"Tone match\",\n  \"createdWith\": \"0.1.0\",\n  \"format\": \"osp-preset\",\n";
+    j += "  ],\n  \"category\": \"Tone match\",\n  \"createdWith\": \"" + std::string(versionString()) +
+         "\",\n  \"format\": \"osp-preset\",\n";
     j += "  \"id\": \"" + esc(uuid) + "\",\n";
-    j += "  \"name\": \"" + esc(name) + "\",\n  \"schemaVersion\": 1,\n  \"tags\": [\"tone-match\"]\n}\n";
+    const std::string shortName = sanitiseUtf8(name.empty() ? std::string("Tone match") : name, kMaxNameChars);
+    j += "  \"name\": \"" + esc(shortName) + "\",\n  \"schemaVersion\": 1,\n  \"tags\": [\"tone-match\"]\n}\n";
     return j;
 }
 

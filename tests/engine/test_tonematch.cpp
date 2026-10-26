@@ -11,6 +11,7 @@
 #include <dr_wav.h>
 
 #include <cmath>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -38,7 +39,7 @@ std::vector<tmatch::CabIr> loadCabs(double fs, std::initializer_list<const char*
     for (const char* n : names) {
         unsigned rate = 0;
         const auto raw = readMono(std::string(OSP_ASSET_DIR) + "/cab/" + n + ".wav", rate);
-        cabs.push_back({n, std::string("factory:ir/") + n,
+        cabs.push_back({n, std::string("factory:ir/") + n, "",
                         osp::dsp::IrLoader::condition(raw.data(), static_cast<int>(raw.size()), rate, fs)});
     }
     return cabs;
@@ -82,6 +83,8 @@ TEST_CASE("tonematch: round trip recovers a hidden drive + cab + EQ setting", "[
             CHECK(r.residualDb < 0.5 * r.unmatchedResidualDb);
             CHECK(r.flatnessDistance < 0.75);
             CHECK((r.setting.drive == tmatch::DriveKind::clean) == (c.kind == tmatch::DriveKind::clean));
+            CHECK(r.setting.cab == c.cab); // the hidden IR is in the list, so it must be found
+            CHECK(r.ranking.front().setting.cab == r.setting.cab);
 
             const std::string json =
                 tmatch::toPresetJson(r, cabs, "Round trip", "3b0e6a2c-8f41-4d7a-9c1e-5a2b7d9e0f13");
@@ -89,4 +92,35 @@ TEST_CASE("tonematch: round trip recovers a hidden drive + cab + EQ setting", "[
             CHECK(json.find("\"g1kDb\"") != std::string::npos);
         }
     }
+}
+
+TEST_CASE("tonematch: match() refuses a reference profiled at another rate", "[tonematch]")
+{
+    unsigned rate = 0;
+    const auto di = readMono(std::string(OSP_ASSET_DIR) + "/di/strum-arp-01.wav", rate);
+    const auto cabs = loadCabs(rate, {"412-a"});
+    tmatch::Profile ref;
+    ref.sampleRate = 48000.0; // the DI is 44.1 kHz
+    CHECK_THROWS_AS(tmatch::match(ref, di, rate, cabs), std::invalid_argument);
+    CHECK_THROWS_AS(tmatch::match(ref, {}, rate, cabs), std::invalid_argument);
+    CHECK_THROWS_AS(tmatch::match(ref, std::vector<float>(4096, 0.0f), rate, cabs), std::invalid_argument);
+}
+
+TEST_CASE("tonematch: preset writer needs a sha256 for user IRs and sanitises the name", "[tonematch]")
+{
+    tmatch::MatchResult r;
+    std::vector<tmatch::CabIr> cabs{{"my-cab", "file:///D:/IRs/my-cab.wav", "", {1.0f}}};
+    const std::string id = "3b0e6a2c-8f41-4d7a-9c1e-5a2b7d9e0f13";
+    CHECK_THROWS_AS(tmatch::toPresetJson(r, cabs, "x", id), std::invalid_argument);
+    cabs[0].sha256 = std::string(64, 'a');
+    const std::string json = tmatch::toPresetJson(r, cabs, "x", id);
+    CHECK(json.find("\"sha256\": \"" + std::string(64, 'a') + "\"") != std::string::npos);
+    CHECK(json.find("$schema") == std::string::npos); // output location varies, so no relative schema path
+
+    CHECK(tmatch::sanitiseUtf8(std::string(80, 'n'), tmatch::kMaxNameChars).size() == 64);
+    CHECK(tmatch::sanitiseUtf8("Caf\xc3\xa9 \xff tone\n", 64) == "Caf\xc3\xa9 ? tone ");
+    std::string e;
+    for (int i = 0; i < 70; ++i)
+        e += "\xc3\xa9"; // 70 two-byte code points
+    CHECK(tmatch::sanitiseUtf8(e, 64).size() == 128); // cut by code points, not bytes
 }

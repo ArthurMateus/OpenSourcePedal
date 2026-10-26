@@ -39,12 +39,13 @@ struct Profile {
     std::array<double, kBands> levelDb{};          // LTAS, mean over the fit weights = 0 dB
     std::array<double, kFlatnessBands> flatnessDb{}; // Wiener entropy per octave, <= 0 dB (0 = white noise)
     double activeSeconds = 0.0;                      // frames above the silence gate
+    double sampleRate = 0.0;                         // rate it was analysed at
 };
 
 struct AnalysisOptions {
     bool hpss = true;           // drop percussive energy first
-    double maxSeconds = 45.0;   // analyse at most this much (from the start of `x`)
-    double gateDb = -45.0;      // frames this far below the loud (95th percentile) frames are ignored
+    double maxSeconds = 45.0; // analyse at most this much (from the start of `x`); trim the input to choose which part
+    double gateDb = -45.0; // frames this far below the loud (95th percentile) frames are ignored
 };
 
 Profile analyse(const std::vector<float>& x, double sampleRate, const AnalysisOptions& options = {});
