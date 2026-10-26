@@ -10,3 +10,5 @@ target_compile_definitions(osp_tests PRIVATE OSP_RT_CHECKER=1)
 
 include(Catch)
 catch_discover_tests(osp_tests DISCOVERY_MODE PRE_TEST)
+
+add_subdirectory(bench)

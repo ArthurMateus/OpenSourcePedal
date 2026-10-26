@@ -14,8 +14,18 @@ if(OSP_BUILD_TESTS)
     list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras") # for include(Catch)
 endif()
 
-# Header-only or C sources that we compile ourselves (tools/CMakeLists.txt). SOURCE_SUBDIR points at a
+# Header-only or C sources that we compile ourselves (tests/bench, tools/CMakeLists.txt). SOURCE_SUBDIR points at a
 # directory without a CMakeLists.txt, so FetchContent only downloads them and never runs their own build/install rules.
+if(OSP_BUILD_TESTS)
+    # nanobench v4.6.0 (MIT). Lightweight tag, commit checked via the GitHub API on 2026-10-25.
+    FetchContent_Declare(nanobench
+        GIT_REPOSITORY https://github.com/martinus/nanobench.git
+        GIT_TAG        b709728dba4df0356d467abfb0ba20781a8031c0 # v4.6.0
+        GIT_SHALLOW    OFF
+        SOURCE_SUBDIR  osp-no-build)
+    FetchContent_MakeAvailable(nanobench)
+endif()
+
 if(OSP_BUILD_TOOLS)
     # libebur128 v1.2.6 (MIT). Lightweight tag, commit checked via the GitHub API on 2026-10-25.
     FetchContent_Declare(libebur128
