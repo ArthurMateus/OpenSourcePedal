@@ -59,6 +59,13 @@
       "baseline": "#74, 2026-10-26, local VS 2022 Release build, median of 3 runs (r 0.0234-0.0259), T_ref about 16 ms on this machine",
       "headroom": "about 25x the measured 0.039 %: constant-gain trim (vectorised) + one-pole/one-zero DC blocker per sample"
     },
+    "output_stage": {
+      "kind": "block",
+      "r0": 0.1309,
+      "maxCpuPercent": 4.0,
+      "baseline": "#74, 2026-10-26, local VS 2022 Release build, median of 3 runs (r 0.1266-0.1466), T_ref about 16 ms on this machine",
+      "headroom": "about 19x the measured 0.21 %: stereo, limiter engaged; NaN guard, level, 4x interpolated true-peak detector (3 phases x 12 taps x 2 channels), gain and meters per sample"
+    },
     "comp": {
       "kind": "block",
       "r0": 0.1931,

@@ -7,6 +7,7 @@ add_library(osp_dsp_core STATIC
     src/Gain.cpp
     src/Gate.cpp
     src/InputStage.cpp
+    src/OutputStage.cpp
     src/oversampling/Oversampler.cpp
     src/util/DelayLine.cpp
     src/rt/AudioThread.cpp)

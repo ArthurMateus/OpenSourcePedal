@@ -11,6 +11,7 @@
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/Gate.h"
 #include "osp/dsp/InputStage.h"
+#include "osp/dsp/OutputStage.h"
 #include "osp/dsp/oversampling/Oversampler.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
@@ -209,6 +210,19 @@ int main(int argc, char** argv)
     inputStage.reset();
     results.push_back({"input_stage", measure(bench, "input_stage", input, [&](const float* in, float* out, int n) {
                            inputStage.process(in, out, n);
+                       })});
+
+    // Output block (#74), stereo, limiter on and engaged (+12 dB level into the -0.3 dBTP ceiling): NaN guard, level,
+    // 4x interpolated true-peak detector (3 phases x 12 taps x 2 channels), gain and meters per sample.
+    osp::dsp::OutputStage outputStage;
+    outputStage.prepare(kSampleRate, kBlock);
+    outputStage.setLevelDb(12.0f);
+    outputStage.reset();
+    std::vector<float> outRight(static_cast<std::size_t>(kBlock));
+    results.push_back({"output_stage", measure(bench, "output_stage", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, outRight.begin());
+                           outputStage.process(out, outRight.data(), n);
                        })});
 
     // Compressor at its defaults (opto, -20 dB, 4:1, all three detectors run) with the tone tilt active (knob 7).

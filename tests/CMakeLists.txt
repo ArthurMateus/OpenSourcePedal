@@ -27,6 +27,7 @@ add_executable(osp_tests
     dsp/test_input_stage.cpp
     dsp/test_ir_loader.cpp
     dsp/test_oversampler.cpp
+    dsp/test_output_stage.cpp
     dsp/test_util.cpp
     engine/test_chain.cpp
     engine/test_engine.cpp
