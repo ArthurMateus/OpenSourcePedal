@@ -61,11 +61,12 @@ Oversampled regions follow `docs/spec/signal-flow.md` (#52):
 ### D3. Filter specifications
 | Stage | IIR (Live) | FIR (HQ) |
 |---|---|---|
-| Upsampler, first 2× stage (highest rate) | stopband ≥ 90 dB, transition 0.05 | stopband ≥ 100 dB, transition 0.05 |
-| Decimator, first 2× stage | stopband ≥ 75 dB, transition 0.06 | stopband ≥ 100 dB, transition 0.06 |
-| Later stages | as JUCE: +10 dB stopband per stage, transition × 2 | stopband ≥ 100 dB, transition × 2 |
+| Upsampler, first 2× stage (fs ↔ 2fs) | stopband ≥ 90 dB, transition 0.05 | stopband ≥ 100 dB, transition 0.05 |
+| Decimator, first 2× stage (fs ↔ 2fs) | stopband ≥ 75 dB, transition **0.01** (Amendment A1; was 0.06) | stopband ≥ 100 dB, transition 0.06 |
+| Later stages | as JUCE: +10 dB stopband per stage; transition 0.10 (up) and 0.12 (down), i.e. × 2 the JUCE stage-0 values | stopband ≥ 100 dB, transition × 2 |
 
-These are JUCE's max-quality defaults (OS §2.2), and our CI measures them (REQ-OS-002). Passband ripple must be
+Transition is relative to the stage's higher rate. Apart from Amendment A1, these are JUCE's max-quality defaults
+(OS §2.2), and our CI measures them (REQ-OS-002). Passband ripple must be
 ≤ 0.1 dB up to 20 kHz at 44.1/48 kHz, which the IIR satisfies by construction (allpass halfband) and the FIR must be
 designed to.
 
@@ -119,6 +120,42 @@ designed to.
   REQ-NAM-004 reports which models support it (owner: dsp-engineer). Its CPU (≈ 2×) must also fit ADR-0002 D7.
 - Training our own captures with smoother activations (OS open question 4; OS source S8) is **deferred** to the own-captures
   ticket (ADR-0002 D8; owner: preset-designer + dsp-engineer).
+
+## Amendment A1 (2026-10-26, #98): stage-0 IIR decimator transition 0.06 → 0.01
+
+- Status: **Accepted** (2026-10-26, reviewed by acct2). Author: acct1/dsp-engineer (Sable). Evidence from #67 (drive).
+- **Problem.** With transition 0.06, the stage-0 decimator only reaches its stopband at 0.62·fs. Harmonics that a
+  nonlinear block creates between fs/2 and 0.62·fs fold back to between 0.38·fs and fs/2 with little rejection. At
+  44.1/48 kHz that is 16.8–24 kHz. They dominate the D5 ASR. Measured on the #67 drive stage at 4× (all four voicings,
+  0 dBFS), counting aliases over all bins as ADR-0007 does:
+  - 1 kHz at max drive: ASR −48.3…−55.3 dB (gate −60). The worst alias is at 21.1 kHz (44.1k) / 23.0 kHz (48k),
+    from H23/H25 just above Nyquist.
+  - 5 kHz @ 48 kHz: ASR −28.3…−33.5 dB (gate −40) for every voicing and drive. H5 at 25.0 kHz folds to 23.0 kHz.
+  - The same renders counting only aliases ≤ 20 kHz: −62…−104 dB. So the failures are the transition band, not ADAA.
+- **Decision.** Design the stage-0 IIR decimator for **75 dB with transition 0.01**. HIIR then gives 9 coefficients
+  instead of 6, and the stopband starts at 0.52·fs. Leftover transition aliases fold to 0.48–0.5·fs (≥ 21.2 kHz at
+  44.1k, ≥ 23.0 kHz at 48k). The upsampler, the later stages and the FIR (HQ) column are unchanged. This stays an IIR
+  halfband, so the D4 latency rules are unchanged.
+- **Cost (measured, #98 PR, VS 2022 Release):**
+  - Latency: unchanged after rounding. The 1 kHz delay D at 48 kHz goes from 2.643/3.948/4.729 to 2.666/3.970/4.751
+    (2×/4×/8×), so `round(D)` stays 3/4/5. Live 4× stays at 4 samples per region (REQ-302).
+  - CPU: `oversampler_iir_4x` is 0.097 % of a core, against 0.098 % before, i.e. within noise.
+  - The slowest pole moves to √0.984 per 2fs sample. The 1024-sample identity IR used for D in `prepare()` still
+    decays below −100 dB, and D matches the test's 4096-sample IR within 1e-3.
+  - Measured stage-0 decimator stopband: −78.0 dB (spec 75).
+- **Result on #67 with A1** (all 64 cases: 4 voicings, 44.1/48 kHz, −6/0 dBFS, default/max drive, 1 and 5 kHz):
+  - Worst ASR −74.3 dB against the −60 gate (fuzz, 1 kHz, max drive, 0 dBFS, 44.1 kHz).
+  - Worst ASR −57.2 dB against the −40 gate (dist, 5 kHz, max drive, −6 dBFS, 44.1 kHz).
+  - The D5 gates are unchanged.
+- **Not chosen:**
+  - (a) Restricting the ASR alias set to ≤ 20 kHz: that changes ADR-0007's harness and loosens the gate.
+  - (b) A steep in-domain anti-alias low-pass before decimation: it needs a per-rate elliptic design, more CPU, and
+    more phase shift for the same effect.
+  - (c) Transition 0.005: 10 coefficients and a pole at √0.992, for 0.01·fs more alias-free band. It can be revisited if
+    a block needs it.
+- **HQ (FIR):** the FIR decimator column keeps 0.06 for now. HQ ASR is warn-only in v1 (D5). #63 part 3 reports the
+  HQ ASR with the FIR, and proposes the matching FIR transition if needed (FIR taps, and so latency, grow as
+  1/transition).
 
 ## Requirements
 
