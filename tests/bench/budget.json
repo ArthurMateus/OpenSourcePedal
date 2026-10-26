@@ -31,6 +31,13 @@
       "baseline": "#64/#82, 2026-10-25, local VS 2022 Release build (windows-msvc-ci), median of 3 runs, T_ref 10.1-10.4 ms",
       "headroom": "about 50x the measured 0.0052 %: 10 ms block-enable crossfade toggled every 100 ms plus a 64-sample latency-padding delay line"
     },
+    "eq": {
+      "kind": "block",
+      "r0": 0.1597,
+      "maxCpuPercent": 0.5,
+      "baseline": "#68, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 5 runs (R 0.156-0.161, 0.162-0.170 %)",
+      "headroom": "about 3x the measured 0.167 %: graphic9 with all bands at +-6 dB and both cuts on, mono (linked stereo is about 2x)"
+    },
     "oversampler_iir_4x": {
       "kind": "block",
       "r0": 0.093383,
