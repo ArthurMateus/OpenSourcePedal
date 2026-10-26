@@ -6,6 +6,7 @@
 // prints a table and writes them as JSON (--out). tools/bench/check_budget.py compares that JSON with
 // tests/bench/budget.json.
 
+#include "osp/dsp/Compressor.h"
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
@@ -168,6 +169,15 @@ int main(int argc, char** argv)
              pad.process(in, padded.data(), n);
              xf.process(in, padded.data(), out, n);
          })});
+
+    // Compressor at its defaults (opto, -20 dB, 4:1, all three detectors run) with the tone tilt active (knob 7).
+    osp::dsp::Compressor comp;
+    comp.setTone(7.0f);
+    comp.prepare(kSampleRate, kBlock);
+    results.push_back({"comp", measure(bench, "comp", input, [&](const float* in, float* out, int n) {
+                           comp.setThresholdDb(-20.0f);
+                           comp.process(in, out, n);
+                       })});
 
     // Pass-through chain (the full engine chain as it stands), at 0 dB.
     osp::engine::Chain chain;
