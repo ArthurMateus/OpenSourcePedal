@@ -22,6 +22,7 @@ add_executable(osp_tests
     dsp/test_eq.cpp
     dsp/test_eq_dynamics.cpp
     dsp/test_svf.cpp
+    dsp/test_tuner.cpp
     dsp/test_gain.cpp
     dsp/test_gate.cpp
     dsp/test_ir_loader.cpp
