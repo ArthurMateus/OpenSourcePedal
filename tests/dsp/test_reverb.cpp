@@ -285,3 +285,20 @@ TEST_CASE("Reverb: RT checker, 1000 random parameter vectors with NaN, full-scal
     OSP_REQUIRE_RT_CLEAN(rt);
     OSP_REQUIRE_OUTPUT_CLEAN(all);
 }
+
+TEST_CASE("Reverb: plate mode runs the Dattorro tank, not the hall", "[dsp][reverb][plate]")
+{
+    const double fs = 48000.0;
+    std::vector<float> in(static_cast<std::size_t>(0.5 * fs), 0.0f);
+    in[0] = 1.0f;
+    auto wet = [&](Reverb::Mode mode) {
+        Reverb::Params p;
+        p.mode = mode;
+        p.mixPct = 100.0f;
+        Reverb r = makeReverb(fs, p);
+        return render(r, in, in, 64);
+    };
+    const auto plate = wet(Reverb::Mode::Plate), hall = wet(Reverb::Mode::Hall);
+    REQUIRE(plate.l != hall.l);
+    REQUIRE(energy(plate.l, 0, plate.l.size()) > 0.0);
+}

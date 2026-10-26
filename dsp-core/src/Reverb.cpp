@@ -9,7 +9,7 @@ namespace {
 
 int engineFor(Reverb::Mode m) noexcept
 {
-    return m == Reverb::Mode::Room ? 0 : 1;
+    return m == Reverb::Mode::Room ? 0 : m == Reverb::Mode::Hall ? 1 : 2; // 2 = the plate
 }
 
 // NaN-safe clamp: a NaN host value maps to `lo` (std::clamp passes NaN through).
@@ -31,6 +31,7 @@ void Reverb::prepare(double sampleRate, int maxBlockSize)
     sampleRate_ = sampleRate;
     engines_[0].prepare(sampleRate, FdnTank::kRoom);
     engines_[1].prepare(sampleRate, FdnTank::kHall);
+    plate_.prepare(sampleRate);
     const auto preLen = static_cast<std::size_t>(0.200 * sampleRate) + 4;
     for (auto& p : pre_)
         p.assign(preLen, 0.0f);
@@ -49,8 +50,8 @@ void Reverb::prepare(double sampleRate, int maxBlockSize)
 
 void Reverb::reset() noexcept
 {
-    for (auto& e : engines_)
-        e.reset();
+    for (int e = 0; e < kNumEngines; ++e)
+        resetEngine(e);
     for (auto& p : pre_)
         std::fill(p.begin(), p.end(), 0.0f);
     preWrite_ = 0;
@@ -80,6 +81,9 @@ void Reverb::setParameters(const Params& p) noexcept
         e.setModulation(params_.modPct / 100.0f);
         e.setFreeze(params_.freeze);
     }
+    plate_.setDecaySeconds(params_.decayS);
+    plate_.setModulation(params_.modPct / 100.0f);
+    plate_.setFreeze(params_.freeze);
     preDelay_.setTarget(static_cast<float>(params_.preDelayMs * 1e-3 * sampleRate_));
     lowCut_.setTarget(params_.lowCutHz);
     highCut_.setTarget(params_.highCutHz);
@@ -99,9 +103,25 @@ void Reverb::startPendingModeFade() noexcept
         return;
     previous_ = active_;
     active_ = pending_;
-    engines_[static_cast<std::size_t>(active_)].reset(); // bounded memset of a prepared buffer (RT-7)
+    resetEngine(active_); // bounded memset of a prepared buffer (RT-7)
     modeFade_.reset(0.0f);
     modeFade_.setTarget(1.0f);
+}
+
+void Reverb::resetEngine(int engine) noexcept
+{
+    if (engine == 2)
+        plate_.reset();
+    else
+        engines_[static_cast<std::size_t>(engine)].reset();
+}
+
+void Reverb::processEngine(int engine, const float* inL, const float* inR, float* outL, float* outR, int n) noexcept
+{
+    if (engine == 2)
+        plate_.process(inL, inR, outL, outR, n);
+    else
+        engines_[static_cast<std::size_t>(engine)].process(inL, inR, outL, outR, n);
 }
 
 void Reverb::setEnabled(bool enabled) noexcept
@@ -175,9 +195,9 @@ void Reverb::processChunk(const float* inL, const float* inR, float* outL, float
     }
 
     // Tank(s): the active engine, plus the previous one while a mode crossfade runs.
-    engines_[static_cast<std::size_t>(active_)].process(tL, tR, wL, wR, n);
+    processEngine(active_, tL, tR, wL, wR, n);
     if (modeFade_.isRamping()) {
-        engines_[static_cast<std::size_t>(previous_)].process(tL, tR, pL, pR, n);
+        processEngine(previous_, tL, tR, pL, pR, n);
         for (int i = 0; i < n; ++i) {
             const float g = modeFade_.next();
             wL[i] = pL[i] + g * (wL[i] - pL[i]);

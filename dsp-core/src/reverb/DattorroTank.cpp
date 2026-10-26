@@ -12,7 +12,10 @@ constexpr double kPaperRate = 29761.0;
 // Dattorro 1997, Table 1 (lengths at 29761 Hz) and the coefficients of Fig. 1 (see the header for provenance).
 constexpr std::array<int, 4> kDiffuserLengths{142, 107, 379, 277};
 constexpr float kInputDiffusion1 = 0.75f, kInputDiffusion2 = 0.625f;
-constexpr float kDecayDiffusion1 = 0.70f, kDecayDiffusion2 = 0.50f;
+constexpr float kDecayDiffusion1 = 0.70f;
+// Decay diffusion 2 tracks the decay gain: g + 0.15, clamped to [0.25, 0.50]. Its allpass recirculates inside the
+// loop, beyond the decay gains, so a fixed 0.5 would floor the RT60 near 0.9 s (measured at 48 kHz).
+constexpr float kDecayDiffusion2Min = 0.25f, kDecayDiffusion2Max = 0.50f, kDecayDiffusion2Offset = 0.15f;
 constexpr float kBandwidth = 0.9995f, kDamping = 0.0005f;
 constexpr int kModL = 672, kDelayL1 = 4453, kApL = 1800, kDelayL2 = 3720;
 constexpr int kModR = 908, kDelayR1 = 4217, kApR = 2656, kDelayR2 = 3163;
@@ -21,7 +24,11 @@ constexpr double kLfoHz = 1.0;
 constexpr float kOutputGain = 0.6f;
 // Table 2 tap offsets at 29761 Hz, in the order they are summed in process().
 constexpr std::array<int, 14> kTaps{266, 2974, 1913, 1996, 1990, 187, 1066, 353, 3627, 1228, 2673, 2111, 335, 121};
-constexpr double kMidHz = 707.1;          // RT60 reference, as in FdnTank
+constexpr double kMidHz = 707.1; // RT60 reference, as in FdnTank
+// Measured calibration: with the loop time as the plain sum of lengths, T_mid came out 5.7-8.6 % long over 1-15 s
+// (mean 7.1 %, 48 kHz, PR description). Late modes sit where the in-loop allpasses' group delay peaks
+// (N·(1+g)/(1−g)), so the energy circulates longer than Σ N. The gains use T_loop × 1.071 instead.
+constexpr double kLoopTimeCalibration = 1.071;
 constexpr double kMaxLoopGain = 0.99999; // below lossless outside freeze
 
 int scaled(int samples, double scale) noexcept
@@ -129,9 +136,11 @@ void DattorroTank::updateGains() noexcept
     const double loopSeconds =
         double(modL_.length + lenL1_ + apL_.length + lenL2_ + modR_.length + lenR1_ + apR_.length + lenR2_) /
         sampleRate_;
-    const double g = std::pow(10.0, -3.0 * loopSeconds / (4.0 * rt60)); // four decay gains per loop
+    const double g = std::pow(10.0, -3.0 * loopSeconds * kLoopTimeCalibration / (4.0 * rt60)); // 4 gains per loop
     gain_ = static_cast<float>(std::min(g, kMaxLoopGain));
     gainDamped_ = static_cast<float>(std::min(g * dampCompensation_, kMaxLoopGain));
+    decayDiffusion2_ =
+        std::clamp(static_cast<float>(g) + kDecayDiffusion2Offset, kDecayDiffusion2Min, kDecayDiffusion2Max);
 }
 
 void DattorroTank::process(const float* inL, const float* inR, float* outL, float* outR, int numSamples) noexcept
@@ -171,7 +180,7 @@ void DattorroTank::process(const float* inL, const float* inR, float* outL, floa
             d1.push(a);
             damp = (1.0f - kDamping) * b + kDamping * damp;
             const float damped = damp + frz * (b - damp); // damping off while frozen
-            const float e = ap.process(damped * g1, kDecayDiffusion2);
+            const float e = ap.process(damped * g1, decayDiffusion2_);
             const float f = d2.at(len2);
             d2.push(e);
             return f * g2;

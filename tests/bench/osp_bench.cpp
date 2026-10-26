@@ -10,6 +10,7 @@
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/Gate.h"
 #include "osp/dsp/Reverb.h"
+#include "osp/dsp/reverb/DattorroTank.h"
 #include "osp/dsp/reverb/FdnTank.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
@@ -199,6 +200,17 @@ int main(int argc, char** argv)
     std::vector<float> fdnRight(kBlock);
     results.push_back({"fdn_hall", measure(bench, "fdn_hall", input, [&](const float* in, float* out, int n) {
                            fdn.process(in, in, out, fdnRight.data(), n);
+                       })});
+
+    // Dattorro plate tank at 2.5 s, 20 % modulation: stereo out, the mono input on both sides.
+    osp::dsp::DattorroTank plate;
+    plate.prepare(kSampleRate);
+    plate.setDecaySeconds(2.5f);
+    plate.setModulation(0.2f);
+    plate.reset();
+    std::vector<float> plateRight(kBlock);
+    results.push_back({"plate_tank", measure(bench, "plate_tank", input, [&](const float* in, float* out, int n) {
+                           plate.process(in, in, out, plateRight.data(), n);
                        })});
 
     // Reverb block at its defaults (hall, 2.5 s, 20 ms pre-delay, 100 Hz / 6 kHz cuts, 20 % mix): stereo in/out.
