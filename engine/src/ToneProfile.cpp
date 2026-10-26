@@ -20,6 +20,8 @@ constexpr int kFftSizeAt44k = 4096;
 constexpr int kHpssHalf = 8; // 17-point median filters (FitzGerald 2010 uses 17)
 constexpr double kFloor = 1e-20;
 constexpr std::array<double, kFlatnessBands + 1> kFlatEdgesHz{500.0, 1000.0, 2000.0, 4000.0, 8000.0};
+constexpr std::array<double, kSpreadBands + 1> kSpreadEdgesHz{250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0};
+constexpr double kSpreadLowPercentile = 0.20, kSpreadHighPercentile = 0.90;
 
 std::size_t fftSizeFor(double fs) noexcept
 {
@@ -99,6 +101,14 @@ double residualDb(const Bands& a, const Bands& b) noexcept
         w += fitWeight(k);
     }
     return std::sqrt(s / w);
+}
+
+double spreadDistance(const Profile& a, const Profile& b) noexcept
+{
+    double s = 0.0;
+    for (int i = 0; i < kSpreadBands; ++i)
+        s += (a.spreadDb[i] - b.spreadDb[i]) * (a.spreadDb[i] - b.spreadDb[i]);
+    return std::sqrt(s / kSpreadBands);
 }
 
 double flatnessDistance(const Profile& a, const Profile& b) noexcept
@@ -299,11 +309,14 @@ Profile analyse(const std::vector<float>& x, double fs, const AnalysisOptions& o
 
     // Flatness of each frame's spectrum divided by the LTAS: a static linear filter (EQ, cab) multiplies both by the
     // same |H|², so this feature is blind to tone shaping and only sees the harmonic fill that clipping adds.
+    // Frames are weighted by their energy: a cab IR or reverb tail much longer than a frame fills the spectral gaps of
+    // quiet decaying frames, which moved the unweighted mean by up to 7 dB on sparse single-note playing (matrix
+    // run 1, tools/tonematch/matrix.py); weighted, the same cab moves it <= 1.5 dB.
     for (int band = 0; band < kFlatnessBands; ++band) {
         const auto b0 = static_cast<std::size_t>(std::ceil(kFlatEdgesHz[static_cast<std::size_t>(band)] / binHz));
         const auto b1 =
             std::min(bins - 1, static_cast<std::size_t>(kFlatEdgesHz[static_cast<std::size_t>(band) + 1] / binHz));
-        double acc = 0.0;
+        double acc = 0.0, accW = 0.0;
         for (std::size_t f : active) {
             double logSum = 0.0, linSum = 0.0, cnt = 0.0;
             for (std::size_t b = b0; b <= b1; ++b) {
@@ -316,9 +329,31 @@ Profile analyse(const std::vector<float>& x, double fs, const AnalysisOptions& o
             }
             if (cnt == 0.0)
                 continue;
-            acc += 10.0 * std::log10(std::exp(logSum / cnt) / (linSum / cnt));
+            acc += energy[f] * 10.0 * std::log10(std::exp(logSum / cnt) / (linSum / cnt));
+            accW += energy[f];
         }
-        prof.flatnessDb[static_cast<std::size_t>(band)] = acc / static_cast<double>(active.size());
+        prof.flatnessDb[static_cast<std::size_t>(band)] = accW > 0.0 ? acc / accW : 0.0;
+    }
+
+    // Envelope spread: clipping compresses every band's note envelopes, chords and single notes alike (flatness only
+    // rises on chords: on single notes clipping adds discrete harmonics). A static filter scales a band's energies by
+    // one factor, so the spread in dB ignores EQ and cab. Measured on both test guitars: it falls from clean to high
+    // gain by 6 dB (strummed) and 12 dB (single notes), and moves <= 0.5 dB with another cab and EQ. Its absolute
+    // value depends on the playing, so the DI should play the same kind of part.
+    std::vector<double> e(active.size());
+    for (int band = 0; band < kSpreadBands; ++band) {
+        const auto b0 = static_cast<std::size_t>(std::ceil(kSpreadEdgesHz[static_cast<std::size_t>(band)] / binHz));
+        const auto b1 =
+            std::min(bins - 1, static_cast<std::size_t>(kSpreadEdgesHz[static_cast<std::size_t>(band) + 1] / binHz));
+        for (std::size_t i = 0; i < active.size(); ++i) {
+            double s = 0.0;
+            for (std::size_t b = b0; b < b1; ++b)
+                s += power[active[i] * bins + b];
+            e[i] = 10.0 * std::log10(std::max(s, kFloor));
+        }
+        std::sort(e.begin(), e.end());
+        const auto at = [&](double q) { return e[static_cast<std::size_t>(q * static_cast<double>(e.size() - 1))]; };
+        prof.spreadDb[static_cast<std::size_t>(band)] = at(kSpreadHighPercentile) - at(kSpreadLowPercentile);
     }
     return prof;
 }

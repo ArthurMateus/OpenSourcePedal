@@ -124,6 +124,15 @@ TEST_CASE("tonematch: the flatness feature ignores EQ and rises with clipping", 
         rise += d.flatnessDb[i] - clean.flatnessDb[i];
     WARN("mean flatness rise with a tanh clipper at +30 dB: " << rise / tmatch::kFlatnessBands << " dB");
     CHECK(rise / tmatch::kFlatnessBands > 1.0);
+
+    // Envelope spread: blind to the EQ tilt, and it shrinks as the clipper compresses the note envelopes.
+    double fall = 0.0;
+    for (int i = 0; i < tmatch::kSpreadBands; ++i) {
+        CHECK_THAT(t.spreadDb[i], WithinAbs(clean.spreadDb[i], 0.5));
+        fall += clean.spreadDb[i] - d.spreadDb[i];
+    }
+    WARN("mean envelope-spread fall with the same clipper: " << fall / tmatch::kSpreadBands << " dB");
+    CHECK(fall / tmatch::kSpreadBands > 3.0);
 }
 
 TEST_CASE("tonematch: the profile does not depend on the sample rate", "[tonematch]")
