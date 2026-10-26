@@ -108,9 +108,35 @@ def demucs_command() -> list[str]:
     raise AssertionError  # unreachable
 
 
+def wav_for_demucs(ref: Path, work: Path, key: str) -> Path:
+    """Demucs decodes anything but WAV with ffmpeg. soundfile (libsndfile >= 1.1 reads MP3) avoids that dependency."""
+    if ref.suffix.lower() == ".wav":
+        return ref
+    out = work / f"in-{key}.wav"
+    if out.exists():
+        return out
+    try:
+        import soundfile as sf
+
+        data, rate = sf.read(str(ref), always_2d=True)
+        sf.write(str(out), data, rate, subtype="FLOAT")
+        return out
+    except Exception:  # not installed, or a format libsndfile cannot read
+        return to_wav(ref, work) if ref.suffix.lower() != ".mp3" else ffmpeg_wav(ref, out)
+
+
+def ffmpeg_wav(ref: Path, out: Path) -> Path:
+    if shutil.which("ffmpeg") is None:
+        fail("--stem on an MP3 needs soundfile (pip install soundfile) or ffmpeg on PATH")
+    if subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(ref), str(out)]).returncode != 0:
+        fail(f"ffmpeg could not convert {ref}")
+    return out
+
+
 def separate_guitar(ref: Path, work: Path) -> Path:
     cmd = demucs_command()
     key = file_key(ref)
+    ref = wav_for_demucs(ref, work, key)
     out_dir = work / "stems" / key
     stem = out_dir / "htdemucs_6s" / ref.stem / "guitar.wav"
     if stem.exists():
@@ -138,6 +164,7 @@ def main() -> int:
     ap.add_argument("--no-hpss", action="store_true", help="keep percussive energy (an already clean guitar stem)")
     ap.add_argument("--tones", action="store_true",
                     help="one preset per guitar part and tone over the whole song (guitar 1 tone 1, ...); best with --stem")
+    ap.add_argument("--max-tones", type=int, help="with --tones: at most this many tones per guitar (default 4)")
     ap.add_argument("--ir-dir", help="cab IR folder (default: the bundled assets/cab)")
     ap.add_argument("--work", default=str(ROOT / "build" / "tonematch"), help="download/stem cache folder")
     ap.add_argument("--exe", help="path to osp-tonematch")
@@ -169,6 +196,8 @@ def main() -> int:
         cmd += ["--no-hpss"]
     if a.tones:
         cmd += ["--tones"]
+    if a.max_tones is not None:
+        cmd += ["--max-tones", str(a.max_tones)]
     return subprocess.run(cmd).returncode
 
 

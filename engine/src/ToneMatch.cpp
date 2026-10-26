@@ -10,9 +10,9 @@
 #include "osp/dsp/conv/PartitionedConvolver.h"
 
 #include <algorithm>
-#include <memory>
 #include <cmath>
 #include <cstdio>
+#include <memory>
 #include <stdexcept>
 
 namespace osp::engine::tonematch {

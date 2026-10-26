@@ -151,16 +151,18 @@ std::string mmss(double seconds)
 
 int usage()
 {
-    std::fprintf(stderr, "usage: osp-tonematch --ref <song.wav|mp3> --di <my-di.wav> --out <preset.json> [options]\n"
-                         "  --start/--end <s>   analyse only this part of the reference (pick a guitar-heavy section)\n"
-                         "  --source <s>        auto (default), mono, mid, side, left, right\n"
-                         "  --no-hpss           keep percussive energy (use for an isolated guitar stem)\n"
-                         "  --ir-dir <dir>      cab IR folder (default: the bundled assets/cab)\n"
-                         "  --render <out.wav>  also write the DI through the matched setting\n"
-                         "  --name <text>       preset name (default: Tone match)\n"
-                         "  --tones             find each guitar part and every tone it uses over the whole song, and\n"
-                         "                      write one preset per tone: <out>-g<part>-t<tone>.osp.json (with\n"
-                         "                      --render also <render>-g<p>-t<t>.wav and the song's own -ref.wav)\n");
+    std::fprintf(stderr,
+                 "usage: osp-tonematch --ref <song.wav|mp3> --di <my-di.wav> --out <preset.json> [options]\n"
+                 "  --start/--end <s>   analyse only this part of the reference (pick a guitar-heavy section)\n"
+                 "  --source <s>        auto (default), mono, mid, side, left, right\n"
+                 "  --no-hpss           keep percussive energy (use for an isolated guitar stem)\n"
+                 "  --ir-dir <dir>      cab IR folder (default: the bundled assets/cab)\n"
+                 "  --render <out.wav>  also write the DI through the matched setting\n"
+                 "  --name <text>       preset name (default: Tone match)\n"
+                 "  --tones             find each guitar part and every tone it uses over the whole song, and\n"
+                 "                      write one preset per tone: <out>-g<part>-t<tone>.osp.json (with\n"
+                 "                      --render also <render>-g<p>-t<t>.wav and the song's own -ref.wav)\n"
+                 "  --max-tones <n>     with --tones: at most n tones per guitar part (default 4, 0 = no cap)\n");
     return 2;
 }
 
@@ -188,6 +190,7 @@ int main(int argc, char** argv)
     tmatch::Source source = tmatch::Source::automatic;
     tmatch::MatchOptions opt;
     bool factoryIrs = true, tones = false;
+    int maxTones = tmatch::SectionOptions{}.maxTones;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "--no-hpss") {
@@ -211,7 +214,12 @@ int main(int argc, char** argv)
             renderPath = v;
         else if (a == "--name")
             name = v;
-        else if (a == "--start") {
+        else if (a == "--max-tones") {
+            double n = 0.0;
+            if (!parseSeconds(v, n) || n != std::floor(n) || n > 32.0)
+                return usage();
+            maxTones = static_cast<int>(n);
+        } else if (a == "--start") {
             if (!parseSeconds(v, start))
                 return usage();
         } else if (a == "--end") {
@@ -317,6 +325,7 @@ int main(int argc, char** argv)
             };
             tmatch::SectionOptions so;
             so.analysis = opt.analysis;
+            so.maxTones = maxTones;
             // An explicit --source gives one part from that channel; auto lets the left/right split decide.
             const bool stereo = ref.channels > 1 && source == tmatch::Source::automatic;
             const auto l = stereo ? atDi(left) : refAtDi;
@@ -332,28 +341,33 @@ int main(int argc, char** argv)
                             i + 1 < sec.parts.size() ? "," : "\n");
             std::printf("rendering your DI through the drive candidates (once for all tones) ...\n");
             const tmatch::Matcher matcher(diMono, fsDi, cabs, opt);
-            std::printf("\n  %-18s %-28s %-34s %s\n", "part / tone", "where", "matched setting", "residual");
+            std::printf("\n  %-18s %-10s %-34s %s\n", "part / tone", "residual", "matched setting", "where");
             for (const auto& t : sec.sections) {
                 const std::string tag = "-g" + std::to_string(t.part + 1) + "-t" + std::to_string(t.tone + 1);
                 const tmatch::MatchResult r = matcher.match(t.profile);
                 std::string where;
                 for (const auto& range : t.ranges)
-                    where += (where.empty() ? "" : ", ") + mmss(range.startSeconds + static_cast<double>(from) / ref.rate) +
-                             "-" + mmss(range.endSeconds + static_cast<double>(from) / ref.rate);
+                    where += (where.empty() ? "" : ", ") +
+                             mmss(range.startSeconds + static_cast<double>(from) / ref.rate) + "-" +
+                             mmss(range.endSeconds + static_cast<double>(from) / ref.rate);
                 const auto& st = r.setting;
                 char setting[96];
                 std::snprintf(setting, sizeof setting, "%s %.0f, cab %s",
-                              st.drive == tmatch::DriveKind::clean ? "clean" : tmatch::toString(st.drive),
-                              st.driveKnob, cabs[static_cast<std::size_t>(st.cab)].name.c_str());
-                const std::string label = "guitar " + std::to_string(t.part + 1) + ", tone " + std::to_string(t.tone + 1);
-                std::printf("  %-18s %-28s %-34s %.2f dB\n", label.c_str(), where.c_str(), setting, r.residualDb);
+                              st.drive == tmatch::DriveKind::clean ? "clean" : tmatch::toString(st.drive), st.driveKnob,
+                              cabs[static_cast<std::size_t>(st.cab)].name.c_str());
+                const std::string label =
+                    "guitar " + std::to_string(t.part + 1) + ", tone " + std::to_string(t.tone + 1);
+                char res[16];
+                std::snprintf(res, sizeof res, "%.2f dB", r.residualDb);
+                std::printf("  %-18s %-10s %-34s %s\n", label.c_str(), res, setting, where.c_str());
                 const std::string preset = withSuffix(outPath, tag);
                 if (!writeText(preset, tmatch::toPresetJson(r, cabs, name + " - " + label, makeUuid()))) {
                     std::fprintf(stderr, "osp-tonematch: cannot write %s\n", preset.c_str());
                     return 1;
                 }
                 if (!renderPath.empty()) {
-                    const std::string render = withSuffix(renderPath, tag), refWav = withSuffix(renderPath, tag + "-ref");
+                    const std::string render = withSuffix(renderPath, tag),
+                                      refWav = withSuffix(renderPath, tag + "-ref");
                     if (!writeWav(render, tmatch::render(diMono, fsDi, st, cabs), di.rate) ||
                         !writeWav(refWav, tmatch::sectionAudio(l.data(), rp, l.size(), fsDi, sec, t), di.rate)) {
                         std::fprintf(stderr, "osp-tonematch: cannot write %s\n", render.c_str());

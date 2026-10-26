@@ -11,6 +11,10 @@ filters), so the matcher has to approximate tones it cannot reproduce exactly, a
   modes    same    reference = rig(guitar), DI = the same guitar
            cross   reference = rig(A), DI = B and the other way round: the "your guitar" case
            mix     stereo mix: rig(A) double-tracked L/R + bass, kick, snare, hats, a centred synthetic vocal
+           sections  --tones on songs with known parts and tone changes (ADR-0008 D5), DI = guitar A:
+                   2gtr-stem    guitar 1 left clean -> crunch -> clean, guitar 2 right lead (other cab, other excerpts)
+                   2gtr-mix     the same plus bass, drums and the vocal (no stem separation)
+                   1gtr-double  one double-tracked guitar, edge -> metal -> edge
 
 The score compares the matched render with the oracle: the player's own DI through the hidden rig, the best any
 match could do. Both are measured here with an independent LTAS / whitened-flatness implementation (no HPSS, since
@@ -140,13 +144,9 @@ def band_noise(n, lo, hi, fs, rng):
     return signal.lfilter(b, a, rng.standard_normal(n))
 
 
-def mix(di, fs, r, c, eq):
+def mix_centre(n, fs):
+    """Bass, kick, snare, hats and a centred synthetic vocal: the centre of the test mixes."""
     rng = np.random.default_rng(7)
-    n = len(di)
-    left = rig(di, fs, r, c, eq)
-    right = rig(np.concatenate([np.zeros(int(0.009 * fs)), di])[:n] * 0.95, fs, r, c, eq)  # second "take"
-    g = 1.0 / max(np.abs(left).max(), 1e-9)
-    left, right = left * g, right * g
     t = np.arange(n) / fs
     beat = (t * 2.0) % 1.0  # 120 bpm, 2 beats per second
     notes = np.where((t % 2.0) < 1.0, 41.2, 55.0)
@@ -171,7 +171,16 @@ def mix(di, fs, r, c, eq):
     vocal = sum(signal.lfilter(*signal.butter(2, [lo / (fs / 2), hi / (fs / 2)], "bandpass"), saw)
                 for lo, hi in ((500, 900), (1100, 1600)))
     vocal *= ((t % 4.0) < 3.2) * 0.5
-    centre = 0.7 * bass + 0.6 * (kick + snare) + 0.4 * hats + 0.5 * vocal
+    return 0.7 * bass + 0.6 * (kick + snare) + 0.4 * hats + 0.5 * vocal
+
+
+def mix(di, fs, r, c, eq):
+    n = len(di)
+    left = rig(di, fs, r, c, eq)
+    right = rig(np.concatenate([np.zeros(int(0.009 * fs)), di])[:n] * 0.95, fs, r, c, eq)  # second "take"
+    g = 1.0 / max(np.abs(left).max(), 1e-9)
+    left, right = left * g, right * g
+    centre = mix_centre(n, fs)
     out = np.stack([left + centre, right + centre], axis=1)
     return out / (np.abs(out).max() * 1.05)
 
@@ -276,6 +285,97 @@ def execute(run: Run, guitars, exe: Path, work: Path) -> Run:
     return run
 
 
+# --- Parts and tones (--tones) --------------------------------------------------------------------------------------
+
+SECTION_SECONDS = 10.0
+
+
+def excerpt(x, fs, start):
+    a = int(start * fs)
+    return x[a : a + int(SECTION_SECONDS * fs)]
+
+
+def sections_song(kind, a, fs):
+    """Stereo reference and its truth: [(part, [(rig, cab, start, end), ...]), ...] (part 0 = left / the only one)."""
+    plan1 = [("clean", 0, 0.0), ("crunch", 0, 0.5), ("clean", 0, 0.25)]
+    if kind == "1gtr-double":
+        plan = [("edge", 2, 0.0), ("metal", 2, 0.5), ("edge", 2, 0.25)]
+        left = np.concatenate([rig(excerpt(a, fs, o), fs, r, c, "flat") for r, c, o in plan])
+        right = np.concatenate([rig(excerpt(np.concatenate([np.zeros(int(0.011 * fs)), a]), fs, o), fs, r, c, "flat")
+                                for r, c, o in plan]) * 0.95
+        truth = [(0, [(r, c, i * SECTION_SECONDS, (i + 1) * SECTION_SECONDS) for i, (r, c, _) in enumerate(plan)])]
+    else:
+        left = np.concatenate([rig(excerpt(a, fs, o), fs, r, c, "flat") for r, c, o in plan1])
+        right = np.concatenate([rig(excerpt(a, fs, o), fs, "lead", 4, "flat") for o in (0.4, 0.1, 0.6)])
+        truth = [(0, [(r, c, i * SECTION_SECONDS, (i + 1) * SECTION_SECONDS) for i, (r, c, _) in enumerate(plan1)]),
+                 (1, [("lead", 4, 0.0, 3 * SECTION_SECONDS)])]
+    n = min(len(left), len(right))
+    left, right = left[:n] / np.abs(left[:n]).max(), right[:n] / np.abs(right[:n]).max()
+    out = np.stack([left, right], axis=1)
+    if kind == "2gtr-mix":
+        centre = mix_centre(n, fs)
+        out = out + np.stack([centre, centre], axis=1)
+    return out / (np.abs(out).max() * 1.05), truth
+
+
+def tones_runs():
+    return [Run(f"sections-{k}", "sections", k, "flat", 0, "A", "A") for k in ("2gtr-stem", "2gtr-mix", "1gtr-double")]
+
+
+# "  guitar 1, tone 2   0.72 dB    mid 6, cab 112-a      0:07-0:11, 0:17-0:21" (the time ranges come last)
+TONE_LINE = re.compile(r"^\s+guitar (\d+), tone (\d+)\s+([\d.]+) dB\s+(\S.*?)\s{2,}(\d+:\d+-\d+:\d+(?:, \d+:\d+-\d+:\d+)*)\s*$",
+                       re.M)
+
+
+def to_seconds(t):
+    m, s_ = t.split(":")
+    return int(m) * 60 + int(s_)
+
+
+def execute_sections(run, guitars, exe, work):
+    d = work / run.name
+    d.mkdir(parents=True, exist_ok=True)
+    a, fs = guitars["A"]
+    ref, truth = sections_song(run.rig, a, fs)
+    write(d / "ref.wav", ref, fs)
+    write(d / "di.wav", a, fs)
+    cmd = [str(exe), "--ref", str(d / "ref.wav"), "--di", str(d / "di.wav"), "--out", str(d / "p.osp.json"),
+           "--render", str(d / "r.wav"), "--name", run.name, "--tones"]
+    res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    (d / "stdout.txt").write_text(res.stdout + res.stderr, encoding="utf-8")
+    if res.returncode != 0:
+        run.result = {"error": res.stderr.strip()[-300:]}
+        return run
+    parts = re.search(r"(\d+) guitar part", res.stdout)
+    found = []
+    for m in TONE_LINE.finditer(res.stdout):
+        ranges = [tuple(to_seconds(t) for t in r.split("-")) for r in m.group(5).split(", ")]
+        found.append({"part": int(m.group(1)) - 1, "tone": int(m.group(2)) - 1, "ranges": ranges,
+                      "setting": m.group(4).strip(), "cli_residual": float(m.group(3))})
+    # Score each found tone against the truth section it overlaps most, with the oracle = the DI through that rig.
+    for f in found:
+        best, overlap = None, 0.0
+        for tp, secs in truth:
+            if len(truth) > 1 and tp != f["part"]:  # parts are left, right in both lists
+                continue
+            for r, c, t0, t1 in secs:
+                o = sum(max(0.0, min(t1, b) - max(t0, a_)) for a_, b in f["ranges"])
+                if o > overlap:
+                    best, overlap = (tp, r, c), o
+        f["truth"] = best
+        got, _ = read(d / f"r-g{f['part'] + 1}-t{f['tone'] + 1}.wav")
+        oracle = rig(a, fs, best[1], best[2], "flat")
+        f["tone_residual"] = residual(bands_db(mono(got), fs), bands_db(oracle, fs))
+        f["flatness_diff"] = float(np.sqrt(np.mean((flatness(mono(got), fs) - flatness(oracle, fs)) ** 2)))
+    want_tones = {tp: len({r for r, _, _, _ in secs}) for tp, secs in truth}
+    got_tones = {}
+    for f in found:
+        got_tones[f["part"]] = got_tones.get(f["part"], 0) + 1
+    run.result = {"parts_found": int(parts.group(1)) if parts else 0, "parts_true": len(truth),
+                  "tones_found": got_tones, "tones_true": want_tones, "found": found}
+    return run
+
+
 def grade(r: dict) -> str:
     if "error" in r:
         return "ERROR"
@@ -312,26 +412,47 @@ def main() -> int:
     for r in rigs:
         runs.append(Run(f"mix-A-{r}", "mix", r, "flat", i % len(CABS), "A", "A"))
         i += 1
+    runs += tones_runs()
     if a.only:
         runs = [r for r in runs if re.search(a.only, r.name)]
 
     work = Path(a.out)
     work.mkdir(parents=True, exist_ok=True)
     with cf.ThreadPoolExecutor(a.jobs) as pool:
-        done = list(pool.map(lambda r: execute(r, guitars, Path(a.exe), work), runs))
+        done = list(pool.map(lambda r: (execute_sections if r.mode == "sections" else execute)(r, guitars, Path(a.exe), work),
+                             runs))
 
     rows = []
+    for r in [r for r in done if r.mode == "sections"]:
+        rows.append({"name": r.name, "mode": r.mode, **r.result})
+    done = [r for r in done if r.mode != "sections"]
     for r in done:
         rows.append({"name": r.name, "mode": r.mode, "rig": r.rig, "eq": r.eq, "grade": grade(r.result), **r.result})
     (work / "results.json").write_text(json.dumps(rows, indent=1), encoding="utf-8")
     print(f"{'run':28} {'grade':6} {'tone':>5} {'unm':>5} {'flat':>5}  cab hidden/found      drive")
     for row in rows:
+        if row["mode"] == "sections":
+            continue
         if "error" in row:
             print(f"{row['name']:28} ERROR  {row['error']}")
             continue
         hit = "=" if row["cab_hidden"] == row["cab_found"] else "x"
         print(f"{row['name']:28} {row['grade']:6} {row['tone_residual']:5.2f} {row['unmatched_residual']:5.2f} "
               f"{row['flatness_diff']:5.2f}  {row['cab_hidden']:>6} {hit} {row['cab_found']:<8} {row['drive']}")
+    for row in rows:
+        if row["mode"] != "sections":
+            continue
+        print(f"\n{row['name']}: ", end="")
+        if "error" in row:
+            print("ERROR", row["error"])
+            continue
+        print(f"parts {row['parts_found']}/{row['parts_true']} found, tones per part found {row['tones_found']} "
+              f"(true {row['tones_true']})")
+        for f in row["found"]:
+            rg = ", ".join(f"{a_}-{b}s" for a_, b in f["ranges"])
+            tr = f["truth"]
+            print(f"  guitar {f['part'] + 1} tone {f['tone'] + 1}: {rg:24} truth part {tr[0] + 1} {tr[1]:7} -> "
+                  f"{f['setting']:30} tone {f['tone_residual']:5.2f} dB, flat {f['flatness_diff']:4.2f} dB")
     return 0
 
 

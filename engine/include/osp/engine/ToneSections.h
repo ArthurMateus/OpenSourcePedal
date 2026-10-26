@@ -45,13 +45,16 @@ struct SectionOptions {
     double silenceDb = -30.0;       // a window this far below the part's loudest window is "not playing"
     double toneThreshold = 2.5;     // toneDistance above which two groups are different tones
     double minToneSeconds = 6.0;    // shorter groups are merged into the nearest one
-    bool splitParts = true;         // false: always one part
+    int maxTones = 4; // per part; the closest groups merge until there are at most this many (0 = no cap)
+    bool splitParts = true; // false: always one part
     AnalysisOptions analysis;
 };
 
 // Distance between two tone profiles for grouping: the residual of their 1.25-octave smoothed spectra (so the notes
-// played matter less than the tone) and kFlatnessScale x the flatness distance (the gain), combined as an RMS.
+// played matter less than the tone), kFlatnessScale x the flatness distance and kSpreadScale x the envelope-spread
+// distance (the gain, ToneProfile.h), combined as an RMS.
 constexpr double kFlatnessScale = 1.5;
+constexpr double kSpreadScale = 0.7;
 constexpr double kSplitPartsDistance = 2.5;
 double toneDistance(const Profile& a, const Profile& b) noexcept;
 
@@ -61,11 +64,15 @@ struct SectionResult {
 };
 
 // right == nullptr means mono (one part). Throws std::invalid_argument when nothing is loud enough to analyse.
-SectionResult findSections(const float* left, const float* right, std::size_t n, double sampleRate,
-                           const SectionOptions& options = {});
+SectionResult findSections(
+    const float* left, const float* right, std::size_t n, double sampleRate, const SectionOptions& options = {});
 
 // The audio of one section (its ranges concatenated) from the part's source, for matching or listening.
-std::vector<float> sectionAudio(const float* left, const float* right, std::size_t n, double sampleRate,
-                                const SectionResult& result, const ToneSection& section);
+std::vector<float> sectionAudio(const float* left,
+                                const float* right,
+                                std::size_t n,
+                                double sampleRate,
+                                const SectionResult& result,
+                                const ToneSection& section);
 
 } // namespace osp::engine::tonematch

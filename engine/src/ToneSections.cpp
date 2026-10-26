@@ -12,6 +12,10 @@ namespace {
 
 constexpr double kPartImbalanceDb = 12.0;  // one side this much louder ...
 constexpr double kPartImbalanceShare = 0.2; // ... in this share of the windows: a guitar playing alone on that side
+// Tones last for a section, playing changes inside one are short: a mode filter over this many consecutive active
+// windows absorbs runs of <= 2 windows (4 s at the default hop). The synthetic songs in tools/tonematch/matrix.py
+// split a constant tone at a strum -> arpeggio -> ring-out change without it.
+constexpr int kModeWindows = 5;
 
 struct Window {
     std::size_t start = 0, end = 0; // samples
@@ -139,10 +143,39 @@ std::vector<int> cluster(const std::vector<Window>& w, const SectionOptions& o, 
         groups[b].insert(groups[b].end(), groups[a].begin(), groups[a].end());
         groups.erase(groups.begin() + static_cast<std::ptrdiff_t>(a));
     }
-    std::vector<int> id(w.size(), -1);
+    // Real mixes change arrangement all the time, and each change can look like a tone (three test songs gave 7, 15
+    // and 17 tones). A song rarely has more than a few guitar tones, so the closest groups merge down to maxTones.
+    while (o.maxTones > 0 && groups.size() > static_cast<std::size_t>(o.maxTones)) {
+        const auto [best, a, b] = mergeClosest(false);
+        if (!std::isfinite(best))
+            break;
+        groups[a].insert(groups[a].end(), groups[b].begin(), groups[b].end());
+        groups.erase(groups.begin() + static_cast<std::ptrdiff_t>(b));
+    }
+    std::vector<int> label(m, 0);
     for (std::size_t g = 0; g < groups.size(); ++g)
         for (std::size_t i : groups[g])
-            id[idx[i]] = static_cast<int>(g);
+            label[i] = static_cast<int>(g);
+    // Mode filter in time order (idx is sorted by time); a tie keeps the window's own label. Twice, so a run of two
+    // also goes when its neighbours agree.
+    constexpr std::size_t half = kModeWindows / 2;
+    for (int pass = 0; pass < 2; ++pass) {
+        std::vector<int> next = label;
+        for (std::size_t i = 0; i < m; ++i) {
+            std::vector<int> count(groups.size(), 0);
+            for (std::size_t j = i > half ? i - half : 0; j <= std::min(m - 1, i + half); ++j)
+                ++count[static_cast<std::size_t>(label[j])];
+            int best = label[i];
+            for (std::size_t g = 0; g < count.size(); ++g)
+                if (count[g] > count[static_cast<std::size_t>(best)])
+                    best = static_cast<int>(g);
+            next[i] = best;
+        }
+        label = next;
+    }
+    std::vector<int> id(w.size(), -1);
+    for (std::size_t i = 0; i < m; ++i)
+        id[idx[i]] = label[i];
     return id;
 }
 
@@ -152,7 +185,8 @@ double toneDistance(const Profile& a, const Profile& b) noexcept
 {
     const double s = residualDb(smoothed(a.levelDb), smoothed(b.levelDb));
     const double f = kFlatnessScale * flatnessDistance(a, b);
-    return std::sqrt(s * s + f * f);
+    const double e = kSpreadScale * spreadDistance(a, b);
+    return std::sqrt(s * s + f * f + e * e);
 }
 
 SectionResult findSections(const float* left, const float* right, std::size_t n, double fs, const SectionOptions& o)
@@ -232,8 +266,12 @@ SectionResult findSections(const float* left, const float* right, std::size_t n,
     return result;
 }
 
-std::vector<float> sectionAudio(const float* left, const float* right, std::size_t n, double fs,
-                                const SectionResult& result, const ToneSection& section)
+std::vector<float> sectionAudio(const float* left,
+                                const float* right,
+                                std::size_t n,
+                                double fs,
+                                const SectionResult& result,
+                                const ToneSection& section)
 {
     const auto x = source(left, right, n, fs, result.parts[static_cast<std::size_t>(section.part)].source);
     std::vector<float> out;
