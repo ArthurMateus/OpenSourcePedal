@@ -14,11 +14,18 @@ namespace osp::engine::tonematch {
 
 namespace {
 
-constexpr int kFftSize = 4096;
-constexpr int kHop = 1024;
+// Frame length at 44.1/48 kHz. It scales with the rate (fftSizeFor), so frames, hop and the median filters span the
+// same time and bandwidth at every rate (#118 review: fixed sizes moved flatness up to 1.6 dB at 96 kHz).
+constexpr int kFftSizeAt44k = 4096;
 constexpr int kHpssHalf = 8; // 17-point median filters (FitzGerald 2010 uses 17)
 constexpr double kFloor = 1e-20;
 constexpr std::array<double, kFlatnessBands + 1> kFlatEdgesHz{500.0, 1000.0, 2000.0, 4000.0, 8000.0};
+
+std::size_t fftSizeFor(double fs) noexcept
+{
+    const double exact = kFftSizeAt44k * fs / 44100.0;
+    return static_cast<std::size_t>(std::exp2(std::round(std::log2(std::max(exact, 256.0)))));
+}
 
 double medianOf(std::vector<float>& v)
 {
@@ -114,19 +121,28 @@ pickSource(const float* left, const float* right, std::size_t n, double sampleRa
     }
     Source s = wanted;
     if (s == Source::automatic || s == Source::mono) {
-        // Energies in the guitar range only (kSideBandHz, two one-pole low passes subtracted): the kick and bass
-        // below it would otherwise outweigh the guitars in the mid channel of almost any rock mix.
+        // Energies in the guitar range only (kSideBandHz): the kick and bass below it would otherwise outweigh the
+        // guitars in the mid channel of almost any rock mix. 3rd-order high pass (three one-pole stages, -18 dB/oct)
+        // and 2nd-order low pass; first order let a loud 60 Hz bass through at -11 dB (#118 review test).
         const double aLo = std::exp(-2.0 * std::numbers::pi * kSideBandHz[0] / sampleRate);
         const double aHi = std::exp(-2.0 * std::numbers::pi * kSideBandHz[1] / sampleRate);
-        double mid = 0.0, side = 0.0, mLo = 0.0, mHi = 0.0, dLo = 0.0, dHi = 0.0;
+        const auto band = [aLo, aHi](double x, std::array<double, 5>& st) {
+            for (int k = 0; k < 3; ++k) { // high pass = x - low pass, per stage
+                st[static_cast<std::size_t>(k)] = x + aLo * (st[static_cast<std::size_t>(k)] - x);
+                x -= st[static_cast<std::size_t>(k)];
+            }
+            for (int k = 3; k < 5; ++k) {
+                st[static_cast<std::size_t>(k)] = x + aHi * (st[static_cast<std::size_t>(k)] - x);
+                x = st[static_cast<std::size_t>(k)];
+            }
+            return x;
+        };
+        std::array<double, 5> ms{}, ds{};
+        double mid = 0.0, side = 0.0;
         for (std::size_t i = 0; i < n; ++i) {
-            const double m = 0.5 * (left[i] + right[i]), d = 0.5 * (left[i] - right[i]);
-            mLo = m + aLo * (mLo - m);
-            mHi = m + aHi * (mHi - m);
-            dLo = d + aLo * (dLo - d);
-            dHi = d + aHi * (dHi - d);
-            mid += (mHi - mLo) * (mHi - mLo);
-            side += (dHi - dLo) * (dHi - dLo);
+            const double m = band(0.5 * (left[i] + right[i]), ms), d = band(0.5 * (left[i] - right[i]), ds);
+            mid += m * m;
+            side += d * d;
         }
         s = (wanted == Source::automatic && side >= kSideShare * mid) ? Source::side : Source::mid;
     }
@@ -202,23 +218,24 @@ std::array<double, kBands> impulseBandsDb(const std::vector<float>& ir, double s
 Profile analyse(const std::vector<float>& x, double fs, const AnalysisOptions& o)
 {
     const auto len = std::min(x.size(), static_cast<std::size_t>(o.maxSeconds * fs));
-    if (len < static_cast<std::size_t>(kFftSize))
+    const std::size_t kFftSize = fftSizeFor(fs), kHop = kFftSize / 4;
+    if (len < kFftSize)
         throw std::invalid_argument("tonematch: signal shorter than one analysis frame");
     const auto frames = (len - kFftSize) / kHop + 1;
-    constexpr std::size_t bins = kFftSize / 2;
+    const std::size_t bins = kFftSize / 2;
 
     // Power spectrogram, periodic Hann.
     std::vector<double> window(kFftSize);
-    for (int i = 0; i < kFftSize; ++i)
-        window[static_cast<std::size_t>(i)] = 0.5 - 0.5 * std::cos(2.0 * std::numbers::pi * i / kFftSize);
+    for (std::size_t i = 0; i < kFftSize; ++i)
+        window[i] =
+            0.5 - 0.5 * std::cos(2.0 * std::numbers::pi * static_cast<double>(i) / static_cast<double>(kFftSize));
     signalsmith::fft::RealFFT<double> fft(kFftSize);
     std::vector<double> buf(kFftSize);
     std::vector<std::complex<double>> X(bins);
     std::vector<float> mag(frames * bins);
     for (std::size_t f = 0; f < frames; ++f) {
-        for (int i = 0; i < kFftSize; ++i)
-            buf[static_cast<std::size_t>(i)] =
-                x[f * kHop + static_cast<std::size_t>(i)] * window[static_cast<std::size_t>(i)];
+        for (std::size_t i = 0; i < kFftSize; ++i)
+            buf[i] = x[f * kHop + i] * window[i];
         fft.fft(buf.data(), X.data());
         X[0] = {X[0].real(), 0.0}; // packed Nyquist out
         for (std::size_t b = 0; b < bins; ++b)
@@ -275,9 +292,10 @@ Profile analyse(const std::vector<float>& x, double fs, const AnalysisOptions& o
         v /= static_cast<double>(active.size());
 
     Profile prof;
-    const double binHz = fs / kFftSize;
+    const double binHz = fs / static_cast<double>(kFftSize);
+    prof.sampleRate = fs;
     prof.levelDb = normalised(bandLevelsDb(ltas, binHz));
-    prof.activeSeconds = static_cast<double>(active.size()) * kHop / fs;
+    prof.activeSeconds = static_cast<double>(active.size() * kHop) / fs;
 
     // Flatness of each frame's spectrum divided by the LTAS: a static linear filter (EQ, cab) multiplies both by the
     // same |H|², so this feature is blind to tone shaping and only sees the harmonic fill that clipping adds.
@@ -287,13 +305,17 @@ Profile analyse(const std::vector<float>& x, double fs, const AnalysisOptions& o
             std::min(bins - 1, static_cast<std::size_t>(kFlatEdgesHz[static_cast<std::size_t>(band) + 1] / binHz));
         double acc = 0.0;
         for (std::size_t f : active) {
-            double logSum = 0.0, linSum = 0.0;
+            double logSum = 0.0, linSum = 0.0, cnt = 0.0;
             for (std::size_t b = b0; b <= b1; ++b) {
-                const double r = std::max(power[f * bins + b] / std::max(ltas[b], kFloor), 1e-12);
+                if (ltas[b] <= 0.0) // never-excited bin (#118 review): it has no flatness to measure
+                    continue;
+                const double r = std::max(power[f * bins + b] / ltas[b], 1e-12);
                 logSum += std::log(r);
                 linSum += r;
+                cnt += 1.0;
             }
-            const double cnt = static_cast<double>(b1 - b0 + 1);
+            if (cnt == 0.0)
+                continue;
             acc += 10.0 * std::log10(std::exp(logSum / cnt) / (linSum / cnt));
         }
         prof.flatnessDb[static_cast<std::size_t>(band)] = acc / static_cast<double>(active.size());
