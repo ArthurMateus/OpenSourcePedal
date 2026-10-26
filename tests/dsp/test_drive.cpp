@@ -7,8 +7,10 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include <cmath>
+#include <complex>
 #include <cstdint>
 #include <cstdio>
+#include <numbers>
 #include <utility>
 #include <vector>
 
@@ -316,4 +318,77 @@ TEST_CASE("Drive: shape antiderivatives are consistent (F1' = f, F2' = F1)", "[d
     check(osp::dsp::detail::CubicClipShape{});
     check(osp::dsp::detail::SoftLinearShape{});
     check(osp::dsp::detail::AsymClipShape{});
+}
+
+TEST_CASE("Drive: harmonic signature per voicing (THD, H2, H3; REQ-TEST-002)", "[dsp][drive][thd]")
+{
+    constexpr double fs = 48000.0;
+    const int t = GENERATE(0, 1, 2, 3);
+    const float drive = GENERATE(2.0f, 10.0f);
+    CAPTURE(kNames[t], drive);
+    const auto tone = m::coherentTone(220.0, fs);
+    DriveStage stage;
+    stage.setType(kTypes[t]);
+    stage.setDrive(drive);
+    const auto out =
+        renderOversampled(stage, fs, m::makeTone(tone, fs, -12.0, m::kWarmupSamples + m::kCoherentFftSize));
+    const std::vector<double> x(out.end() - static_cast<std::ptrdiff_t>(m::kCoherentFftSize), out.end());
+    const auto p = m::powerSpectrum(x);
+    const std::size_t k = tone.bin;
+    const double h2 = m::powerToDb(p[2 * k] / p[k]), h3 = m::powerToDb(p[3 * k] / p[k]);
+    const double thd = m::toDb(m::analyseCoherent(out, k).thd);
+    std::printf("drive %-11s drive %4.1f: THD %6.1f dB, H2 %7.1f dBc, H3 %6.1f dBc\n", kNames[t],
+                static_cast<double>(drive), thd, h2, h3);
+    if (kTypes[t] == DriveType::fuzz)
+        CHECK(h2 >= -40.0); // asymmetric: even harmonics at every drive
+    else
+        CHECK(h2 <= -100.0); // odd-symmetric shapes
+}
+
+TEST_CASE("Drive: the wet path is time-aligned with the dry path (phase delay at mix 0 vs 100 %)", "[dsp][drive]")
+{
+    // Transparent at drive 0 and −60 dBFS is linear, so the wet/dry transfer's phase delay is the voicing filters'
+    // own: +0.2 samples at 2-4 kHz (48 kHz), mostly the 16 kHz post-LPF. Below that the 20 Hz tight HPF and the 10 Hz
+    // DC blocker lead by about 1 sample at 500 Hz, so the check stays above 2 kHz. A dry path off by one sample moves
+    // the delay by a full sample.
+    constexpr double fs = 48000.0;
+    for (double f : {2000.0, 4000.0}) {
+        const auto tone = m::coherentTone(f, fs);
+        const auto in = m::makeTone(tone, fs, -60.0, m::kWarmupSamples + m::kCoherentFftSize);
+        auto binAt = [&](float mix) {
+            DriveStage s;
+            s.setType(DriveType::transparent);
+            s.setDrive(0.0f);
+            s.setTone(20.0f / 3.0f); // shelf at 0 dB
+            s.setMixPct(mix);
+            s.prepare(fs, 64);
+            const auto out = render(s, in);
+            const std::vector<double> x(out.end() - static_cast<std::ptrdiff_t>(m::kCoherentFftSize), out.end());
+            return m::realFft(x)[tone.bin];
+        };
+        const double phaseDelay =
+            -std::arg(binAt(100.0f) / binAt(0.0f)) / (2.0 * std::numbers::pi * tone.frequency / fs);
+        std::printf("drive: wet vs dry phase delay at %4.0f Hz: %+.3f samples\n", f, phaseDelay);
+        CHECK(std::abs(phaseDelay) < 0.5);
+    }
+}
+
+TEST_CASE("Drive: silence in after prepare()/reset() is silence out (biased fuzz primed at rest)", "[dsp][drive]")
+{
+    const int t = GENERATE(0, 1, 2, 3);
+    const float drive = GENERATE(0.0f, 5.0f, 10.0f);
+    CAPTURE(kNames[t], drive);
+    DriveStage stage;
+    stage.setType(kTypes[t]);
+    stage.setDrive(drive);
+    stage.prepare(192000.0, 64);
+    const std::vector<float> zeros(4096, 0.0f);
+    for (int pass = 0; pass < 2; ++pass) { // straight after prepare(), then after reset()
+        const auto out = render(stage, zeros);
+        float worst = 0.0f;
+        for (float v : out)
+            worst = std::max(worst, std::abs(v));
+        CHECK(worst <= 1e-6f);
+        stage.reset();
+    }
 }
