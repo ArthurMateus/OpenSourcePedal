@@ -217,8 +217,11 @@ void Eq::setEdgeShape(int band, EqEdgeShape shape) noexcept
     if (e == nullptr)
         return;
     const float target = shape == EqEdgeShape::shelf ? 1.0f : 0.0f;
-    if (target != e->toShelf.target() && isPrepared())
-        (target > 0.5f ? e->shelf : e->peak).restart(); // the incoming shape starts cold, faded in over 20 ms
+    // The incoming shape starts cold, faded in over 20 ms. A reversal mid-fade must not restart it: the band being
+    // faded back in is still audible (weight 1 − g) and warm, so the ramp just reverses from its current value
+    // (PR #91 review: a restart there was a 0.54 step).
+    if (target != e->toShelf.target() && isPrepared() && !e->toShelf.isRamping())
+        (target > 0.5f ? e->shelf : e->peak).restart();
     e->toShelf.setTarget(target);
 }
 

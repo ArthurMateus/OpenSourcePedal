@@ -232,3 +232,39 @@ TEST_CASE("Eq: rate x block-size matrix, stereo, reset() and pre-prepare", "[dsp
     ref.setBypassed(true);
     REQUIRE(render(ref, in, 64) == in);
 }
+
+TEST_CASE("Eq: reversing an edge shape mid-fade does not click (PR #91 review)", "[dsp][eq][xf]")
+{
+    // p1 low shelf 60 Hz +12 dB Q 1 on a 50 Hz sine at 0.5, 48 kHz / 64. Shelf -> peak at block 188, then back to
+    // shelf 512 samples later (g ~ 0.47 of the 20 ms fade). Restarting the still-audible shelf there was a 0.54 step.
+    const double fs = 48000.0;
+    constexpr int kBlock = 64;
+    const int reverseAfter = GENERATE(0, 8); // 0: one plain switch, no reversal (the reference kink)
+    CAPTURE(reverseAfter);
+    Eq eq;
+    eq.setMode(EqMode::parametric);
+    eq.setParametric(0, 60.0f, 12.0f, 1.0f);
+    eq.prepare(fs, kBlock);
+
+    std::vector<float> y(static_cast<std::size_t>(0.5 * fs));
+    for (std::size_t n = 0; n < y.size(); ++n)
+        y[n] = 0.5f * static_cast<float>(std::sin(2.0 * 3.14159265358979323846 * 50.0 * static_cast<double>(n) / fs));
+    const auto rt = osp::rt::test::runAsAudioThread([&] {
+        for (int b = 0; b * kBlock < static_cast<int>(y.size()); ++b) {
+            if (b == 188)
+                eq.setEdgeShape(0, EqEdgeShape::peak);
+            if (reverseAfter > 0 && b == 188 + reverseAfter)
+                eq.setEdgeShape(0, EqEdgeShape::shelf);
+            float* ch[1] = {y.data() + b * kBlock};
+            eq.process(ch, 1, kBlock);
+        }
+    });
+    OSP_REQUIRE_RT_CLEAN(rt);
+    OSP_REQUIRE_OUTPUT_CLEAN(y);
+
+    double maxD2 = 0.0;
+    for (std::size_t n = static_cast<std::size_t>(0.1 * fs); n + 2 < y.size(); ++n)
+        maxD2 = std::max(maxD2, std::abs(double(y[n + 2]) - 2.0 * y[n + 1] + y[n]));
+    CAPTURE(maxD2);
+    REQUIRE(maxD2 < 1e-2); // the review's bound; the plain switch measured 2.1e-3 in the review probe
+}
