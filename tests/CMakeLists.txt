@@ -17,6 +17,7 @@ osp_apply_settings(osp_measure)
 add_executable(osp_tests
     dsp/test_adaa.cpp
     dsp/test_cab.cpp
+    dsp/test_cab_req.cpp
     dsp/test_compressor.cpp
     dsp/test_convolver.cpp
     dsp/test_eq.cpp
