@@ -65,7 +65,8 @@
 | #65 gate | Moth | #88 MERGED (c1d1a45) | DONE (issue closed) |
 | #72 reverb part 1 | Moth | dsp/72-reverb | in progress (Moth review queue empty) |
 | #68 EQ | Lyra | #90 MERGED (3bf87fc), #91 MERGED (11939e1, Moth re-approved), #92 base main | review: Wren |
-| #69 cab IR (4 parts) | Lyra | #93 part 1 MERGED (f6ed825). #100 part 2 Cab block (+724, base main, retargeted before #93 merged) | review: Moth. Part 3: IR resampler + 1 s cap |
+| #69 cab IR (4 parts) | Lyra | #93 part 1 MERGED (f6ed825). #100 part 2 Cab block (+724/-2 vs main, MERGEABLE) | review: Moth. Part 3 (IR resampler + 1 s cap + CC0 IR tests) in progress |
+| #71 delay | Lyra (after #69 part 3) | | queued |
 | #94 third-party notices in Credits/installer (Signalsmith, HIIR, nlohmann, JUCE, VST3, ASIO) | — | | filed by Lyra; HIIR added |
 | #95 engine v1 signal graph (Phase 5) | unassigned (architect) | | filed 2026-10-26 from Moth's #88 note |
 | #89 compressor THD probe (82/110 Hz) | — (Lyra preferred) | | unblocked (#87 merged) |
