@@ -85,15 +85,17 @@ EssResponse analyseEss(std::span<const float> output, const EssConfig& c, int ma
     // one L·ln(m/(m−1)) later, so the window (1/8 before, 7/8 after the peak) fits between them.
     const double L = sweepRate(c);
     const double tightest = maxOrder > 1 ? std::log(double(maxOrder) / double(maxOrder - 1)) : std::log(2.0);
-    const std::size_t harmonicWindow = std::min<std::size_t>(8192, std::bit_floor(static_cast<std::size_t>(L * tightest * c.sampleRate)));
+    const std::size_t harmonicWindow =
+        std::min<std::size_t>(8192, std::bit_floor(static_cast<std::size_t>(L * tightest * c.sampleRate)));
     constexpr std::size_t kZeroPad = 16384;
     signalsmith::fft::RealFFT<double> segmentFft(kZeroPad);
 
     EssResponse r;
     r.binHz_ = c.sampleRate / static_cast<double>(kZeroPad);
     for (int m = 1; m <= maxOrder; ++m) {
-        const std::size_t length = m == 1 ? std::min(kZeroPad, std::bit_floor(static_cast<std::size_t>(L * std::log(2.0) * c.sampleRate)))
-                                          : harmonicWindow;
+        const std::size_t length =
+            m == 1 ? std::min(kZeroPad, std::bit_floor(static_cast<std::size_t>(L * std::log(2.0) * c.sampleRate)))
+                   : harmonicWindow;
         const std::size_t pre = length / 8;
         const auto delay = static_cast<std::size_t>(std::llround(L * std::log(double(m)) * c.sampleRate));
         const std::size_t start = (p - delay - pre) % p;
@@ -201,7 +203,8 @@ SpectralDistance spectralDistance(std::span<const float> test, std::span<const f
         for (int i = -16; i <= 13; ++i) {
             const double centre = 1000.0 * std::pow(2.0, i / 3.0);
             const auto lo = static_cast<std::size_t>(std::ceil(centre * std::pow(2.0, -1.0 / 6.0) / binHz));
-            const auto hi = std::min(n / 2, static_cast<std::size_t>(std::floor(centre * std::pow(2.0, 1.0 / 6.0) / binHz)));
+            const auto hi =
+                std::min(n / 2, static_cast<std::size_t>(std::floor(centre * std::pow(2.0, 1.0 / 6.0) / binHz)));
             if (lo > hi)
                 continue; // band narrower than a bin
             double sq = 0.0;
