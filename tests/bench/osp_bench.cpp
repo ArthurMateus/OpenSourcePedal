@@ -9,6 +9,7 @@
 #include "osp/dsp/Compressor.h"
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/Gate.h"
+#include "osp/dsp/reverb/FdnTank.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
 #include "osp/dsp/util/Smoothers.h"
@@ -186,6 +187,17 @@ int main(int argc, char** argv)
     results.push_back({"comp", measure(bench, "comp", input, [&](const float* in, float* out, int n) {
                            comp.setThresholdDb(-20.0f);
                            comp.process(in, out, n);
+                       })});
+
+    // FDN reverb tank, hall voicing at its defaults (2.5 s, 20 % modulation): stereo, the mono input on both sides.
+    osp::dsp::FdnTank fdn;
+    fdn.prepare(kSampleRate, osp::dsp::FdnTank::kHall);
+    fdn.setDecaySeconds(2.5f);
+    fdn.setModulation(0.2f);
+    fdn.reset();
+    std::vector<float> fdnRight(kBlock);
+    results.push_back({"fdn_hall", measure(bench, "fdn_hall", input, [&](const float* in, float* out, int n) {
+                           fdn.process(in, in, out, fdnRight.data(), n);
                        })});
 
     // Pass-through chain (the full engine chain as it stands), at 0 dB.

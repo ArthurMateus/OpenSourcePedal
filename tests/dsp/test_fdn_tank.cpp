@@ -20,8 +20,8 @@ namespace {
 
 using osp::dsp::FdnTank;
 
-const FdnTank::Config kRoom{2, 30.0, 15.0, 45.0, 6.0, 0.6};
-const FdnTank::Config kHall{4, 80.0, 35.0, 110.0, 12.0, 0.4};
+constexpr FdnTank::Config kRoom = FdnTank::kRoom;
+constexpr FdnTank::Config kHall = FdnTank::kHall;
 
 struct Stereo {
     std::vector<float> l, r;
@@ -91,8 +91,14 @@ double rt60(const Stereo& y, double fs)
     return 2.0 * (crossing(-35.0) - crossing(-5.0));
 }
 
-// Spectral flatness (geometric / arithmetic mean of power) of a Hann-windowed Welch average over [loHz, hiHz].
-double flatness(const std::vector<float>& x, std::size_t from, std::size_t length, double fs, double loHz, double hiHz)
+// Spectral flatness (geometric / arithmetic mean) over [loHz, hiHz] of a Hann-windowed Welch average. `global` uses
+// the power spectrum itself, so it also reflects broad coloration. `local` divides by the 1/3-octave smoothed
+// envelope first, so it sees only the fine structure: sparse resolved modes (metallic ringing) pull it down.
+struct Flatness {
+    double global, local;
+};
+Flatness
+flatness(const std::vector<float>& x, std::size_t from, std::size_t length, double fs, double loHz, double hiHz)
 {
     constexpr std::size_t kFrame = 4096;
     std::vector<double> power(kFrame / 2 + 1, 0.0), frame(kFrame);
@@ -103,14 +109,23 @@ double flatness(const std::vector<float>& x, std::size_t from, std::size_t lengt
         for (std::size_t k = 0; k < power.size(); ++k)
             power[k] += std::norm(spec[k]);
     }
-    double logSum = 0.0, sum = 0.0;
+    double logSum = 0.0, sum = 0.0, localLogSum = 0.0, localSum = 0.0;
     int count = 0;
-    for (auto k = static_cast<std::size_t>(loHz * kFrame / fs); k <= static_cast<std::size_t>(hiHz * kFrame / fs); ++k) {
+    for (auto k = static_cast<std::size_t>(loHz * kFrame / fs); k <= static_cast<std::size_t>(hiHz * kFrame / fs);
+         ++k) {
+        const auto a = static_cast<std::size_t>(double(k) * 0.8909),
+                   b = static_cast<std::size_t>(double(k) * 1.1225) + 1;
+        double envelope = 0.0;
+        for (std::size_t j = a; j <= b; ++j)
+            envelope += power[j];
+        envelope /= static_cast<double>(b - a + 1);
         logSum += std::log(power[k]);
         sum += power[k];
+        localLogSum += std::log(power[k] / envelope);
+        localSum += power[k] / envelope;
         ++count;
     }
-    return std::exp(logSum / count) / (sum / count);
+    return {std::exp(logSum / count) / (sum / count), std::exp(localLogSum / count) / (localSum / count)};
 }
 
 double correlation(const std::vector<float>& a, const std::vector<float>& b, std::size_t from)
@@ -142,8 +157,9 @@ TEST_CASE("FdnTank: measured RT60 within 10 % of the decay parameter", "[dsp][re
     CAPTURE(fs, hall, decay);
     FdnTank t = makeTank(fs, hall ? kHall : kRoom, decay);
     const double measured = rt60(impulseResponse(t, fs, 1.3 * decay + 0.3), fs);
-    WARN("RT60 fs=" << fs << " hall=" << hall << " decay " << decay << " measured " << measured);
     CAPTURE(measured);
+    WARN("RT60 (T30, 500 Hz-1 kHz) fs=" << fs << (hall ? " hall" : " room") << " decay " << decay << " s: measured "
+                                        << measured << " s (" << 100.0 * (measured / decay - 1.0) << " %)");
     REQUIRE(std::abs(measured / decay - 1.0) <= 0.10);
 }
 
@@ -156,35 +172,30 @@ TEST_CASE("FdnTank: stereo outputs are decorrelated on a mono input", "[dsp][rev
     const auto y = impulseResponse(t, fs, 2.0);
     const double rho = correlation(y.l, y.r, static_cast<std::size_t>(0.05 * fs)); // tail after 50 ms
     CAPTURE(rho);
+    WARN((hall ? "hall" : "room") << " L/R correlation of the tail (mono impulse in): " << rho);
     REQUIRE(std::abs(rho) <= 0.2);
 }
 
-TEST_CASE("FdnTank: tail spectrum is flat (no metallic ringing), and the metric detects a metallic tank",
+TEST_CASE("FdnTank: no metallic ringing (local spectral flatness of the tail); the metric flags a metallic tank",
           "[dsp][reverb]")
 {
     const double fs = 48000.0;
+    const float decay = GENERATE(1.0f, 2.5f, 8.0f, 20.0f);
     const auto from = static_cast<std::size_t>(0.2 * fs), length = static_cast<std::size_t>(1.0 * fs);
-    auto tailFlatness = [&](const FdnTank::Config& c) {
-        FdnTank t = makeTank(fs, c, 8.0f);
+    auto tail = [&](const FdnTank::Config& c) {
+        FdnTank t = makeTank(fs, c, decay);
         const auto y = impulseResponse(t, fs, 1.3);
         return flatness(y.l, from, length, fs, 200.0, 5000.0);
     };
-    for (float d : {1.0f, 2.5f, 8.0f, 20.0f}) {
-        auto f = [&](const FdnTank::Config& c) {
-            FdnTank t = makeTank(fs, c, d);
-            const auto y = impulseResponse(t, fs, 1.3);
-            return flatness(y.l, from, length, fs, 200.0, 5000.0);
-        };
-        WARN("decay " << d << ": room " << f(kRoom) << " hall " << f(kHall));
-    }
-    const double room = tailFlatness(kRoom), hall = tailFlatness(kHall);
-    // Control: no diffuser, short lines, no modulation. A comb-like tank whose tail has sparse spectral lines.
-    const double metallic = tailFlatness({0, 0.0, 3.0, 4.0, 0.0, 0.4});
-    WARN("tail spectral flatness (Welch, 200 Hz-5 kHz): room " << room << ", hall " << hall << ", metallic control "
-                                                               << metallic);
-    REQUIRE(room >= 0.8);
-    REQUIRE(hall >= 0.8);
-    REQUIRE(metallic < 0.5);
+    const auto room = tail(kRoom), hall = tail(kHall);
+    // Control: no diffuser, 3-4 ms lines, no modulation. A comb-like tank whose tail is a sparse set of lines.
+    const auto metallic = tail({0, 0.0, 3.0, 4.0, 0.0, 0.4});
+    WARN("tail flatness, decay " << decay << " s (Welch, 200 Hz-5 kHz, local / global): room " << room.local << " / "
+                                 << room.global << ", hall " << hall.local << " / " << hall.global
+                                 << ", metallic control " << metallic.local << " / " << metallic.global);
+    REQUIRE(room.local >= 0.75);
+    REQUIRE(hall.local >= 0.75);
+    REQUIRE(metallic.local < 0.3);
 }
 
 TEST_CASE("FdnTank: freeze holds the tail losslessly and mutes the input", "[dsp][reverb]")
@@ -214,6 +225,8 @@ TEST_CASE("FdnTank: freeze holds the tail losslessly and mutes the input", "[dsp
     const double b = rms(y.l, static_cast<std::size_t>(2.5 * fs), win);
     const double c = rms(y.l, static_cast<std::size_t>(5.5 * fs), win);
     CAPTURE(a, b, c);
+    WARN("freeze: tail level change 1.0->2.5 s " << osp::measure::toDb(b / a) << " dB, 1.0->5.5 s (input played at "
+                                                 << "3.0-3.5 s) " << osp::measure::toDb(c / a) << " dB");
     REQUIRE(std::abs(osp::measure::toDb(b / a)) <= 0.5); // lossless while frozen (it would drop 36 dB at RT60 2.5 s)
     REQUIRE(std::abs(osp::measure::toDb(c / a)) <= 0.5); // and the input at 3.0-3.5 s added nothing
 }

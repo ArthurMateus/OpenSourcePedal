@@ -5,15 +5,14 @@
 //
 // Structure: stereo in → D diffuser stages (8 channels, per-channel delays, 8×8 Hadamard, polarity flips) → 8 delay
 // lines with modulated fractional reads (linear interpolation) → per-line gentle one-pole damping (10 kHz) and decay
-// gain g_i = 10^(−3·D_i / (fs·RT60)) / |H_damp(707 Hz)| → 8×8 Householder feedback (I − (2/8)·11ᵀ) → back into the lines.
-// L = Σ even lines, R = Σ odd lines (alternating signs), so the two outputs decorrelate.
-// Sources: J.-M. Jot & A. Chaigne, "Digital Delay Networks for Designing Artificial Reverberators", AES 90th Conv.,
-// 1991 (FDN, RT60 gains); J. O. Smith, "Physical Audio Signal Processing", FDN reverberation chapter (CCRMA, accessed
-// 2026-10-25); G. Luff, "Let's Write a Reverb", ADC 2021 (multichannel Hadamard diffuser and Householder feedback; the
-// structure only, no code: the example repository has no licence, time-based-effects.md §3).
-// The decay parameter is the mid-band RT60 (ISO 3382-1 T_mid, 500 Hz and 1 kHz octaves): the damping loss at 707 Hz is
-// compensated, so higher frequencies decay faster, as in a real room.
-// Freeze ramps the loop to lossless (g = 1, damping and modulation off) and mutes the input over 50 ms.
+// gain g_i = 10^(−3·D_i / (fs·RT60)) / |H_damp(707 Hz)| → 8×8 Householder feedback (I − (2/8)·11ᵀ) → back into the
+// lines. L = Σ even lines, R = Σ odd lines (alternating signs), so the two outputs decorrelate. Sources: J.-M. Jot & A.
+// Chaigne, "Digital Delay Networks for Designing Artificial Reverberators", AES 90th Conv., 1991 (FDN, RT60 gains); J.
+// O. Smith, "Physical Audio Signal Processing", FDN reverberation chapter (CCRMA, accessed 2026-10-25); G. Luff, "Let's
+// Write a Reverb", ADC 2021 (multichannel Hadamard diffuser and Householder feedback; the structure only, no code: the
+// example repository has no licence, time-based-effects.md §3). The decay parameter is the mid-band RT60 (ISO 3382-1
+// T_mid, 500 Hz and 1 kHz octaves): the damping loss at 707 Hz is compensated, so higher frequencies decay faster, as
+// in a real room. Freeze ramps the loop to lossless (g = 1, damping and modulation off) and mutes the input over 50 ms.
 
 #include "osp/dsp/util/Smoothers.h"
 
@@ -28,12 +27,18 @@ public:
 
     struct Config {
         int diffuserStages = 4;
-        double diffuserMs = 80.0;        // total spread of the diffuser, split evenly over the stages
-        double lineMinMs = 35.0;         // FDN delay lengths, geometric between min and max, rounded to primes
+        double diffuserMs = 80.0; // total spread of the diffuser, split evenly over the stages
+        double lineMinMs = 35.0; // FDN delay lengths, geometric between min and max, rounded to primes
         double lineMaxMs = 110.0;
         double modDepthSamples48k = 12.0; // at 100 % modulation, scaled with fs
         double lfoHz = 0.4;
     };
+
+    // The two FDN voicings of the Reverb block (time-based-effects.md §2.1). Room: shorter lines (20–60 ms) for a
+    // small-space character; 4 diffuser stages keep the tail free of ringing even at long decays (the 2-stage,
+    // 15–45 ms draft measured local flatness 0.73, PR description). Hall: 35–110 ms lines, deeper modulation.
+    static constexpr Config kRoom{4, 30.0, 20.0, 60.0, 8.0, 0.6};
+    static constexpr Config kHall{4, 80.0, 35.0, 110.0, 12.0, 0.4};
 
     // Non-RT. Allocates every delay buffer for this config at this rate.
     void prepare(double sampleRate, const Config& config);

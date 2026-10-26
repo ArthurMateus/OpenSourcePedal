@@ -92,7 +92,6 @@ void FdnTank::prepare(double sampleRate, const Config& c)
             len = nextPrime(len + 1);
         length_[i] = len;
         lines_[i].buf.assign(static_cast<std::size_t>(len + maxMod + 2), 0.0f);
-        lfoPhase_[i] = 2.0 * std::numbers::pi * static_cast<double>(i) / kChannels; // staggered phases
     }
 
     dampCoeff_ = static_cast<float>(1.0 - std::exp(-2.0 * std::numbers::pi * kDampHz / sampleRate));
@@ -119,7 +118,7 @@ void FdnTank::reset() noexcept
     }
     lp_.fill(0.0f);
     for (std::size_t i = 0; i < kChannels; ++i)
-        lfoPhase_[i] = 2.0 * std::numbers::pi * static_cast<double>(i) / kChannels;
+        lfoPhase_[i] = 2.0 * std::numbers::pi * static_cast<double>(i) / kChannels; // staggered phases
     decay_.reset(decay_.target());
     mod_.reset(mod_.target());
     freeze_.reset(freeze_.target());
