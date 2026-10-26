@@ -1,4 +1,5 @@
 add_library(osp_engine STATIC
+    src/Chain.cpp
     src/Version.cpp)
 add_library(osp::engine ALIAS osp_engine)
 
