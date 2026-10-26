@@ -32,12 +32,19 @@ public:
     int lengthSamples() const noexcept { return ramp_.lengthSamples(); }
 
     // `out` may alias `a` or `b`. Safe for any n >= 0; works before prepare() (jumps instead of fading).
+    // Once settled, the output is an exact copy of a or b and the other input is never read, so a bypassed block
+    // may leave `b` stale (even NaN) while settled on `a`.
     void process(const float* a, const float* b, float* out, int numSamples) noexcept
     {
-        for (int i = 0; i < numSamples; ++i) {
+        int i = 0;
+        for (; i < numSamples && ramp_.isRamping(); ++i) {
             const float g = ramp_.next();
             out[i] = (1.0f - g) * a[i] + g * b[i];
         }
+        const float* const src = ramp_.current() == 0.0f ? a : b;
+        if (src != out)
+            for (; i < numSamples; ++i)
+                out[i] = src[i];
     }
 
 private:

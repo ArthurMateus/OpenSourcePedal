@@ -12,8 +12,8 @@ public:
     // Non-RT. Allocates and zero-fills (pre-touches, realtime-rules.md RT-12) room for up to maxDelaySamples.
     void prepare(int maxDelaySamples);
 
-    // RT-safe. Clamped to [0, maxDelaySamples]. Latency padding sets it once after prepare(); changing it while
-    // running is a jump (no interpolation), by design.
+    // RT-safe. Clamped to [0, maxDelaySamples]; a value set before prepare() is kept and clamped there. Latency
+    // padding sets it once; changing it while running is a jump (no interpolation), by design.
     void setDelay(int delaySamples) noexcept;
 
     // RT-safe. Clears the history, so two renders after reset() are bit-identical.
@@ -32,6 +32,7 @@ private:
     int size_ = 0; // maxDelay + 1 once prepared
     int write_ = 0;
     int delay_ = 0;
+    int requested_ = 0; // last setDelay() value, re-clamped by prepare()
 };
 
 } // namespace osp::dsp

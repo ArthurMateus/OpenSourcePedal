@@ -28,8 +28,13 @@ void Gain::process(const float* in, float* out, int numSamples) noexcept
             out[i] = 0.0f;
         return;
     }
-    for (int i = 0; i < numSamples; ++i)
+    // Split loop: the ramp segment per sample, then a plain constant-gain loop that vectorises (osp-bench, #82).
+    int i = 0;
+    for (; i < numSamples && ramp_.isRamping(); ++i)
         out[i] = in[i] * ramp_.next();
+    const float g = ramp_.current();
+    for (; i < numSamples; ++i)
+        out[i] = in[i] * g;
 }
 
 } // namespace osp::dsp
