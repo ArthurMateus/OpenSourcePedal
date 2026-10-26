@@ -1,21 +1,40 @@
----
+# Matches the code style established in #53: Allman braces for functions only, attached braces for classes,
+# namespaces and control statements, 120 columns. CI checks it (clang-format --dry-run --Werror).
 Language: Cpp
 BasedOnStyle: LLVM
 Standard: c++20
 IndentWidth: 4
-ColumnLimit: 110
+ColumnLimit: 120
 AccessModifierOffset: -4
-BreakBeforeBraces: Allman
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+  AfterClass: false
+  AfterStruct: false
+  AfterNamespace: false
+  AfterControlStatement: Never
+  BeforeElse: false
+  BeforeCatch: false
+  SplitEmptyFunction: false
 AllowShortFunctionsOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortLambdasOnASingleLine: All
 PointerAlignment: Left
 DerivePointerAlignment: false
 NamespaceIndentation: None
 FixNamespaceComments: true
-IncludeBlocks: Regroup
+IncludeBlocks: Preserve
 SortIncludes: CaseSensitive
 SpaceAfterTemplateKeyword: true
 AlwaysBreakTemplateDeclarations: Yes
 BinPackParameters: false
-...
+BreakConstructorInitializers: BeforeColon
+PackConstructorInitializers: CurrentLine
+ConstructorInitializerIndentWidth: 4
+ContinuationIndentWidth: 4
+AlignAfterOpenBracket: Align
+SpacesBeforeTrailingComments: 1
+AlignTrailingComments:
+  Kind: Leave
