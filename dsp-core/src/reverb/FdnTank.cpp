@@ -2,11 +2,16 @@
 
 #include <algorithm>
 #include <cmath>
+#include <complex>
 #include <cstdint>
 #include <numbers>
 
 namespace osp::dsp {
 namespace {
+
+constexpr double kDampHz = 10000.0;  // in-loop one-pole damping corner
+constexpr double kMidHz = 707.1;     // RT60 reference: geometric centre of 500 Hz…1 kHz
+constexpr double kMaxLoopGain = 0.99999; // the compensated gain must stay below lossless outside freeze
 
 bool isPrime(int n)
 {
@@ -90,7 +95,11 @@ void FdnTank::prepare(double sampleRate, const Config& c)
         lfoPhase_[i] = 2.0 * std::numbers::pi * static_cast<double>(i) / kChannels; // staggered phases
     }
 
-    dampCoeff_ = static_cast<float>(1.0 - std::exp(-2.0 * std::numbers::pi * 10000.0 / sampleRate));
+    dampCoeff_ = static_cast<float>(1.0 - std::exp(-2.0 * std::numbers::pi * kDampHz / sampleRate));
+    // The decay parameter is the mid-band RT60 (ISO 3382-1 T_mid: the 500 Hz and 1 kHz octaves), so the damping
+    // loss at their geometric centre is compensated in the loop gains. Above it, the tail decays faster.
+    const std::complex<double> z = std::polar(1.0, -2.0 * std::numbers::pi * kMidHz / sampleRate);
+    dampCompensation_ = std::abs(1.0 - (1.0 - dampCoeff_) * z) / dampCoeff_;
     decay_.prepare(sampleRate, 0.020);
     mod_.prepare(sampleRate, 0.020);
     freeze_.prepare(sampleRate, 0.050);
@@ -125,7 +134,8 @@ void FdnTank::updateGains() noexcept
         return;
     cachedDecay_ = rt60;
     for (std::size_t i = 0; i < kChannels; ++i)
-        gain_[i] = static_cast<float>(std::pow(10.0, -3.0 * length_[i] / (sampleRate_ * rt60)));
+        gain_[i] = static_cast<float>(
+            std::min(std::pow(10.0, -3.0 * length_[i] / (sampleRate_ * rt60)) * dampCompensation_, kMaxLoopGain));
 }
 
 void FdnTank::process(const float* inL, const float* inR, float* outL, float* outR, int numSamples) noexcept

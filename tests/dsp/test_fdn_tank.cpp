@@ -2,6 +2,7 @@
 // flatness (no metallic ringing), freeze, block-size invariance, reset, and the RT fuzz.
 
 #include "osp/dsp/reverb/FdnTank.h"
+#include "osp/dsp/util/Svf.h"
 
 #include "measure.hpp"
 #include "rt_checker.hpp"
@@ -60,12 +61,26 @@ Stereo impulseResponse(FdnTank& t, double fs, double seconds)
     return render(t, x, x, 64);
 }
 
-// T30 from the Schroeder energy decay curve of L + R: RT60 = 2·(t(−35 dB) − t(−5 dB)).
+// T30 of the 500 Hz…1 kHz band (ISO 3382-1 T_mid), from the Schroeder energy decay curve of L + R:
+// RT60 = 2·(t(−35 dB) − t(−5 dB)). The band edges are 4th-order Butterworth (two 2nd-order sections each).
 double rt60(const Stereo& y, double fs)
 {
+    using osp::dsp::SvfType;
+    const auto hp = osp::dsp::svfDesign(SvfType::highPass, fs, 500.0, 0.70710678, 0.0);
+    const auto lp = osp::dsp::svfDesign(SvfType::lowPass, fs, 1000.0, 0.70710678, 0.0);
+    auto band = [&](const std::vector<float>& x) {
+        osp::dsp::SvfState s[4];
+        std::vector<double> e(x.size());
+        for (std::size_t n = 0; n < x.size(); ++n) {
+            const float v = s[3].tick(lp, s[2].tick(lp, s[1].tick(hp, s[0].tick(hp, x[n]))));
+            e[n] = double(v) * v;
+        }
+        return e;
+    };
+    const auto el = band(y.l), er = band(y.r);
     std::vector<double> edc(y.l.size() + 1, 0.0);
     for (std::size_t n = y.l.size(); n-- > 0;)
-        edc[n] = edc[n + 1] + double(y.l[n]) * y.l[n] + double(y.r[n]) * y.r[n];
+        edc[n] = edc[n + 1] + el[n] + er[n];
     auto crossing = [&](double db) {
         const double level = edc[0] * std::pow(10.0, db / 10.0);
         std::size_t n = 0;
@@ -127,6 +142,7 @@ TEST_CASE("FdnTank: measured RT60 within 10 % of the decay parameter", "[dsp][re
     CAPTURE(fs, hall, decay);
     FdnTank t = makeTank(fs, hall ? kHall : kRoom, decay);
     const double measured = rt60(impulseResponse(t, fs, 1.3 * decay + 0.3), fs);
+    WARN("RT60 fs=" << fs << " hall=" << hall << " decay " << decay << " measured " << measured);
     CAPTURE(measured);
     REQUIRE(std::abs(measured / decay - 1.0) <= 0.10);
 }
@@ -153,6 +169,14 @@ TEST_CASE("FdnTank: tail spectrum is flat (no metallic ringing), and the metric 
         const auto y = impulseResponse(t, fs, 1.3);
         return flatness(y.l, from, length, fs, 200.0, 5000.0);
     };
+    for (float d : {1.0f, 2.5f, 8.0f, 20.0f}) {
+        auto f = [&](const FdnTank::Config& c) {
+            FdnTank t = makeTank(fs, c, d);
+            const auto y = impulseResponse(t, fs, 1.3);
+            return flatness(y.l, from, length, fs, 200.0, 5000.0);
+        };
+        WARN("decay " << d << ": room " << f(kRoom) << " hall " << f(kHall));
+    }
     const double room = tailFlatness(kRoom), hall = tailFlatness(kHall);
     // Control: no diffuser, short lines, no modulation. A comb-like tank whose tail has sparse spectral lines.
     const double metallic = tailFlatness({0, 0.0, 3.0, 4.0, 0.0, 0.4});
