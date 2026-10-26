@@ -1,5 +1,6 @@
 add_library(osp_dsp_core STATIC
-    src/Gain.cpp)
+    src/Gain.cpp
+    src/rt/AudioThread.cpp)
 add_library(osp::dsp_core ALIAS osp_dsp_core)
 
 target_include_directories(osp_dsp_core PUBLIC include)
