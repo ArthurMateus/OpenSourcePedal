@@ -12,6 +12,7 @@ Every dependency must be AGPLv3-compatible. Add a row in the same PR that introd
 | VST3 SDK | bundled in JUCE 9.0.4 | MIT | Inside the JUCE fetch | `app/` VST3 wrapper | ADR-0006 D2 |
 | ASIO headers | bundled in JUCE 9.0.4 (`modules/juce_audio_devices/native/asio/`) | GPL-3.0 (GPL option of the Steinberg dual licence) | Inside the JUCE fetch, never committed | `app/` Standalone (`JUCE_ASIO=1`) | ADR-0001 as amended by #30 |
 | Signalsmith `dsp` | v1.7.3 → `ca390d28c41ea5108a528e2e81faa4088f2f8ac8` | MIT | CMake FetchContent (`cmake/OspDependencies.cmake`) | `dsp-core` cab convolution (shipped, #69) and `tests/measure` FFT | ADR-0006 Amendment A1; `LICENSE.txt` read at the pin on 2026-10-25 |
+| pluginval | v1.0.4 release asset `pluginval_Windows.zip`, SHA-256 `c08e61ce3b96db41636f8ec7e76f4c7e2c13ebdac7fa1b5a1f52b4f32ec715ab` | GPL-3.0 | Downloaded in `.github/workflows/build.yml`, hash-checked; never committed | CI `pluginval` job only (not built, linked or shipped) | ADR-0006 D2 / ADR-0007 REQ-TEST-008. Licence via the GitHub API, hash measured on 2026-10-26 |
 
 Approved dependency list, pins and licences: [ADR-0006](docs/adr/0006-build-and-dependencies.md) §D2. A row is added
 here in the PR that first builds the dependency.
