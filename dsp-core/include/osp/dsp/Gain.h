@@ -2,6 +2,8 @@
 
 // Pure C++20: no JUCE, no OS headers (ADR-0001, ADR-0006 D3).
 
+#include "osp/dsp/util/Smoothers.h"
+
 namespace osp::dsp {
 
 // Mono gain with a linear ramp on every gain change. The reference shape for every dsp-core block:
@@ -18,14 +20,10 @@ public:
     void process(const float* in, float* out, int numSamples) noexcept;
 
     int getLatencySamples() const noexcept { return 0; }
-    bool isPrepared() const noexcept { return rampLength_ > 0; }
+    bool isPrepared() const noexcept { return ramp_.isPrepared(); }
 
 private:
-    int rampLength_ = 0;
-    int rampRemaining_ = 0;
-    float current_ = 1.0f;
-    float target_ = 1.0f;
-    float step_ = 0.0f;
+    LinearRamp ramp_{1.0f};
 };
 
 } // namespace osp::dsp
