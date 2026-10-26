@@ -1,6 +1,6 @@
 # Orchestrator state (LIVE, `state` branch)
 
-> Last updated: 2026-10-25 by acct2/orchestrator (canvas name "Orchestrator", Maestro).
+> Last updated: 2026-10-26 05:40Z (heartbeat) by acct2/orchestrator (canvas name "Orchestrator", Maestro).
 > To take over: paste `docs/MASTER_PROMPT.md` (from main) into a fresh agent with **RESUME** appended.
 
 ## Phase
@@ -24,14 +24,14 @@
 ## Roster
 | Canvas | Preset / account | Role | Current | Queue | Reviews PRs from |
 |---|---|---|---|---|---|
-| Orchestrator | default = acct2 | orchestrator | Phase 1 coordination | | |
-| Corvid | Antigravity (gemini) | reviewer + researcher | #13 test-tooling | #11, #12 | everyone |
-| Lyra | Claude acct1 | researcher | #3 reference-plugins | #4 tone-targets-a | acct3 |
-| Sable | Claude acct1 | researcher | #6 nam-runtime | #10 oversampling | acct3 |
-| Wren | Claude acct3 | researcher | #5 tone-targets-b | #7 redistributable-assets | acct1 |
-| Moth | Claude acct3 | researcher | #8 asio-low-latency | #9 framework-comparison | acct1 |
+| Orchestrator | default = acct2 | orchestrator + fill-in reviewer | heartbeat; reviewing #61 | | acct1, acct3 when short |
+| Corvid | Antigravity (gemini) | reviewer | IDLE (quota until ~2026-10-30 16:00) | | everyone |
+| Lyra | Claude acct1 | dsp-engineer | #69 cab IR | answer reviews on #87, #90-#92 | acct3 |
+| Sable | Claude acct1 | dsp-engineer | #63 part 2 (HIIR Oversampler, new branch dsp/63-oversampler-hiir) | #67 drive | acct3 |
+| Wren | Claude acct3 | audio-io + devops + reviewer | merge #58; re-review #87; retarget/fix #61; review #92 | #43, #44 | acct1 |
+| Moth | Claude acct3 | dsp-engineer + reviewer | push WIP #72; fix #88; review #90, #91 | #72 reverb | acct1 |
 
-Unassigned Phase 1: #11 time-based-effects and #12 prior-art go to whoever frees first.
+2026-10-26 heartbeat: every worker had been idle since ~01:45Z (usage limit, no handoff; Moth had unpushed #72 work). All re-dispatched at 05:35Z.
 
 ## ACCOUNT ALERT
 - **Corvid (Antigravity/Gemini) quota exhausted** (2026-10-25 ~22:00), "resets in 114h", so about **2026-10-30 16:00**.
@@ -46,7 +46,7 @@ Unassigned Phase 1: #11 time-based-effects and #12 prior-art go to whoever frees
 | #45 RT checker | Sable acct1 | #59 | MERGED |
 | #46 osp-render + osp-bench | Lyra acct1 | #77, #78 | MERGED |
 | #76 clang-format config + CI check | Wren | #79 | MERGED (clang-format 19.1.5 is a required check) |
-| #42 JUCE plugin target | Wren | #58 (APPROVED, needs a main merge), #61 (state blob; review acct2; fix the output.levelDb range) | in progress |
+| #42 JUCE plugin target | Wren | #58 (APPROVED acct2, CONFLICTING: Wren merging main), #61 (CHANGES-REQ acct2 05:40Z: levelDb range −24 must be −60…+12) | in progress |
 | #43 CI artifacts, #44 pluginval 9 | Wren | | after #58/#61 |
 | #47 latency detector + UI | unassigned | | |
 | #83 CI r0 baselines + R gate | unassigned (release-devops) | | |
@@ -55,13 +55,15 @@ Unassigned Phase 1: #11 time-based-effects and #12 prior-art go to whoever frees
 | Issue | Owner | PR | Status |
 |---|---|---|---|
 | #62 measurement harness | Sable | #80, #84 | MERGED (Signalsmith dsp FFT, ADR-0006 A1) |
-| #63 oversampler + ADAA | Sable | #86 part 1 MERGED (ADAA) | part 2 (HIIR Oversampler) in progress |
+| #63 oversampler + ADAA | Sable | #86 part 1 MERGED (ADAA) | part 2 (HIIR Oversampler) started 05:35Z, fresh branch |
 | #64 smoothing primitives | Moth acct3 | #82 | MERGED |
-| #66 compressor | Lyra | #85 MERGED, #87 CHANGES-REQ | fixing |
-| #65 gate | Moth | #88 | review: Lyra |
-| #72 reverb part 1 | Moth | | in progress |
-| #68 EQ | Lyra | | next |
-| #67 drive (needs #63 part 2), #69 cab, #70 mod, #71 delay, #73 shimmer/spring, #74 doubler/io, #75 tuner | — | | queued |
+| #66 compressor | Lyra | #85 MERGED, #87 CHANGES-REQ (Wren), fixes at 22d098a | re-review: Wren |
+| #65 gate | Moth | #88 CHANGES-REQ (Lyra 01:27Z) | Moth fixing |
+| #72 reverb part 1 | Moth | dsp/72-reverb (WIP push) | after #88 + reviews |
+| #68 EQ | Lyra | #90 SVF, #91 EQ, #92 tests (stacked, green) | review: Moth #90/#91, Wren #92 |
+| #69 cab IR | Lyra | | started 05:35Z |
+| #89 compressor THD probe (82/110 Hz) | — | | after #87 |
+| #67 drive (needs #63 part 2), #70 mod, #71 delay, #73 shimmer/spring, #74 doubler/io, #75 tuner | — | | queued |
 Spec amendment merged: #81 (REQ-TEST-003 = residual vs the per-sample smoothing-law reference, starting at the delivery block,
 normalised to the larger settled RMS; parameters.md has no 16-sample coefficient updates).
 
@@ -72,9 +74,11 @@ normalised to the larger settled RMS; parameters.md has no 16-sample coefficient
 - forbidden_names.txt conflicts: resolve with a union merge (merge origin/main into the PR branch in a helper worktree, take `git show :2:F` + `:3:F`, dedupe with `awk '!seen[$0]++'`). To merge: poll check-runs for the head SHA until guard completes, then `gh pr merge --squash`.
 
 ## Waiting on
-- Research PRs listed above.
+- Batch dispatch 05:35Z (Wren, Moth, Sable, Lyra) to report back over Maestri.
 
 ## Next actions
-1. As each research PR lands: route a cross-account review (Corvid preferred), then merge.
-2. When #3, #6, #8 and #9 are merged, recruit the Architect (acct3, Opus) to start the Phase 2 ADR drafts early.
-3. Heartbeat routine every 45 min.
+1. Merge #87, #88 and #90→#91→#92 (merge each in stack order, and retarget the next PR to main) once approved and green.
+2. Re-review #61 after Wren's range fix. Then #42 closes.
+3. Unassigned: #47 latency, #83 CI baselines, #89. Give them to whoever frees first (#83/#43/#44 to Wren).
+4. Rule 8 reminder to all: hand off before limits hit (Moth left unpushed work on 2026-10-26).
+5. Heartbeat routine every 45 min.
