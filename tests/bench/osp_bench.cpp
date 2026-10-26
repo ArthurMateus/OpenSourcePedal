@@ -197,6 +197,14 @@ int main(int argc, char** argv)
                            comp.process(in, out, n);
                        })});
 
+    // FIR (HQ) oversampler at 8x, identity processing: the up/down cost of one HQ region (ADR-0005 D2, A2).
+    osp::dsp::Oversampler os8fir;
+    os8fir.prepare(kSampleRate, kBlock, 8, osp::dsp::OversamplingFilter::fir);
+    results.push_back(
+        {"oversampler_fir_8x", measure(bench, "oversampler_fir_8x", input, [&](const float* in, float* out, int n) {
+             os8fir.process(in, out, n, [](float*, int) {});
+         })});
+
     // Pass-through chain (the full engine chain as it stands), at 0 dB.
     osp::engine::Chain chain;
     chain.prepare(kSampleRate, kBlock);
