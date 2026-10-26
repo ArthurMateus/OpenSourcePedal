@@ -55,15 +55,15 @@
 | Issue | Owner | PR | Status |
 |---|---|---|---|
 | #62 measurement harness | Sable | #80, #84 | MERGED (Signalsmith dsp FFT, ADR-0006 A1) |
-| #63 oversampler + ADAA | Sable | #86 part 1 MERGED (ADAA). #96 part 2 HIIR IIR Oversampler 1/2/4/8x (+593, WTFPL OK; 8x image gate 85 dB not 90) | review: Moth after #93. Part 3 (FIR HQ) deferred, see the #63 comment |
+| #63 oversampler + ADAA | Sable | #86 part 1 MERGED. #96 part 2 CHANGES-REQ (Moth): HIIR SSE upsampler zero-input limit cycle (-113.5 dBFS period-4 at 8x); fix = FPU classes, 90 dB gate, exact-zero idle test | Sable fixing (priority, #67 waits). Part 3 (FIR HQ) deferred |
 | #67 drive | Sable | stacked on #96 | started (critical path) |
 | #64 smoothing primitives | Moth acct3 | #82 | MERGED |
 | #66 compressor | Lyra | #85, #87 MERGED (dea4eb3, approved by Wren) | DONE (issue closed) |
 | #65 gate | Moth | #88 MERGED (c1d1a45) | DONE (issue closed) |
-| #72 reverb part 1 | Moth | dsp/72-reverb (WIP 421f581) | after the #93 review |
+| #72 reverb part 1 | Moth | dsp/72-reverb | in progress (Moth review queue empty) |
 | #68 EQ | Lyra | #90 MERGED (3bf87fc), #91 MERGED (11939e1, Moth re-approved), #92 base main | review: Wren |
-| #69 cab IR | Lyra | #93 part 1 convolver (DIRTY: Lyra syncing); part 2 WIP 1cb9ea5 on dsp/69-cab-block | review: Moth after #91 |
-| #94 third-party MIT notices in Credits/installer | — | | filed by Lyra |
+| #69 cab IR | Lyra | #93 part 1 APPROVED (Moth @43baa27; head c65f9fd = main merges only) | auto-merge on green. Part 2 (dsp/69-cab-block): add IR cap / slot phase stagger (1 s IR peak 352 us = 26% of the 64-sample deadline) |
+| #94 third-party notices in Credits/installer (Signalsmith, HIIR, nlohmann, JUCE, VST3, ASIO) | — | | filed by Lyra; HIIR added |
 | #95 engine v1 signal graph (Phase 5) | unassigned (architect) | | filed 2026-10-26 from Moth's #88 note |
 | #89 compressor THD probe (82/110 Hz) | — (Lyra preferred) | | unblocked (#87 merged) |
 | #70 mod, #71 delay, #73 shimmer/spring, #74 doubler/io, #75 tuner | — | | queued |
