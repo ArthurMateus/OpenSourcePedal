@@ -46,7 +46,8 @@ private:
     juce::AudioProcessorValueTreeState parameters_;
     osp::engine::Engine engine_;
 
-    // Stand-in for the EngineController mutex (ADR-0004 rule 6): serialises state calls; never taken on the audio thread.
+    // Stand-in for the EngineController mutex (ADR-0004 rule 6): serialises state calls; never taken on the audio
+    // thread.
     juce::CriticalSection stateLock_;
     std::string presetId_;
     std::string presetName_ = "Init";
