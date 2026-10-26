@@ -1,0 +1,26 @@
+name: format
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  clang-format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Same version as the clang-format bundled with VS 2022 17.14 Build Tools, so local and CI output agree.
+      - name: Install clang-format 19.1.5
+        run: pip install clang-format==19.1.5
+      - name: Check formatting
+        run: git ls-files -z '*.h' '*.hpp' '*.cpp' | xargs -0 -r clang-format --dry-run --Werror --style=file
