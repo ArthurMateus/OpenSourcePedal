@@ -23,11 +23,7 @@ public:
     bool isPrepared() const noexcept { return ramp_.isPrepared(); }
 
 private:
-    LinearRamp ramp_ = [] {
-        LinearRamp r;
-        r.reset(1.0f);
-        return r;
-    }();
+    LinearRamp ramp_{1.0f};
 };
 
 } // namespace osp::dsp

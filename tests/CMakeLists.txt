@@ -6,9 +6,10 @@ target_include_directories(osp_rt_checker PUBLIC rt)
 target_link_libraries(osp_rt_checker PUBLIC osp_dsp_core)
 osp_apply_settings(osp_rt_checker)
 
-# Measurement harness (ADR-0007 §2): FFT, coherent THD/ASR, splatter, null.
+# Measurement harness (ADR-0007 §2, §3): FFT, coherent THD/ASR, smoothing residual, null, ESS, LSD/MR-STFT.
 add_library(osp_measure STATIC
-    measure/measure.cpp)
+    measure/measure.cpp
+    measure/spectral.cpp)
 target_include_directories(osp_measure PUBLIC measure)
 target_link_libraries(osp_measure PRIVATE signalsmith-dsp)
 osp_apply_settings(osp_measure)
@@ -20,6 +21,7 @@ add_executable(osp_tests
     engine/test_chain.cpp
     engine/test_version.cpp
     measure/test_measure.cpp
+    measure/test_spectral.cpp
     rt/test_rt_checker.cpp)
 
 target_link_libraries(osp_tests PRIVATE osp_engine osp_measure osp_rt_checker Catch2::Catch2WithMain)

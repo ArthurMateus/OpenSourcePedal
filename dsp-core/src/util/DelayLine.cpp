@@ -8,12 +8,13 @@ void DelayLine::prepare(int maxDelaySamples)
 {
     size_ = std::max(maxDelaySamples, 0) + 1;
     buffer_.assign(static_cast<std::size_t>(size_), 0.0f);
-    delay_ = std::min(delay_, size_ - 1);
+    delay_ = std::clamp(requested_, 0, size_ - 1);
     write_ = 0;
 }
 
 void DelayLine::setDelay(int delaySamples) noexcept
 {
+    requested_ = delaySamples;
     const int maxDelay = size_ > 0 ? size_ - 1 : 0;
     delay_ = std::clamp(delaySamples, 0, maxDelay);
 }

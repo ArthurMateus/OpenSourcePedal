@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numbers>
 #include <random>
 #include <vector>
@@ -37,21 +38,29 @@ std::vector<double> sine1k(double fs, int n)
     return x;
 }
 
+// First block boundary at or after kStepAt: a block sees a parameter change only at its next process() call, so
+// the reference law starts at this delivery sample.
+int deliveryAt(int blockSize)
+{
+    return (kStepAt + blockSize - 1) / blockSize * blockSize;
+}
+
 // Applies the per-sample gain law `ref(i)` (double) and the primitive under test `next()` (float, driven in blocks
-// of `blockSize`, with the target written exactly at kStepAt) to the same sine, and returns the residual in dBc.
+// of `blockSize`; the new target is delivered at the first block boundary >= kStepAt, as the host would) to the
+// same sine, and returns the residual in dBc.
 template <typename Ref, typename Next, typename Step>
 double residualDbc(double fs, int blockSize, Ref&& ref, Next&& next, Step&& step)
 {
+    const int at = deliveryAt(blockSize);
     const int n = kStepAt + static_cast<int>(0.2 * fs);
     const auto x = sine1k(fs, n);
     std::vector<float> y(static_cast<std::size_t>(n));
     const auto rt = osp::rt::test::runAsAudioThread([&] {
         for (int pos = 0; pos < n; pos += blockSize) {
-            for (int i = pos; i < std::min(pos + blockSize, n); ++i) {
-                if (i == kStepAt)
-                    step();
+            if (pos == at)
+                step();
+            for (int i = pos; i < std::min(pos + blockSize, n); ++i)
                 y[static_cast<std::size_t>(i)] = static_cast<float>(x[static_cast<std::size_t>(i)]) * next();
-            }
         }
     });
     OSP_REQUIRE_RT_CLEAN(rt);
@@ -160,6 +169,15 @@ TEST_CASE("Crossfader: 10 ms, constant amplitude, exact end states", "[dsp][util
         REQUIRE(out[static_cast<std::size_t>(i)] == b[static_cast<std::size_t>(i)]);
     REQUIRE_FALSE(xf.isFading());
     REQUIRE(xf.target());
+
+    // Settled: an exact copy, and the unused input is never read (a bypassed block may leave it stale, even NaN).
+    std::vector<float> junk(a.size(), std::numeric_limits<float>::quiet_NaN());
+    xf.reset(false);
+    xf.process(a.data(), junk.data(), out.data(), total);
+    REQUIRE(out == a);
+    xf.reset(true);
+    xf.process(junk.data(), b.data(), out.data(), total);
+    REQUIRE(out == b);
 }
 
 TEST_CASE("DelayLine: exact integer delay, in place, block-size invariant, reset", "[dsp][util]")
@@ -173,8 +191,8 @@ TEST_CASE("DelayLine: exact integer delay, in place, block-size invariant, reset
     d.process(pre.data(), pre.data(), 8); // before prepare(): zero output
     REQUIRE(std::all_of(pre.begin(), pre.end(), [](float v) { return v == 0.0f; }));
 
+    d.setDelay(delay); // set before prepare(): kept and applied by prepare()
     d.prepare(255);
-    d.setDelay(delay);
     REQUIRE(d.getLatencySamples() == delay);
 
     const int total = 5000;
@@ -216,6 +234,7 @@ TEST_CASE("Smoothing: residual vs per-sample reference <= -60 dBc (REQ-TEST-003)
     CAPTURE(fs, blockSize, up);
     const double lo = 0.001, hi = 1.0; // −60 dB → 0 dB
     const double from = up ? lo : hi, to = up ? hi : lo;
+    const int at = deliveryAt(blockSize); // where the reference law starts (block-boundary delivery)
 
     // LinearRamp, 20 ms ("Gain / level"): g = from + (to − from)·min(1, (i − s + 1) / L).
     LinearRamp ramp;
@@ -224,7 +243,7 @@ TEST_CASE("Smoothing: residual vs per-sample reference <= -60 dBc (REQ-TEST-003)
     const int len = ramp.lengthSamples();
     const double rLinear = residualDbc(
         fs, blockSize,
-        [&](int i) { return i < kStepAt ? from : from + (to - from) * std::min(1.0, double(i - kStepAt + 1) / len); },
+        [&](int i) { return i < at ? from : from + (to - from) * std::min(1.0, double(i - at + 1) / len); },
         [&] { return ramp.next(); }, [&] { ramp.setTarget(static_cast<float>(to)); });
 
     // OnePoleSmoother, τ = 20 ms ("Filter / tone"): g = to + (from − to)·a^(i − s + 1).
@@ -233,7 +252,7 @@ TEST_CASE("Smoothing: residual vs per-sample reference <= -60 dBc (REQ-TEST-003)
     pole.reset(static_cast<float>(from));
     const double a = std::exp(-1.0 / (0.020 * fs));
     const double rPole = residualDbc(
-        fs, blockSize, [&](int i) { return i < kStepAt ? from : to + (from - to) * std::pow(a, i - kStepAt + 1); },
+        fs, blockSize, [&](int i) { return i < at ? from : to + (from - to) * std::pow(a, i - at + 1); },
         [&] { return pole.next(); }, [&] { pole.setTarget(static_cast<float>(to)); });
 
     // Crossfader, 10 ms: the same law as LinearRamp between the two gains.
@@ -244,7 +263,7 @@ TEST_CASE("Smoothing: residual vs per-sample reference <= -60 dBc (REQ-TEST-003)
     float ga = static_cast<float>(from), gb = static_cast<float>(to), unit = 1.0f, mixed = 0.0f;
     const double rXfade = residualDbc(
         fs, blockSize,
-        [&](int i) { return i < kStepAt ? from : from + (to - from) * std::min(1.0, double(i - kStepAt + 1) / xlen); },
+        [&](int i) { return i < at ? from : from + (to - from) * std::min(1.0, double(i - at + 1) / xlen); },
         [&] {
             const float pa = ga * unit, pb = gb * unit;
             xf.process(&pa, &pb, &mixed, 1);
@@ -256,7 +275,7 @@ TEST_CASE("Smoothing: residual vs per-sample reference <= -60 dBc (REQ-TEST-003)
     float raw = static_cast<float>(from);
     const double rRaw = residualDbc(
         fs, blockSize,
-        [&](int i) { return i < kStepAt ? from : from + (to - from) * std::min(1.0, double(i - kStepAt + 1) / len); },
+        [&](int i) { return i < at ? from : from + (to - from) * std::min(1.0, double(i - at + 1) / len); },
         [&] { return raw; }, [&] { raw = static_cast<float>(to); });
 
     CAPTURE(rLinear, rPole, rXfade, rRaw);

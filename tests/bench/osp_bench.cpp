@@ -8,6 +8,9 @@
 
 #include "osp/dsp/Compressor.h"
 #include "osp/dsp/Gain.h"
+#include "osp/dsp/util/Crossfader.h"
+#include "osp/dsp/util/DelayLine.h"
+#include "osp/dsp/util/Smoothers.h"
 #include "osp/engine/Chain.h"
 
 #include <nanobench.h>
@@ -139,6 +142,33 @@ int main(int argc, char** argv)
                            gain.setGainDb((blockCount++ / 75) % 2 == 0 ? -6.0f : 0.0f);
                            gain.process(in, out, n);
                        })});
+
+    // One-pole smoother driving a gain, retargeted every 75 blocks (the per-sample cost of a "filter / tone" smoother).
+    osp::dsp::OnePoleSmoother pole;
+    pole.prepare(kSampleRate, 0.020);
+    pole.reset(1.0f);
+    blockCount = 0;
+    results.push_back(
+        {"smoother_onepole", measure(bench, "smoother_onepole", input, [&](const float* in, float* out, int n) {
+             pole.setTarget((blockCount++ / 75) % 2 == 0 ? 0.5f : 1.0f);
+             for (int i = 0; i < n; ++i)
+                 out[i] = in[i] * pole.next();
+         })});
+
+    // Block-enable crossfade between dry and a 64-sample latency-padded copy, toggled every 75 blocks.
+    osp::dsp::Crossfader xf;
+    xf.prepare(kSampleRate);
+    osp::dsp::DelayLine pad;
+    pad.prepare(kBlock);
+    pad.setDelay(kBlock);
+    std::vector<float> padded(kBlock);
+    blockCount = 0;
+    results.push_back(
+        {"crossfade_delay", measure(bench, "crossfade_delay", input, [&](const float* in, float* out, int n) {
+             xf.setTarget((blockCount++ / 75) % 2 == 0);
+             pad.process(in, padded.data(), n);
+             xf.process(in, padded.data(), out, n);
+         })});
 
     // Compressor at its defaults (opto, -20 dB, 4:1, all three detectors run) with the tone tilt active (knob 7).
     osp::dsp::Compressor comp;
