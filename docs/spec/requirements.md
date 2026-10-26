@@ -80,7 +80,7 @@ Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges an
 | REQ-424 | **Clean DI blend** (`amp.cleanBlendPct`): a parallel path from the amp input that skips amp, cab and EQ and is latency-aligned to the wet path. At 100 % the output equals the delayed amp input (null ≤ −120 dBFS after alignment); `L_total` is unchanged by the blend value | M | U | ref Q4; ta T1; signal-flow §1 |
 | REQ-421 | Oversampling quality is a **global** Live/HQ user setting (app settings and plugin state, not presets). Inside hosts, offline renders use the user's setting in v1 (no automatic switch). `osp-render` may force HQ with `--quality hq`. Factors and filters: ADR-0005 D2/D3 | M | U | os Q1; ADR-0005 D6 |
 | REQ-422 | Aliasing per nonlinear block meets the ASR thresholds of the oversampling ADR (#27), measured with the bin-centred method | M | U | os §3.3; tt §2.3 |
-| REQ-423 | Continuous parameters are smoothed: no zipper noise per ADR-0007 REQ-TEST-003 (a 50 ms min→max ramp on a 1 kHz sine gives spectral splatter outside f0 ± 50 Hz ≤ −60 dBc) | M | U | AGENTS §4; ADR-0007; realtime-rules RT-13 |
+| REQ-423 | Continuous parameters are smoothed: no zipper noise per ADR-0007 REQ-TEST-003 (a step change on a 1 kHz sine leaves ≤ −60 dBc residual against the per-sample reference of the specified smoothing law) | M | U | AGENTS §4; ADR-0007; realtime-rules RT-13 |
 
 ## 5. Presets (5xx)
 
