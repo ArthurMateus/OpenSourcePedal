@@ -1,6 +1,9 @@
 // Guitar parts and tone sections (ADR-0008 D5), on synthetic songs with a known answer built from the bundled CC0
 // DI: guitar 1 (left) plays clean, crunch, clean again with different excerpts; guitar 2 (right) plays fuzz through
 // another cab the whole time. A double-tracked guitar must stay one part.
+// The songs are rendered with the same blocks the matcher searches, so the "matches the right kind of setting" checks
+// are partly circular (#121 review); tools/tonematch/matrix.py, whose references share no code with dsp-core, is the
+// independent check of match quality. These tests pin down the sectioning itself.
 
 #include "osp/dsp/conv/IrLoader.h"
 #include "osp/engine/ToneMatch.h"
