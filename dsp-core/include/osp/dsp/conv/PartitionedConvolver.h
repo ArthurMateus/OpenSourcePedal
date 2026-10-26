@@ -36,8 +36,14 @@ public:
     // Non-RT: allocates. Copies the IR (any length >= 0; 0 gives silence), builds the partition spectra and clears the
     // state. The IR must already be at the processing sample rate.
     void prepare(const float* ir, int length);
-    // RT-safe. Clears the input history and every delay line: two renders after reset() are bit-identical.
+    // RT-safe. Clears the input history and every delay line and re-applies the start phase: two renders after
+    // reset() are bit-identical.
     void reset() noexcept;
+    // RT-safe. Starts the convolver `samples` into its frames, as if it had already received that many zeros, so the
+    // output is unchanged but each stage completes a frame `samples` (mod B) earlier. Two convolvers with different
+    // phases do not run their large-stage FFTs in the same callback. Only on a cold object (after prepare() or
+    // reset()); reset() keeps the phase.
+    void setStartPhase(int samples) noexcept;
 
     // RT-safe. in == out is allowed. Any numSamples >= 0, independent of a host block size. Before prepare() it
     // zero-fills the output.
@@ -55,6 +61,7 @@ private:
     std::vector<float> history_; // kHeadLength - 1 previous inputs, then the current chunk
     std::vector<std::unique_ptr<Stage>> stages_;
     int phase_ = 0; // position inside the current kHeadLength chunk
+    int startPhase_ = 0;
     int irLength_ = 0;
     bool prepared_ = false;
 };
