@@ -13,3 +13,13 @@ osp_apply_settings(osp-render)
 # Prints the HIIR halfband coefficients committed in dsp-core/src/oversampling/Oversampler.cpp (ADR-0005 D1, D3).
 add_executable(osp-hiir-design design/hiir_coefs.cpp "${hiir_SOURCE_DIR}/hiir/PolyphaseIir2Designer.cpp")
 target_include_directories(osp-hiir-design SYSTEM PRIVATE "${hiir_SOURCE_DIR}")
+
+# Tone match (ADR-0008): reference WAV/MP3 + the player's DI -> preset JSON. dr_mp3 comes from the same dr_libs commit.
+add_library(osp_dr_mp3 STATIC tonematch/dr_mp3_impl.c)
+target_include_directories(osp_dr_mp3 SYSTEM PUBLIC "${dr_libs_SOURCE_DIR}")
+target_compile_definitions(osp_dr_mp3 PRIVATE _CRT_SECURE_NO_WARNINGS)
+
+add_executable(osp-tonematch tonematch/osp_tonematch.cpp)
+target_link_libraries(osp-tonematch PRIVATE osp_engine osp_dr_wav osp_dr_mp3)
+target_compile_definitions(osp-tonematch PRIVATE OSP_ASSET_DIR="${PROJECT_SOURCE_DIR}/assets" _CRT_SECURE_NO_WARNINGS)
+osp_apply_settings(osp-tonematch)
