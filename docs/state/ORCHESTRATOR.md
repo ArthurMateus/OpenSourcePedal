@@ -58,10 +58,11 @@
 | #63 oversampler + ADAA | Sable | #86 part 1 MERGED (ADAA) | part 2 (HIIR Oversampler) started 05:35Z, fresh branch |
 | #64 smoothing primitives | Moth acct3 | #82 | MERGED |
 | #66 compressor | Lyra | #85 MERGED, #87 CHANGES-REQ (Wren), fixes at 22d098a | re-review: Wren |
-| #65 gate | Moth | #88 CHANGES-REQ (Lyra 01:27Z) | Moth fixing |
-| #72 reverb part 1 | Moth | dsp/72-reverb (WIP push) | after #88 + reviews |
-| #68 EQ | Lyra | #90 SVF, #91 EQ, #92 tests (stacked, green) | review: Moth #90/#91, Wren #92 |
-| #69 cab IR | Lyra | #93 part 1 convolver (CI running; review: Moth after #90/#91) | part 2 Cab block in progress |
+| #65 gate | Moth | #88 fixed in 8d6f9bc (25 ms close debounce) | re-review: Lyra |
+| #72 reverb part 1 | Moth | dsp/72-reverb (WIP 421f581) | after the #93 review |
+| #68 EQ | Lyra | #90 MERGED (3bf87fc). #91 CHANGES-REQ (Moth: pK.shape reversal mid-fade, ~-5 dBFS click), now base main, DIRTY. #92 base dsp/68-eq | Lyra fixing #91; Wren reviews #92 |
+| #69 cab IR | Lyra | #93 part 1 convolver | review: Moth (next); part 2 paused until #88/#91 done |
+| #95 engine v1 signal graph (Phase 5) | unassigned (architect) | | filed 2026-10-26 from Moth's #88 note |
 | #89 compressor THD probe (82/110 Hz) | — | | after #87 |
 | #67 drive (needs #63 part 2), #70 mod, #71 delay, #73 shimmer/spring, #74 doubler/io, #75 tuner | — | | queued |
 Spec amendment merged: #81 (REQ-TEST-003 = residual vs the per-sample smoothing-law reference, starting at the delivery block,
@@ -73,8 +74,10 @@ normalised to the larger settled RMS; parameters.md has no 16-sample coefficient
 - After every merge-from-main, run clang-format 19.1.5 (pip clang-format==19.1.5; exe in site-packages/clang_format/data/bin) before pushing. Use set -e scripts: a conflicted merge must abort the push (lesson from #86).
 - forbidden_names.txt conflicts: resolve with a union merge (merge origin/main into the PR branch in a helper worktree, take `git show :2:F` + `:3:F`, dedupe with `awk '!seen[$0]++'`). To merge: poll check-runs for the head SHA until guard completes, then `gh pr merge --squash`.
 
+- **Stacked PRs:** retarget the child to `main` BEFORE `gh pr merge <parent> --delete-branch`. Deleting the base branch auto-CLOSES the child, and a closed PR cannot be retargeted (#91 on 2026-10-26). To recover: recreate the base ref at the parent's head SHA (`gh api -X POST repos/{owner}/{repo}/git/refs`), `gh pr reopen`, `gh pr edit --base main`, then delete the ref again.
+
 ## Waiting on
-- Batch dispatch 05:35Z (Wren, Moth, Sable, Lyra) to report back over Maestri.
+- Wren and Sable: first-round batch (05:35Z). Lyra and Moth: priority batch 2 (#88 re-review, #91 fix, #93 review).
 
 ## Next actions
 1. Merge #87, #88 and #90→#91→#92 (merge each in stack order, and retarget the next PR to main) once approved and green.
