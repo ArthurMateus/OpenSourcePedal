@@ -9,6 +9,7 @@
 #include "osp/dsp/Compressor.h"
 #include "osp/dsp/Drive.h"
 #include "osp/dsp/DriveRegion.h"
+#include "osp/dsp/Eq.h"
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/Gate.h"
 #include "osp/dsp/oversampling/Oversampler.h"
@@ -24,12 +25,12 @@
 #include <windows.h>
 #endif
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -88,10 +89,9 @@ struct Result {
 };
 
 // Runs `perBlock(in, out, n)` over 1 s of audio in 64-sample blocks, kEpochs times, and returns the median time.
-double measure(ankerl::nanobench::Bench& bench,
-               const char* name,
-               const std::vector<float>& input,
-               const std::function<void(const float*, float*, int)>& perBlock)
+// A template rather than std::function, so the per-block call can inline and costs nothing in the measurement (#83).
+template <typename PerBlock>
+double measure(ankerl::nanobench::Bench& bench, const char* name, const std::vector<float>& input, PerBlock&& perBlock)
 {
     std::vector<float> out(input.size());
     bench.run(name, [&] {
@@ -174,6 +174,19 @@ int main(int argc, char** argv)
              xf.process(in, padded.data(), out, n);
          })});
 
+    // EQ, worst static case: graphic9 with every band at +-6 dB and both cuts on (mono; linked stereo is about 2x).
+    osp::dsp::Eq eq;
+    for (int band = 0; band < 9; ++band)
+        eq.setGraphic9Db(band, band % 2 == 0 ? 6.0f : -6.0f);
+    eq.setLowCutHz(80.0f);
+    eq.setHighCutHz(10000.0f);
+    eq.prepare(kSampleRate, kBlock);
+    results.push_back({"eq", measure(bench, "eq", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           float* ch[1] = {out};
+                           eq.process(ch, 1, n);
+                       })});
+
     // IIR oversampler, Live factor at 48 kHz (4x, ADR-0005 D2), identity processing: the up/down cost of one region.
     osp::dsp::Oversampler os4;
     os4.prepare(kSampleRate, kBlock, 4);
@@ -218,6 +231,14 @@ int main(int argc, char** argv)
                            comp.setThresholdDb(-20.0f);
                            comp.process(in, out, n);
                        })});
+
+    // FIR (HQ) oversampler at 8x, identity processing: the up/down cost of one HQ region (ADR-0005 D2, A2).
+    osp::dsp::Oversampler os8fir;
+    os8fir.prepare(kSampleRate, kBlock, 8, osp::dsp::OversamplingFilter::fir);
+    results.push_back(
+        {"oversampler_fir_8x", measure(bench, "oversampler_fir_8x", input, [&](const float* in, float* out, int n) {
+             os8fir.process(in, out, n, [](float*, int) {});
+         })});
 
     // Pass-through chain (the full engine chain as it stands), at 0 dB.
     osp::engine::Chain chain;

@@ -272,3 +272,32 @@ TEST_CASE("Cab: block bypass, hard bypass, slot 2, reset and pre-prepare", "[dsp
         REQUIRE(again.r == y.r);
     }
 }
+
+TEST_CASE("Cab: the slots' 1024-sample frames stay staggered, also for a promoted pending IR (PR #100 review)",
+          "[dsp][cab]")
+{
+    // Slot 1 runs at phase 0, slot 2 at 512. A swap moves slot 1 to 256; the pending IR queued during that fade
+    // comes back to 0, so it must sit exactly 512 samples from slot 2. Phasing it at the chunk where it was promoted
+    // instead of the next one put it 128 samples off at 128-sample blocks.
+    const auto ir = makeNoise(48000, 13u); // 1 s: the 1024 stage exists
+    auto a = makeConvolver(ir), b = makeConvolver(ir), c = makeConvolver(ir), d = makeConvolver(ir);
+    const int blockSize = GENERATE(64, 128, 2048);
+    CAPTURE(blockSize);
+    Cab cab;
+    cab.setIr(0, a.get());
+    cab.setIr(1, d.get());
+    cab.setSlotEnabled(1, true);
+    cab.prepare(kFs, kMaxBlock);
+    const auto x = makeNoise(static_cast<int>(kFs), 14u);
+    std::vector<PartitionedConvolver*> retired;
+    render(cab, x, blockSize, retired, [&](int pos) {
+        if (pos == 4096)
+            cab.setIr(0, b.get());
+        if (pos == 4096 + 2 * blockSize)
+            cab.setIr(0, c.get()); // pending until b's fade is done
+    });
+    REQUIRE(retired == std::vector<PartitionedConvolver*>{a.get(), b.get()});
+    const int gap = ((c->framePosition() - d->framePosition()) % 1024 + 1024) % 1024;
+    CAPTURE(c->framePosition(), d->framePosition());
+    REQUIRE(gap == 512);
+}

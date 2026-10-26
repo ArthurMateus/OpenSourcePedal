@@ -1,6 +1,7 @@
 add_library(osp_dsp_core STATIC
     src/Cab.cpp
     src/Compressor.cpp
+    src/conv/IrLoader.cpp
     src/conv/PartitionedConvolver.cpp
     src/Drive.cpp
     src/DriveRegion.cpp

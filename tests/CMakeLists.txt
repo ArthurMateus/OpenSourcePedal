@@ -22,9 +22,11 @@ add_executable(osp_tests
     dsp/test_drive.cpp
     dsp/test_drive_region.cpp
     dsp/test_eq.cpp
+    dsp/test_eq_dynamics.cpp
     dsp/test_svf.cpp
     dsp/test_gain.cpp
     dsp/test_gate.cpp
+    dsp/test_ir_loader.cpp
     dsp/test_oversampler.cpp
     dsp/test_util.cpp
     engine/test_chain.cpp
@@ -34,7 +36,9 @@ add_executable(osp_tests
     measure/test_spectral.cpp
     rt/test_rt_checker.cpp)
 
-target_link_libraries(osp_tests PRIVATE osp_engine osp_measure osp_rt_checker Catch2::Catch2WithMain)
+target_link_libraries(osp_tests PRIVATE osp_engine osp_measure osp_rt_checker osp_dr_wav Catch2::Catch2WithMain)
+# The asset tests read the bundled CC0 IRs and DI clips (Git LFS; CI checks them out with lfs: true).
+target_compile_definitions(osp_tests PRIVATE OSP_ASSET_DIR="${PROJECT_SOURCE_DIR}/assets")
 osp_apply_settings(osp_tests)
 # The RT checker is always compiled into the test binary (ADR-0006 D4).
 target_compile_definitions(osp_tests PRIVATE OSP_RT_CHECKER=1)
