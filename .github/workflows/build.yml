@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# A new push to a PR branch cancels the run it supersedes; runs on main always finish.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   windows-msvc:
     name: windows-msvc (Release, /WX)
@@ -21,6 +26,7 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
+      # FETCHCONTENT_BASE_DIR (CMakePresets.json "base"), shared by every preset. ADR-0006 D2: keyed on the pin file.
       - name: Cache fetched dependencies
         uses: actions/cache@v4
         with:
@@ -31,10 +37,63 @@ jobs:
       - name: Build
         run: cmake --build --preset ci
       - name: Test
-        run: ctest --preset ci
+        run: ctest --preset ci --output-junit test-results.xml
       # REQ-TEST-007. The R regression gate stays off until baselines come from the CI runner: sub-0.01 % blocks
       # move R by up to ~30 % between local runs (timer noise), see #46.
       - name: Benchmarks (CPU ceilings)
         run: |
           ./build/release/tests/osp-bench.exe --out build/bench.json
           python tools/bench/check_budget.py build/bench.json --no-regression
+      - name: Upload test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-release
+          path: |
+            build/release/test-results.xml
+            build/release/Testing/Temporary/LastTest*.log
+            build/bench.json
+          if-no-files-found: warn
+          retention-days: 14
+      # Paths per AGENTS.md section 3. The .vst3 is a bundle directory; upload-artifact keeps its layout.
+      - name: Upload standalone and VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenSourcePedal-${{ github.sha }}-win64
+          path: |
+            build/release/app/OpenSourcePedal_artefacts/Release/Standalone/OpenSourcePedal.exe
+            build/release/app/OpenSourcePedal_artefacts/Release/VST3/OpenSourcePedal.vst3
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-msvc-debug:
+    name: windows-msvc-debug (RT checker)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Cache fetched dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: deps-${{ runner.os }}-${{ hashFiles('cmake/OspDependencies.cmake') }}
+      - name: Configure
+        run: cmake --preset windows-msvc-debug
+      - name: Build
+        run: cmake --build --preset debug
+      - name: Test
+        run: ctest --preset debug --output-junit test-results.xml
+      - name: Upload test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-debug
+          path: |
+            build/debug/test-results.xml
+            build/debug/Testing/Temporary/LastTest*.log
+          if-no-files-found: warn
+          retention-days: 14

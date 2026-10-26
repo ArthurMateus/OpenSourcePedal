@@ -3,6 +3,16 @@
 include_guard(GLOBAL)
 include(FetchContent)
 
+# HIIR 1.50 (WTFPL-2.0), header-only, used by dsp-core's IIR oversampler (ADR-0005 D1, ADR-0006 D2). There is no
+# repository, only this archive, so it is pinned by SHA-256 (checked against ADR-0006 on 2026-10-26). The archive has
+# no CMakeLists.txt: SOURCE_SUBDIR keeps FetchContent to a download.
+FetchContent_Declare(hiir
+    URL      http://ldesoras.fr/src/hiir-1.50.zip
+    URL_HASH SHA256=8a13724e8d698a40f53687d40466443879f6250abd2229097f3990b76e6855a6
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
+    SOURCE_SUBDIR osp-no-build)
+FetchContent_MakeAvailable(hiir)
+
 # Signalsmith dsp v1.7.3 (MIT), header-only. Its FFT backs the cab convolution in dsp-core (#69) and tests/measure
 # (ADR-0006 Amendment A1, #62). Tag → commit checked 2026-10-25.
 FetchContent_Declare(signalsmith_dsp
