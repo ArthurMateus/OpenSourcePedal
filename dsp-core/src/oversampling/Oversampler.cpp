@@ -1,17 +1,14 @@
 #include "osp/dsp/oversampling/Oversampler.h"
 
-// HIIR's SSE classes run one channel with 4-wide internal SIMD. In a scratch benchmark (VS 2022, /O2 /fp:precise,
-// 64-sample blocks, stage-0 up + down) they took 50 ms against 87 ms for the FPU classes, so x86 uses them and other
-// targets fall back to the portable FPU classes (ADR-0005 D1: SIMD variant chosen at compile time).
-#if defined(_M_X64) || defined(__SSE2__)
-#include "hiir/Downsampler2xSse.h"
-#include "hiir/Upsampler2xSse.h"
-#else
+// HIIR's portable FPU classes on every target. The single-channel SSE classes were about 1.7x faster in a scratch
+// bench, but the SSE upsampler holds a zero-input limit cycle: after noise, the 8x domain keeps a period-4 tone at
+// -113.5 dBFS (2x/4x: -138 dBFS) that never decays, even with FTZ/DAZ on. The FPU classes decay to exactly 0 (#96
+// review, acct3). At 4x the FPU cost is about 0.1 % of a core (osp-bench oversampler_iir_4x).
 #include "hiir/Downsampler2xFpu.h"
 #include "hiir/Upsampler2xFpu.h"
-#endif
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <complex>
 #include <iterator>
@@ -22,17 +19,10 @@ namespace osp::dsp {
 
 namespace {
 
-#if defined(_M_X64) || defined(__SSE2__)
-template <int NC>
-using HiirUp = hiir::Upsampler2xSse<NC>;
-template <int NC>
-using HiirDown = hiir::Downsampler2xSse<NC>;
-#else
 template <int NC>
 using HiirUp = hiir::Upsampler2xFpu<NC>;
 template <int NC>
 using HiirDown = hiir::Downsampler2xFpu<NC>;
-#endif
 
 // hiir::PolyphaseIir2Designer::compute_coefs(coefs, attenuationDb, transition), HIIR 1.50, printed by
 // tools/design/hiir_coefs.cpp. Transition is relative to the stage's higher rate (ADR-0005 D3).
@@ -178,6 +168,7 @@ void Oversampler::downsample(float* out, int numSamples) noexcept
         std::fill_n(out, std::max(numSamples, 0), 0.0f);
         return;
     }
+    assert(n == lastN_ && "downsample() must decimate the block of the last upsample()");
     if (n == 0)
         return;
     if (factor_ == 1) {
@@ -199,7 +190,7 @@ void detail::runIirStage(int stage, bool up, const float* in, float* out, int nu
 {
     if (numSamples <= 0)
         return;
-    const auto iir = std::make_unique<IirCascade>(); // heap: SSE members need 16-byte alignment, which new honours
+    const auto iir = std::make_unique<IirCascade>();
     const int s = std::clamp(stage, 0, Oversampler::kNumIirStages - 1);
     if (up)
         iir->up(s, out, in, numSamples);

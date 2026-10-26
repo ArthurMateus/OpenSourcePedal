@@ -156,10 +156,7 @@ TEST_CASE("Oversampler: IIR passband, images, aliases and 1 kHz delay per rate a
     for (std::size_t b = 0; b < upDb.size(); ++b)
         if (static_cast<double>(b) / kLen >= 0.5 + kSpecs[0].upTw * 2.0)
             image = std::max(image, upDb[b]);
-    // At 8x the worst bin (-85.9 dB measured) is the DC image at exactly 2 fs: stage 1's Nyquist zero, which stage 2
-    // passes at -3 dB (its halfband point). Stage 1 alone reaches -103.8 dB there, so the residue is the cascade's
-    // float rounding (unverified cause). It is ultrasonic and every stage meets D3, so the 8x composite gates at 85 dB.
-    CHECK(image <= -(factor == 8 ? 85.0 : kSpecs[0].upDb));
+    CHECK(image <= -kSpecs[0].upDb);
 
     // Down only: oversampled-rate sines that fold into the base band (f/fs in [0.62, factor/2)) at least 75 dB down.
     double alias = -400.0;
@@ -237,4 +234,30 @@ TEST_CASE("Oversampler: subnormal, huge and NaN input; factor changes only in pr
         os.prepare(48000.0, 64, k % 2 == 0 ? 8 : factor);
         render(os, clean, 64);
     }
+}
+
+TEST_CASE("Oversampler: silence after noise decays to exactly 0, no limit cycle", "[dsp][os][rt]")
+{
+    const int factor = GENERATE(2, 4, 8);
+    CAPTURE(factor);
+    constexpr int kBlock = 64, kRate = 48000;
+    Oversampler os;
+    os.prepare(kRate, kBlock, factor);
+    auto in = noise(kRate, 21u);
+    for (auto& v : in)
+        v *= 2.0f; // full scale
+    in.resize(2 * kRate, 0.0f);
+    std::vector<float> out(in.size());
+    bool upZero = true;
+    const auto rt = osp::rt::test::runAsAudioThread([&] {
+        for (int pos = 0; pos < 2 * kRate; pos += kBlock) {
+            const float* up = os.upsample(in.data() + pos, kBlock);
+            if (pos >= kRate + kRate / 2) // the last 0.5 s of the 1 s of silence
+                upZero = upZero && std::all_of(up, up + kBlock * factor, [](float v) { return v == 0.0f; });
+            os.downsample(out.data() + pos, kBlock);
+        }
+    });
+    OSP_REQUIRE_RT_CLEAN(rt);
+    CHECK(upZero);
+    CHECK(std::all_of(out.end() - kRate / 2, out.end(), [](float v) { return v == 0.0f; }));
 }
