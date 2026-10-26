@@ -46,25 +46,25 @@
 | #45 RT checker | Sable acct1 | #59 | MERGED |
 | #46 osp-render + osp-bench | Lyra acct1 | #77, #78 | MERGED |
 | #76 clang-format config + CI check | Wren | #79 | MERGED (clang-format 19.1.5 is a required check) |
-| #42 JUCE plugin target | Wren | #58 MERGED (290b69f). #61 reopened + base main (ce28ca9) but the levelDb range fix (−60…+12) is still MISSING, and it is DIRTY again | Wren fixing, then acct2 re-reviews |
-| #43 CI artifacts + RT-checker Debug job | Wren | #97 MERGED (2bf733a) | DONE. Required-check change = owner action B-003 (permission denied to the agent) |
-| #44 pluginval 9 | Wren | | next after #61 |
+| #42 JUCE plugin target | Wren | #58 MERGED. #61 APPROVED acct2 @e8c41dd (range −60…+12, −60/−48/+12 round-trip) | Wren merges on green → closes #42 |
+| #43 CI artifacts + RT-checker Debug job | Wren | #97 MERGED | DONE. Required-check change = owner action B-003 |
+| #44 pluginval 9 | Wren | #106 APPROVED acct2 (conditional on the pluginval job going green) | Wren merges |
 | #47 latency detector + UI | unassigned | | |
-| #83 CI r0 baselines + R gate | unassigned (release-devops) | | |
+| #83 CI r0 baselines + R gate | Wren | #110 part 1 (5-run median, template measure) APPROVED acct2 | part 2: CI r0 + gate on |
 
 ## Phase 4 (milestone 5)
 | Issue | Owner | PR | Status |
 |---|---|---|---|
 | #62 measurement harness | Sable | #80, #84 | MERGED (Signalsmith dsp FFT, ADR-0006 A1) |
-| #63 oversampler + ADAA | Sable | #86, #96 MERGED (ddfaf20). Issue reopened for part 3 (FIR HQ) | part 3: Sable, when free |
-| #67 drive | Sable | #102 part 1 (base main) review: Wren. #104 part 2 APPROVED (Moth @a944a7e; stacked on #102) | merge #104 after #102 (retarget, then merge main; NO rebase) |
-| #98 ADR-0005 A1 + D3 wording | Sable | #101 head 2d773f8 (rebased; range-diff = ca5d2dc + status flip), APPROVED acct2 | Sable merges on green |
-| #99 HIIR release-asset mirror | release-devops (Wren after #43) | | filed |
+| #63 oversampler + ADAA | Sable | #86, #96 MERGED. #109 part 3 FIR HQ + ADR-0005 A2 APPROVED acct2 (conditional: Status → Accepted) | Sable merges → closes #63 |
+| #67 drive | Sable | #102 CHANGES-REQ (Wren) → fixed 050a873 (merge-synced). #104 APPROVED (Moth), stacked | re-review: Wren; then #104 |
+| #98 ADR-0005 A1 | Sable | #101 MERGED (9fe6dbc) | DONE |
+| #99 HIIR release-asset mirror | Wren | #108 APPROVED acct2 (mirror SHA-256 verified independently) | Wren merges |
 | #64 smoothing primitives | Moth acct3 | #82 | MERGED |
 | #66 compressor | Lyra | #85, #87 MERGED (dea4eb3, approved by Wren) | DONE (issue closed) |
 | #65 gate | Moth | #88 MERGED (c1d1a45) | DONE (issue closed) |
 | #72 reverb (3 parts) | Moth | #103 part 1 CHANGES-REQ (Lyra: unclamped setModulation → OOB, NaN decay sticks). #105 part 2 stacked (review: Sable) | Moth fixing #103, then part 3 plate |
-| #68 EQ | Lyra | #90 MERGED (3bf87fc), #91 MERGED (11939e1, Moth re-approved), #92 base main | review: Wren |
+| #68 EQ | Lyra | #90, #91 MERGED. #92 resynced by orchestrator (233743c, conflict-only, now +242) | review: Wren |
 | #69 cab IR (4 parts) | Lyra | #93, #100 MERGED. #107 part 3 IrLoader CHANGES-REQ (acct2: Debug job lacks lfs: true; LFS bandwidth cache suggested) | Lyra fixing, then part 4 |
 | #71 delay | Lyra (after #69 part 3) | | queued |
 | #94 third-party notices in Credits/installer (Signalsmith, HIIR, nlohmann, JUCE, VST3, ASIO) | — | | filed by Lyra; HIIR added |

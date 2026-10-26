@@ -24,4 +24,5 @@ Format: `## B-NNN <title>` · opened date · who is blocked · **what is needed*
 - **Command:** `gh api -X PATCH repos/ArthurMateus/OpenSourcePedal/branches/main/protection/required_status_checks -F strict=false -f "contexts[]=guard" -f "contexts[]=windows-msvc (Release, /WX)" -f "contexts[]=clang-format" -f "contexts[]=windows-msvc-debug (RT checker)"`
 - Note: open PRs whose last CI run predates #97 (#92, #101, #102, #104 as of 06:40Z) then need one new push, or a close/reopen, to get the job.
 - Until then, reviewers and the orchestrator check that the RT-checker job is green before merging.
+- Once #106 merges, also add `pluginval (v1.0.4, strictness 9)` (AGENTS.md §4: plugin validation is a gate): append `-f "contexts[]=pluginval (v1.0.4, strictness 9)"` to the command above.
 - Status: OPEN
