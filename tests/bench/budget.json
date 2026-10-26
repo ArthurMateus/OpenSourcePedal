@@ -52,6 +52,13 @@
       "baseline": "#65, 2026-10-25, local VS 2022 Release build (windows-msvc-ci), median of 6 quiet runs, T_ref about 10.3 ms",
       "headroom": "about 50x the measured 0.014 %: enabled gate, peak detector + hysteresis/hold state machine + per-sample gain on -12 dBFS noise"
     },
+    "tuner_tap": {
+      "kind": "block",
+      "r0": 0.0299,
+      "maxCpuPercent": 1.5,
+      "baseline": "#75, 2026-10-26, local VS 2022 Release build, median of 3 runs (r 0.0292-0.0327), T_ref about 16.7 ms on this machine",
+      "headroom": "about 30x the measured 0.050 %: 4th-order SVF low pass + decimation + atomic ring store per sample, and the unmuted mute pass (an early return); the YIN detector runs on a worker"
+    },
     "comp": {
       "kind": "block",
       "r0": 0.1931,
