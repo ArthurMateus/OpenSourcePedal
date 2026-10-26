@@ -8,6 +8,7 @@ osp_apply_settings(osp_rt_checker)
 
 add_executable(osp_tests
     dsp/test_gain.cpp
+    engine/test_chain.cpp
     engine/test_version.cpp
     rt/test_rt_checker.cpp)
 
