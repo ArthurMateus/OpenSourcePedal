@@ -1,6 +1,6 @@
 # ADR-0002: NAM runtime and the `IAmpModel` interface
 
-- Status: **Proposed** (2026-10-25). It becomes Accepted when the PR merges.
+- Status: **Accepted** (2026-10-25; cross-account review approved and merged in Phase 2).
 - Deciders: architect (acct1/Sable). Issue #26.
 - Rests on: [`docs/research/nam-runtime.md`](../research/nam-runtime.md) (#6, cited as NR §x),
   [`docs/research/redistributable-assets.md`](../research/redistributable-assets.md) (RA §x),

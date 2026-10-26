@@ -1,6 +1,6 @@
 # ADR-0004: Threading model and real-time handoff
 
-- Status: **Proposed** (2026-10-25). Becomes Accepted when the cross-account review approves it.
+- Status: **Accepted** (2026-10-25; cross-account review approved and merged in Phase 2).
 - Deciders: architect (acct3/Moth). Issue #25.
 - Rests on: `docs/research/nam-runtime.md` (§1.7, §2.5, §3), `test-tooling.md` (§2.4, §2.5), `asio-low-latency.md`
   (§2.3, R6–R9), ADR-0006 (target layout). Details: `docs/spec/threading.md` and `docs/spec/realtime-rules.md`.
