@@ -55,7 +55,7 @@ Smoothing runs in the audio thread with no allocation (one-pole or linear ramp, 
 | Class | Default | Method |
 |---|---|---|
 | Gain / level (`dB`, mix `%`) | 20 ms | Linear ramp of the **linear** gain per sample. No zipper noise (AGENTS.md §4 test) |
-| Filter frequency / Q, tone knobs | 20 ms | One-pole on the parameter, TPT/SVF coefficients updated every sample or every 16 samples |
+| Filter frequency / Q, tone knobs | 20 ms | One-pole on the parameter, TPT/SVF coefficients updated **every sample** while the parameter moves (a 16-sample update measured −55 dBc on a 0↔10 tone step and fails REQ-TEST-003, #87) |
 | Nonlinear drive (gain, drive knobs) | 30 ms | One-pole on the pre-gain |
 | Time (delay time) | 80 ms | Tape-style glide (modulated read pointer). A crossfade mode is in part 2 |
 | Envelope times (attack/release/hold), ratio, threshold | none / 20 ms | Read once per block. Threshold is smoothed at 20 ms |
