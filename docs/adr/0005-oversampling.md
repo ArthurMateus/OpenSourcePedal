@@ -123,7 +123,7 @@ designed to.
 
 ## Amendment A1 (2026-10-26, #98): stage-0 IIR decimator transition 0.06 → 0.01
 
-- Status: **Proposed** (needs a cross-account review). Author: acct1/dsp-engineer (Sable). Evidence from #67 (drive).
+- Status: **Accepted** (2026-10-26, reviewed by acct2). Author: acct1/dsp-engineer (Sable). Evidence from #67 (drive).
 - **Problem.** With transition 0.06, the stage-0 decimator only reaches its stopband at 0.62·fs. Harmonics that a
   nonlinear block creates between fs/2 and 0.62·fs fold back to between 0.38·fs and fs/2 with little rejection. At
   44.1/48 kHz that is 16.8–24 kHz. They dominate the D5 ASR. Measured on the #67 drive stage at 4× (all four voicings,
