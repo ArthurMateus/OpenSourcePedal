@@ -7,7 +7,6 @@
 #include <catch2/generators/catch_generators.hpp>
 
 #include <cmath>
-#include <limits>
 #include <vector>
 
 using namespace osp::measure;
@@ -115,7 +114,7 @@ TEST_CASE("Measure: a linear filter passes the -80 dB alias sanity gate and has 
     CHECK(r.fundamentalDbfs == Approx(-6.0 + toDb(std::cos(3.141592653589793 * tone.frequency / fs))).margin(1e-3));
 }
 
-TEST_CASE("Measure: splatter and residual rank a steady tone, smooth ramps and a gain step", "[measure]")
+TEST_CASE("Measure: smoothing residual (gate) and splatter (informative) rank ramps and a step", "[measure]")
 {
     // Gain 1 → 2 (+6 dB) starting mid-record, as REQ-TEST-003 does over 50 ms.
     const double fs = 48000.0;
@@ -150,10 +149,23 @@ TEST_CASE("Measure: splatter and residual rank a steady tone, smooth ramps and a
     CHECK(linear > smooth); // ... and the corners of a linear ramp splatter more (about −56 dBc here)
     CHECK(linear < step - 10.0);
 
-    // Residual variant of REQ-TEST-003: compare against the ideally smoothed offline reference.
-    const auto reference = withGain(Shape::raisedCosine);
-    CHECK(residualDbc(withGain(Shape::raisedCosine), reference) == -std::numeric_limits<double>::infinity());
+    // The REQ-TEST-003 gate: residual against a float64 reference that applies the smoothing law per sample.
+    const std::size_t start = kN / 2 + 37;
+    std::vector<double> reference(x.size());
+    for (std::size_t n = 0; n < x.size(); ++n) {
+        const double t = n < start ? 0.0 : std::min(1.0, double(n - start) / double(rampLength));
+        reference[n] = 0.5 * (1.5 - 0.5 * std::cos(3.141592653589793 * t)) * static_cast<double>(x[n]);
+    }
+    const double matched = residualDbc(withGain(Shape::raisedCosine), reference);
+    CAPTURE(matched);
+    CHECK(matched < -130.0); // only float32 rounding differs
     CHECK(residualDbc(withGain(Shape::step), reference) > -60.0);
+    CHECK(residualDbc(withGain(Shape::linear), reference) > matched + 40.0); // the wrong law is visible
+
+    std::vector<float> delayed(x.size() + 5, 0.0f);
+    const auto smooth32 = withGain(Shape::raisedCosine);
+    std::copy(smooth32.begin(), smooth32.end(), delayed.begin() + 5);
+    CHECK(residualDbc(delayed, reference, 5) == Approx(matched).margin(1e-9));
 }
 
 TEST_CASE("Measure: latency-aligned null", "[measure]")

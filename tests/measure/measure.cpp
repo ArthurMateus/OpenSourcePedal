@@ -145,13 +145,34 @@ NullResult nullTest(std::span<const float> output, std::span<const float> refere
     return r;
 }
 
+namespace {
+
+template <typename Ref>
+double residualDbcImpl(std::span<const float> output, std::span<const Ref> reference, std::size_t latency)
+{
+    std::size_t compared = 0;
+    if (output.size() > latency)
+        compared = std::min(output.size() - latency, reference.size());
+    double residual = 0.0, signal = 0.0;
+    for (std::size_t i = 0; i < compared; ++i) {
+        const double ref = static_cast<double>(reference[i]);
+        const double d = static_cast<double>(output[i + latency]) - ref;
+        residual += d * d;
+        signal += ref * ref;
+    }
+    return powerToDb(residual) - powerToDb(signal);
+}
+
+} // namespace
+
+double residualDbc(std::span<const float> output, std::span<const double> reference, std::size_t latency)
+{
+    return residualDbcImpl(output, reference, latency);
+}
+
 double residualDbc(std::span<const float> output, std::span<const float> reference, std::size_t latency)
 {
-    const NullResult r = nullTest(output, reference, latency);
-    double sumSq = 0.0;
-    for (std::size_t i = 0; i < r.compared; ++i)
-        sumSq += static_cast<double>(reference[i]) * static_cast<double>(reference[i]);
-    return r.rmsDbfs - toDb(std::sqrt(sumSq / static_cast<double>(r.compared)));
+    return residualDbcImpl(output, reference, latency);
 }
 
 } // namespace osp::measure

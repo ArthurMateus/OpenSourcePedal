@@ -52,12 +52,6 @@ struct HarmonicReport {
 HarmonicReport analyseCoherent(std::span<const float> output, std::size_t bin,
                                std::size_t fftSize = kCoherentFftSize);
 
-// --- Smoothing splatter, REQ-TEST-003 -----------------------------------------------------------------------------
-
-// Energy outside [f0 − guardHz, f0 + guardHz] relative to the energy inside, in dBc, over the whole of `output`
-// (periodic Hann window; the length must be a power of two, ≥ 16384 so the window's own leakage stays out).
-double splatterDbc(std::span<const float> output, double sampleRate, double f0, double guardHz = 50.0);
-
 // --- Latency-aligned null, REQ-TEST-004 / REQ-TEST-005 tier 1 -----------------------------------------------------
 
 struct NullResult {
@@ -69,9 +63,18 @@ struct NullResult {
 // Residual r[i] = output[i + latency] − reference[i] over every i where both exist.
 NullResult nullTest(std::span<const float> output, std::span<const float> reference, std::size_t latency = 0);
 
-// RMS of that residual relative to the RMS of the reference, in dB (REQ-TEST-003 "residual vs an ideally smoothed
-// offline reference").
+// --- Parameter smoothing, REQ-TEST-003 (as amended by PR #81 / REQ-423) -------------------------------------------
+
+// THE GATE: RMS of r[i] = output[i + latency] − reference[i] relative to the RMS of the reference, in dBc. The
+// reference is an offline float64 render that applies the specified smoothing law per sample; the test passes
+// at ≤ −60 dBc, with the parameter step on a non-block-aligned sample.
+double residualDbc(std::span<const float> output, std::span<const double> reference, std::size_t latency = 0);
 double residualDbc(std::span<const float> output, std::span<const float> reference, std::size_t latency = 0);
+
+// INFORMATIVE ONLY (not a gate): energy outside [f0 − guardHz, f0 + guardHz] relative to the energy inside, in
+// dBc, over the whole of `output` (periodic Hann window; the length must be a power of two, ≥ 16384 so the
+// window's own leakage stays out). An ideal linear 50 ms +6 dB ramp already measures about −56 dBc.
+double splatterDbc(std::span<const float> output, double sampleRate, double f0, double guardHz = 50.0);
 
 double toDb(double ratio) noexcept;        // 20·log10, −inf at 0
 double powerToDb(double power) noexcept;   // 10·log10, −inf at 0
