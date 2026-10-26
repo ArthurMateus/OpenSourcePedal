@@ -178,8 +178,11 @@ void Compressor::processTilt(float* out, int numSamples) noexcept
         if (knob != tiltKnob_)
             updateTilt(knob);
         const float x = out[i];
-        const float y = b0_ * x + b1_ * x1_ - a1_ * y1_;
-        x1_ = x;
+        float y = b0_ * x + b1_ * x1_ - a1_ * y1_;
+        // The tail decays by |a1| per sample: snap it at -400 dB so it never goes subnormal, even with FTZ off.
+        if (std::abs(y) < 1.0e-20f)
+            y = 0.0f;
+        x1_ = std::abs(x) < 1.0e-20f ? 0.0f : x;
         y1_ = y;
         out[i] = y;
     }
@@ -253,7 +256,7 @@ void Compressor::process(const float* in, float* out, int numSamples) noexcept
 
         const float wet = x * g * makeup_.next() * autoGain_.next();
         const float b = blend_.next();
-        out[i] = (1.0f - b) * x + b * wet;
+        out[i] = x + b * (wet - x); // exact dry at b = 0, and exact identity at every b when wet == dry
     }
     processTilt(out, numSamples);
 }

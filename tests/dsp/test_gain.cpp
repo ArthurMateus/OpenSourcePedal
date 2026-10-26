@@ -19,7 +19,8 @@ std::vector<float> makeSignal(int length)
 {
     std::vector<float> x(static_cast<std::size_t>(length));
     for (int n = 0; n < length; ++n)
-        x[static_cast<std::size_t>(n)] = 0.25f * std::sin(0.01f * static_cast<float>(n)) + 0.5f; // stays in [0.25, 0.75]
+        x[static_cast<std::size_t>(n)] =
+            0.25f * std::sin(0.01f * static_cast<float>(n)) + 0.5f; // stays in [0.25, 0.75]
     return x;
 }
 

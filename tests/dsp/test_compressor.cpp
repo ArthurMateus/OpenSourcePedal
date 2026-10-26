@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <tuple>
 #include <vector>
+#include <xmmintrin.h>
 
 using osp::dsp::CompMode;
 using osp::dsp::Compressor;
@@ -388,4 +389,82 @@ TEST_CASE("Compressor: makeup, blend and tone steps leave <= -60 dBc residual (R
     if (block == 64 && fs == 48000.0)
         WARN("REQ-TEST-003 comp residual dBc (" << (up ? "up" : "down") << "): makeup " << rMakeup << ", blend "
                                                 << rBlend << ", tone " << rTone);
+}
+
+TEST_CASE("Compressor: auto makeup brings a -12 dBFS DI back to about -12 dBFS", "[dsp][comp]")
+{
+    // Auto makeup is the static GR at -12 dBFS. On a sine the peak detector sags between peaks, so the dynamic GR
+    // is a little lower and the output a little hot, more so with slower attacks (measured: 1 ms -11.82,
+    // 10 ms -11.26, 30 ms -10.64 dBFS in vca). Defaults otherwise (T -20, R 4, knee 6, release 150).
+    auto peakOut = [](float attackMs) {
+        Compressor comp;
+        comp.setMode(CompMode::vca);
+        comp.setAttackMs(attackMs);
+        comp.prepare(48000.0, 64);
+        const auto tone = osp::measure::coherentTone(997.0, 48000.0);
+        const auto out = render(comp, osp::measure::makeTone(tone, 48000.0, -12.0, 48000), 64);
+        float peak = 0.0f;
+        for (std::size_t i = out.size() - 24000; i < out.size(); ++i)
+            peak = std::max(peak, std::abs(out[i]));
+        return 20.0 * std::log10(peak);
+    };
+    const double fast = peakOut(1.0f), byDefault = peakOut(10.0f);
+    CAPTURE(fast, byDefault);
+    REQUIRE(std::abs(fast + 12.0) <= 0.5);
+    REQUIRE(byDefault >= -12.0);
+    REQUIRE(byDefault <= -11.0);
+}
+
+TEST_CASE("Compressor: mode and auto-makeup switches are click-free (xf 10)", "[dsp][comp]")
+{
+    // Heavy GR (T -40, R 20: about 26.6 dB of auto makeup at -12 dBFS), switch mid-signal.
+    const double fs = 48000.0;
+    const auto tone = osp::measure::coherentTone(997.0, fs);
+    const auto in = osp::measure::makeTone(tone, fs, -12.0, 48000);
+    auto maxStep = [](const std::vector<float>& y, int from, int to) {
+        float m = 0.0f;
+        for (int i = from + 1; i < to; ++i)
+            m = std::max(m, std::abs(y[static_cast<std::size_t>(i)] - y[static_cast<std::size_t>(i - 1)]));
+        return m;
+    };
+    // Switch at 8 phases across one period (48 samples) with 1-sample blocks, so a hard switch cannot hide in a
+    // zero crossing.
+    for (int sw = 0; sw < 4; ++sw)
+        for (int at = 24000; at < 24048; at += 6) {
+            CAPTURE(sw, at);
+            auto comp = make(fs, CompMode::vca, -40.0f, 20.0f, 0.0f, 10.0f, 150.0f);
+            comp.setAutoMakeup(true);
+            comp.reset();
+            const auto out = renderWithStep(comp, in, 1, at, [&] {
+                if (sw == 0)
+                    comp.setAutoMakeup(false);
+                else
+                    comp.setMode(sw == 1 ? CompMode::opto : sw == 2 ? CompMode::dual : CompMode::vca);
+            });
+            // Steady state on both sides: the new mode may settle at a slightly different level (dual is louder).
+            const float steady = std::max(maxStep(out, at - 2400, at), maxStep(out, at + 2400, at + 4800));
+            const float after = maxStep(out, at - 1, at + 1440); // the 10 ms fade plus margin
+            CAPTURE(steady, after);
+            // A hard switch would add up to |x| * g * (auto gain - 1), about 0.24 here; the ramp adds ~5e-4 per sample.
+            REQUIRE(after <= steady + 1.0e-3f);
+        }
+}
+
+TEST_CASE("Compressor: tilt tail never goes subnormal, even with FTZ off", "[dsp][comp][tone]")
+{
+    REQUIRE((_mm_getcsr() & 0x8040u) == 0u); // FTZ and DAZ are off outside the RT harness
+    for (float knob : {0.0f, 10.0f}) {
+        CAPTURE(knob);
+        auto comp = identity(48000.0);
+        comp.setTone(knob);
+        comp.reset();
+        std::vector<float> x(48000, 0.0f);
+        x[0] = 1.0f;
+        std::vector<float> y(x.size());
+        for (std::size_t pos = 0; pos < x.size(); pos += 64)
+            comp.process(x.data() + pos, y.data() + pos, 64);
+        const auto scan = osp::rt::test::scanOutput(y);
+        CHECK(scan.subnormal == 0u);
+        CHECK(y.back() == 0.0f);
+    }
 }

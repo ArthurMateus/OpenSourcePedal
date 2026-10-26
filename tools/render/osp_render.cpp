@@ -26,11 +26,10 @@ struct Options {
 
 int usage()
 {
-    std::fprintf(stderr,
-                 "usage: osp-render --in <in.wav> --out <out.wav> [--level-db <dB>] [--block <samples>]\n"
-                 "  --level-db  output.levelDb, -60...+12 dB (default 0 = pass-through)\n"
-                 "  --block     processing block size, 1...2048 (default 64)\n"
-                 "  --preset    not supported yet: it needs the preset loader (engine)\n");
+    std::fprintf(stderr, "usage: osp-render --in <in.wav> --out <out.wav> [--level-db <dB>] [--block <samples>]\n"
+                         "  --level-db  output.levelDb, -60...+12 dB (default 0 = pass-through)\n"
+                         "  --block     processing block size, 1...2048 (default 64)\n"
+                         "  --preset    not supported yet: it needs the preset loader (engine)\n");
     return 2;
 }
 

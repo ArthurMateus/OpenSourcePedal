@@ -16,7 +16,9 @@
 //         release. GR = max(fast, slow): short peaks release fast; sustained compression charges the slow stage,
 //         so the release drops quickly to the slow level and then tails off.
 // - dual: two stages in series, each with ratio sqrt(R) and the same threshold, so the hard-knee static curve is
-//         exactly R. The second stage sees the first stage's output and has 4x the attack.
+//         exactly R. The second stage sees the first stage's output and has 4x the attack. With a soft knee the
+//         two knees compound, so inside the knee the curve differs slightly from a single-stage R (outside it is
+//         exactly R).
 //
 // Auto makeup = the static gain reduction at the DI nominal peak level kAutoMakeupRefDb (tone-targets-a §3.4), so
 // a DI at nominal level leaves at the same peak. It adds to the manual makeup. Makeup applies to the wet path.
@@ -70,7 +72,8 @@ public:
 
     int getLatencySamples() const noexcept { return 0; }
     bool isPrepared() const noexcept { return sampleRate_ > 0.0; }
-    // Gain reduction of the last processed sample, in dB (>= 0), for the meter.
+    // Gain reduction of the last processed sample, in dB (>= 0), for the meter. Audio thread only: the engine
+    // publishes it to the UI through its telemetry atomics (threading.md), never by reading it from another thread.
     float getGainReductionDb() const noexcept { return grDb_; }
 
     // Static curve (Giannoulis et al. eq. 4): gain reduction in dB (>= 0) for a detector level xDb.
@@ -96,14 +99,14 @@ private:
 
     Detector vca_, optoFast_, optoSlow_, dual1_, dual2_;
     OnePoleSmoother threshold_; // 20 ms, dB
-    LinearRamp blend_;          // 20 ms, 0...1
-    LinearRamp makeup_;         // 20 ms, linear gain of the manual makeup
-    LinearRamp autoGain_;       // 10 ms (xf 10), linear gain of the auto makeup (1 when off)
-    LinearRamp modeFade_;       // 10 ms (xf 10), 0 = modeFrom_, 1 = modeTo_
-    OnePoleSmoother tone_;      // 20 ms, knob
-    double tiltK_ = 0.0;        // 1 / tan(pi f0 / fs)
+    LinearRamp blend_; // 20 ms, 0...1
+    LinearRamp makeup_; // 20 ms, linear gain of the manual makeup
+    LinearRamp autoGain_; // 10 ms (xf 10), linear gain of the auto makeup (1 when off)
+    LinearRamp modeFade_; // 10 ms (xf 10), 0 = modeFrom_, 1 = modeTo_
+    OnePoleSmoother tone_; // 20 ms, knob
+    double tiltK_ = 0.0; // 1 / tan(pi f0 / fs)
     float b0_ = 1.0f, b1_ = 0.0f, a1_ = 0.0f, x1_ = 0.0f, y1_ = 0.0f;
-    float tiltKnob_ = 5.0f;     // knob the coefficients were computed for
+    float tiltKnob_ = 5.0f; // knob the coefficients were computed for
 };
 
 } // namespace osp::dsp

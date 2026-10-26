@@ -16,7 +16,10 @@ public:
     static constexpr double kBlockEnableSeconds = 0.010;
 
     // Non-RT. Internal enum switches pass their own `xf N` length from parameters.md.
-    void prepare(double sampleRate, double seconds = kBlockEnableSeconds) noexcept { ramp_.prepare(sampleRate, seconds); }
+    void prepare(double sampleRate, double seconds = kBlockEnableSeconds) noexcept
+    {
+        ramp_.prepare(sampleRate, seconds);
+    }
 
     // Jumps to a or b with no fade.
     void reset(bool towardsB) noexcept { ramp_.reset(towardsB ? 1.0f : 0.0f); }
