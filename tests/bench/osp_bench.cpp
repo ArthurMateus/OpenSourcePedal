@@ -7,6 +7,7 @@
 // tests/bench/budget.json.
 
 #include "osp/dsp/Drive.h"
+#include "osp/dsp/DriveRegion.h"
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/oversampling/Oversampler.h"
 #include "osp/dsp/util/Crossfader.h"
@@ -188,6 +189,16 @@ int main(int argc, char** argv)
         {"drive_stage_4x", measure(bench, "drive_stage_4x", input, [&](const float* in, float* out, int n) {
              osDrive.process(in, out, n, [&](float* x, int osN) { drive.process(x, osN); });
          })});
+
+    // OS-1 with both slots enabled (mid into dist), Live at 48 kHz: the full drive section of a stacked preset.
+    osp::dsp::DriveRegion os1;
+    os1.slot(0).setEnabled(true);
+    os1.slot(1).setEnabled(true);
+    os1.slot(1).setType(osp::dsp::DriveType::dist);
+    os1.prepare(kSampleRate, kBlock);
+    results.push_back(
+        {"drive_region_live", measure(bench, "drive_region_live", input,
+                                      [&](const float* in, float* out, int n) { os1.process(in, out, n); })});
 
     // Pass-through chain (the full engine chain as it stands), at 0 dB.
     osp::engine::Chain chain;

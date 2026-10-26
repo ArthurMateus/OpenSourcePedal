@@ -1,6 +1,7 @@
 add_library(osp_dsp_core STATIC
     src/Compressor.cpp
     src/Drive.cpp
+    src/DriveRegion.cpp
     src/Gain.cpp
     src/oversampling/Oversampler.cpp
     src/util/DelayLine.cpp

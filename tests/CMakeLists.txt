@@ -18,6 +18,7 @@ add_executable(osp_tests
     dsp/test_adaa.cpp
     dsp/test_compressor.cpp
     dsp/test_drive.cpp
+    dsp/test_drive_region.cpp
     dsp/test_svf.cpp
     dsp/test_gain.cpp
     dsp/test_oversampler.cpp
