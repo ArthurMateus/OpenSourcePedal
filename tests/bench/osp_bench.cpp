@@ -8,6 +8,7 @@
 
 #include "osp/dsp/Compressor.h"
 #include "osp/dsp/Gain.h"
+#include "osp/dsp/Gate.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
 #include "osp/dsp/util/Smoothers.h"
@@ -169,6 +170,14 @@ int main(int argc, char** argv)
              pad.process(in, padded.data(), n);
              xf.process(in, padded.data(), out, n);
          })});
+
+    // Noise gate (enabled, defaults) on the noise input: peak detector + state machine + gain per sample.
+    osp::dsp::Gate gate;
+    gate.prepare(kSampleRate, kBlock);
+    gate.setEnabled(true);
+    gate.reset();
+    results.push_back(
+        {"gate", measure(bench, "gate", input, [&](const float* in, float* out, int n) { gate.process(in, out, n); })});
 
     // Compressor at its defaults (opto, -20 dB, 4:1, all three detectors run) with the tone tilt active (knob 7).
     osp::dsp::Compressor comp;

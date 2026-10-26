@@ -1,7 +1,9 @@
 add_library(osp_dsp_core STATIC
     src/Compressor.cpp
     src/conv/PartitionedConvolver.cpp
+    src/Eq.cpp
     src/Gain.cpp
+    src/Gate.cpp
     src/util/DelayLine.cpp
     src/rt/AudioThread.cpp)
 add_library(osp::dsp_core ALIAS osp_dsp_core)

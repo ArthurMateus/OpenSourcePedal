@@ -18,8 +18,10 @@ add_executable(osp_tests
     dsp/test_adaa.cpp
     dsp/test_compressor.cpp
     dsp/test_convolver.cpp
+    dsp/test_eq.cpp
     dsp/test_svf.cpp
     dsp/test_gain.cpp
+    dsp/test_gate.cpp
     dsp/test_util.cpp
     engine/test_chain.cpp
     engine/test_engine.cpp
