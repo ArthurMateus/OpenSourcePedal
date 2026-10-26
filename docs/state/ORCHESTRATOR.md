@@ -48,7 +48,7 @@
 | #76 clang-format config + CI check | Wren | #79 | MERGED (clang-format 19.1.5 is a required check) |
 | #42 JUCE plugin target | Wren | #58 MERGED. #61 APPROVED acct2 @e8c41dd (range −60…+12, −60/−48/+12 round-trip) | Wren merges on green → closes #42 |
 | #43 CI artifacts + RT-checker Debug job | Wren | #97 MERGED | DONE. Required-check change = owner action B-003 |
-| #44 pluginval 9 | Wren | #106 APPROVED acct2 (conditional on the pluginval job going green) | Wren merges |
+| #44 pluginval 9 | Wren | #106 MERGED (f4b4e29; the pluginval job passed at strictness 9) | DONE. Add the required check under B-003 |
 | #47 latency detector + UI | unassigned | | |
 | #83 CI r0 baselines + R gate | Wren | #110 part 1 (5-run median, template measure) APPROVED acct2 | part 2: CI r0 + gate on |
 
@@ -57,15 +57,15 @@
 |---|---|---|---|
 | #62 measurement harness | Sable | #80, #84 | MERGED (Signalsmith dsp FFT, ADR-0006 A1) |
 | #63 oversampler + ADAA | Sable | #86, #96 MERGED. #109 part 3 FIR HQ + ADR-0005 A2 APPROVED acct2 (conditional: Status → Accepted) | Sable merges → closes #63 |
-| #67 drive | Sable | #102 CHANGES-REQ (Wren) → fixed 050a873 (merge-synced). #104 APPROVED (Moth), stacked | re-review: Wren; then #104 |
+| #67 drive | Sable | #102 re-review CHANGES-REQ (Wren: ADAA2 reset blip -36.7 dBFS; fix = Adaa2::reset(x) + silence-after-reset test). #104 APPROVED (Moth), stacked | Sable fixing first |
 | #98 ADR-0005 A1 | Sable | #101 MERGED (9fe6dbc) | DONE |
 | #99 HIIR release-asset mirror | Wren | #108 APPROVED acct2 (mirror SHA-256 verified independently) | Wren merges |
 | #64 smoothing primitives | Moth acct3 | #82 | MERGED |
 | #66 compressor | Lyra | #85, #87 MERGED (dea4eb3, approved by Wren) | DONE (issue closed) |
 | #65 gate | Moth | #88 MERGED (c1d1a45) | DONE (issue closed) |
-| #72 reverb (3 parts) | Moth | #103 fixed 1dad622 (re-review: Lyra). #105 wrapper (review: Sable). #111 Dattorro plate, stacked (review: Sable; 7th taps unverified, RT floor 0.55 s → parameters.md) | in review |
+| #72 reverb (3 parts) | Moth | #103 fixed (re-review: Lyra). #105 APPROVED (Sable), conditional: REQ-TEST-003 mix residual test. #111 plate, stacked (review: Sable) | Moth adding the #105 test |
 | #73 shimmer + spring | Moth | | next, after the #92 review |
-| #68 EQ | Lyra | #90, #91 MERGED. #92 resynced (233743c, +242) | review: Moth (moved from Wren) |
+| #68 EQ | Lyra | #90, #91 MERGED. #92 APPROVED (Wren @233743c) | orchestrator auto-merge on green → closes #68 |
 | #69 cab IR (4 parts) | Lyra | #93, #100 MERGED. #107 part 3 APPROVED acct2 @88730b2 (cached LFS pull in both jobs). #114 part 4 (tests/fuzz/bench, +402; stacked on #107) review: Moth | Lyra: retarget #114 → merge #107 |
 | #71 delay | Lyra | | starting (after the #103 re-review) |
 | #94 third-party notices in Credits/installer (Signalsmith, HIIR, nlohmann, JUCE, VST3, ASIO) | — | | filed by Lyra; HIIR added |
