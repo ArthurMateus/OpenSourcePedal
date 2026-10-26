@@ -1,6 +1,6 @@
 # Orchestrator state (LIVE, `state` branch)
 
-> Last updated: 2026-10-26 05:40Z (heartbeat) by acct2/orchestrator (canvas name "Orchestrator", Maestro).
+> Last updated: 2026-10-26 ~06:00Z by acct2/orchestrator (canvas name "Orchestrator", Maestro).
 > To take over: paste `docs/MASTER_PROMPT.md` (from main) into a fresh agent with **RESUME** appended.
 
 ## Phase
@@ -46,7 +46,7 @@
 | #45 RT checker | Sable acct1 | #59 | MERGED |
 | #46 osp-render + osp-bench | Lyra acct1 | #77, #78 | MERGED |
 | #76 clang-format config + CI check | Wren | #79 | MERGED (clang-format 19.1.5 is a required check) |
-| #42 JUCE plugin target | Wren | #58 (APPROVED acct2, main merged at 92e4ad2, CI running; Wren merges), #61 (CHANGES-REQ acct2 05:40Z: levelDb range −24 must be −60…+12) | in progress |
+| #42 JUCE plugin target | Wren | #58 MERGED (290b69f). #61 base main, CHANGES-REQ acct2 (levelDb −60…+12) | Wren fixing, then acct2 re-reviews |
 | #43 CI artifacts, #44 pluginval 9 | Wren | | after #58/#61 |
 | #47 latency detector + UI | unassigned | | |
 | #83 CI r0 baselines + R gate | unassigned (release-devops) | | |
@@ -59,9 +59,9 @@
 | #67 drive | Sable | stacked on #96 | started (critical path) |
 | #64 smoothing primitives | Moth acct3 | #82 | MERGED |
 | #66 compressor | Lyra | #85, #87 MERGED (dea4eb3, approved by Wren) | DONE (issue closed) |
-| #65 gate | Moth | #88 APPROVED (Lyra acct1 @8d6f9bc); orchestrator main-merge bf0a47c (conflict-only, bench union) | auto-merge when CI green |
+| #65 gate | Moth | #88 MERGED (c1d1a45) | DONE (issue closed) |
 | #72 reverb part 1 | Moth | dsp/72-reverb (WIP 421f581) | after the #93 review |
-| #68 EQ | Lyra | #90 MERGED (3bf87fc). #91 fixed at 8734173 (base main), #92 synced 861be8e | Moth re-reviews #91, then retargets #92 to main and merges #91; Wren reviews #92 |
+| #68 EQ | Lyra | #90 MERGED (3bf87fc), #91 MERGED (11939e1, Moth re-approved), #92 base main | review: Wren |
 | #69 cab IR | Lyra | #93 part 1 convolver (DIRTY: Lyra syncing); part 2 WIP 1cb9ea5 on dsp/69-cab-block | review: Moth after #91 |
 | #94 third-party MIT notices in Credits/installer | — | | filed by Lyra |
 | #95 engine v1 signal graph (Phase 5) | unassigned (architect) | | filed 2026-10-26 from Moth's #88 note |
