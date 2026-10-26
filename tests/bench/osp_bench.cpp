@@ -9,6 +9,7 @@
 #include "osp/dsp/Compressor.h"
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/Gate.h"
+#include "osp/dsp/Reverb.h"
 #include "osp/dsp/reverb/FdnTank.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
@@ -198,6 +199,17 @@ int main(int argc, char** argv)
     std::vector<float> fdnRight(kBlock);
     results.push_back({"fdn_hall", measure(bench, "fdn_hall", input, [&](const float* in, float* out, int n) {
                            fdn.process(in, in, out, fdnRight.data(), n);
+                       })});
+
+    // Reverb block at its defaults (hall, 2.5 s, 20 ms pre-delay, 100 Hz / 6 kHz cuts, 20 % mix): stereo in/out.
+    osp::dsp::Reverb reverb;
+    reverb.prepare(kSampleRate, kBlock);
+    reverb.setEnabled(true);
+    reverb.reset();
+    std::vector<float> reverbRight(kBlock);
+    results.push_back({"reverb_block", measure(bench, "reverb_block", input, [&](const float* in, float* out, int n) {
+                           reverb.setParameters({});
+                           reverb.process(in, in, out, reverbRight.data(), n);
                        })});
 
     // Pass-through chain (the full engine chain as it stands), at 0 dB.
