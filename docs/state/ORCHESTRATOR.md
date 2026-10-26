@@ -55,8 +55,10 @@
 | Issue | Owner | PR | Status |
 |---|---|---|---|
 | #62 measurement harness | Sable | #80, #84 | MERGED (Signalsmith dsp FFT, ADR-0006 A1) |
-| #63 oversampler + ADAA | Sable | #86 part 1 MERGED. #96 part 2 CHANGES-REQ (Moth): HIIR SSE upsampler zero-input limit cycle (-113.5 dBFS period-4 at 8x); fix = FPU classes, 90 dB gate, exact-zero idle test | Sable fixing (priority, #67 waits). Part 3 (FIR HQ) deferred |
-| #67 drive | Sable | stacked on #96 | started (critical path) |
+| #63 oversampler + ADAA | Sable | #86 part 1 MERGED. #96 part 2 fixed at 1ac07d4 (FPU HIIR, 8x -93.3 dB, exact-zero idle test, 0.098% CPU) | re-review: Moth. Part 3 (FIR HQ) deferred |
+| #67 drive | Sable | dsp/67-drive (WIP + handoff pushed) | ASR gates fail (~-30 dB @5 kHz vs -40) via D3 decimator transition band; investigating, outcome goes to #98 |
+| #98 ADR-0005 D3 wording + possible decimator amendment | Sable (with #67) | | filed |
+| #99 HIIR release-asset mirror | release-devops (Wren after #43) | | filed |
 | #64 smoothing primitives | Moth acct3 | #82 | MERGED |
 | #66 compressor | Lyra | #85, #87 MERGED (dea4eb3, approved by Wren) | DONE (issue closed) |
 | #65 gate | Moth | #88 MERGED (c1d1a45) | DONE (issue closed) |
