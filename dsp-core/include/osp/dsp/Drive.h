@@ -10,33 +10,56 @@
 // Voicing = pre-HPF (1st order) -> gain -> ADAA shaper -> post-LPF (1st order) -> 10 Hz DC blocker:
 //   u = G·hp(x) + c·x, y = kOut·f(u). The table in Drive.cpp holds G (dB over drive 0…10), the corners, c and kOut.
 // - mid: TS-style. 720 Hz pre-HPF with the full-band path added (c = 1), so only the mids get the gain and clip:
-//   the HPF that the 0.047 µF + 4.7 kΩ leg forms in that circuit (tone-targets-b F1). tanh, ADAA1.
-// - transparent: 0.35·u + 0.65·tanh(u) (own design), ADAA1. Clean boost with edge; kOut = 1.
-// - dist: 160 Hz pre-HPF, hard clip, ADAA2. fuzz: 100 Hz pre-HPF, asymmetric hard clip (rails −1.3/+0.7), ADAA2.
-// ADAA order per ADR-0005 D2 (soft clip 1st, hard clip/fuzz 2nd). Every corner, gain range and the shapes are
-// engineering starting points (unverified), to be calibrated by the preset designer against renders.
+//   the HPF that the 0.047 µF + 4.7 kΩ leg forms in that circuit (tone-targets-b F1). Cubic soft clip.
+// - transparent: 0.35·u + 0.65·cubic(u) (own design). Clean boost with edge; kOut = 1.
+// - dist: 160 Hz pre-HPF, hard clip. fuzz: 100 Hz pre-HPF, asymmetric hard clip (rails −1.3/+0.7).
+// Every voicing uses ADAA2. ADR-0005 D2 asks for at least 1st order on soft clip, but mid at 41 dB drives the cubic
+// into its rails, and ADAA1 (with tanh) measured −36.6 dB ASR at 5 kHz/max drive against the −40 dB gate. Every
+// corner, gain range and shape is an engineering starting point (unverified), for the preset designer to calibrate.
 //
 // Latency: kDelaySamples (1 sample at the rate it runs at) for every voicing and when disabled, so a type change or
-// enable never moves the region latency (REQ-303). ADAA2 voicings delay by exactly 1 sample, ADAA1 voicings by 0.5;
-// that 0.5-sample lead is about 0.3 rad at 20 kHz with 4x at 48 kHz, and only matters inside the 10 ms type fade.
-// The mix and enable dry paths are delayed by 1 sample.
+// enable never moves the region latency (REQ-303): ADAA2 delays by exactly 1 sample, and so do the mix and enable
+// dry paths.
 
 #include "osp/dsp/oversampling/Adaa.h"
 #include "osp/dsp/util/Smoothers.h"
 #include "osp/dsp/util/Svf.h"
 
 #include <array>
+#include <cmath>
 
 namespace osp::dsp {
 
 enum class DriveType { mid, transparent, dist, fuzz };
 
 namespace detail {
-// 0.35·u + 0.65·tanh(u): F1 = 0.35·u²/2 + 0.65·log cosh u (TanhShape::F1 is the overflow-safe log cosh).
+// Cubic soft clip x − x³/3 on [−1, 1], ±2/3 outside (C1 at ±1). Closed-form, continuous antiderivatives:
+// F1 = x²/2 − x⁴/12 inside, 2|x|/3 − 1/4 outside; F2 (odd) = x³/6 − x⁵/60 inside, x²/3 − x/4 + 1/15 for x > 1.
+struct CubicClipShape {
+    static double f(double x) noexcept
+    {
+        const double a = std::abs(x);
+        return a <= 1.0 ? x - x * x * x / 3.0 : (x < 0.0 ? -2.0 / 3.0 : 2.0 / 3.0);
+    }
+    static double F1(double x) noexcept
+    {
+        const double a = std::abs(x);
+        return a <= 1.0 ? 0.5 * a * a - a * a * a * a / 12.0 : 2.0 * a / 3.0 - 0.25;
+    }
+    static double F2(double x) noexcept
+    {
+        const double a = std::abs(x);
+        const double v = a <= 1.0 ? a * a * a / 6.0 - a * a * a * a * a / 60.0 : a * a / 3.0 - 0.25 * a + 1.0 / 15.0;
+        return x < 0.0 ? -v : v;
+    }
+};
+
+// 0.35·u + 0.65·cubic(u): a linear share keeps the transparent voicing clean-boost-like when it clips.
 struct SoftLinearShape {
     static constexpr double kLinear = 0.35;
-    static double f(double x) noexcept { return kLinear * x + (1.0 - kLinear) * TanhShape::f(x); }
-    static double F1(double x) noexcept { return 0.5 * kLinear * x * x + (1.0 - kLinear) * TanhShape::F1(x); }
+    static double f(double x) noexcept { return kLinear * x + (1.0 - kLinear) * CubicClipShape::f(x); }
+    static double F1(double x) noexcept { return 0.5 * kLinear * x * x + (1.0 - kLinear) * CubicClipShape::F1(x); }
+    static double F2(double x) noexcept { return kLinear * x * x * x / 6.0 + (1.0 - kLinear) * CubicClipShape::F2(x); }
 };
 
 // Hard clip shifted by a bias b and re-centred, f(u) = clip(u + b) − b: rails −1 − b and 1 − b, f(0) = 0.
@@ -95,8 +118,8 @@ public:
 private:
     struct Path {
         detail::OnePoleTpt pre, post, dc;
-        Adaa1<TanhShape> tanh;
-        Adaa1<detail::SoftLinearShape> soft;
+        Adaa2<detail::CubicClipShape> cubic;
+        Adaa2<detail::SoftLinearShape> soft;
         Adaa2<HardClipShape> hard;
         Adaa2<detail::AsymClipShape> asym;
         float gain = 1.0f, gainKnob = -1.0f; // linear gain cached for gainKnob

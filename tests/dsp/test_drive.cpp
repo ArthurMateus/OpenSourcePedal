@@ -147,9 +147,11 @@ TEST_CASE("Drive: rate x block-size matrix, reset() and pre-prepare (REQ-TEST-00
     configure(whole);
     const auto reference = render(whole, in, 4096);
     REQUIRE(osp::rt::test::scanOutput(reference).clean());
+    // reset() jumps the smoothers to their targets, so compare two renders that both start from reset().
     whole.reset();
-    configure(whole);
-    CHECK(render(whole, in, 4096) == reference);
+    const auto first = render(whole, in, 4096);
+    whole.reset();
+    CHECK(render(whole, in, 4096) == first);
     for (int block : {0, 1, 32, 64, 127, 512, 2048}) {
         CAPTURE(block);
         DriveStage chunked;
@@ -296,4 +298,22 @@ TEST_CASE("Drive: 1000 random parameter vectors, NaN/subnormal scan, NaN recover
     stage.setMixPct(100.0f);
     stage.reset();
     CHECK(render(stage, clean) == expected);
+}
+
+TEST_CASE("Drive: shape antiderivatives are consistent (F1' = f, F2' = F1)", "[dsp][drive]")
+{
+    auto check = [](auto shape) {
+        using S = decltype(shape);
+        constexpr double h = 1e-5;
+        double worst1 = 0.0, worst2 = 0.0;
+        for (double x = -3.0; x <= 3.0; x += 0.0137) {
+            worst1 = std::max(worst1, std::abs((S::F1(x + h) - S::F1(x - h)) / (2 * h) - S::f(x)));
+            worst2 = std::max(worst2, std::abs((S::F2(x + h) - S::F2(x - h)) / (2 * h) - S::F1(x)));
+        }
+        CHECK(worst1 < 1e-6);
+        CHECK(worst2 < 1e-6);
+    };
+    check(osp::dsp::detail::CubicClipShape{});
+    check(osp::dsp::detail::SoftLinearShape{});
+    check(osp::dsp::detail::AsymClipShape{});
 }

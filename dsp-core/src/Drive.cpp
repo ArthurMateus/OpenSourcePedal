@@ -148,7 +148,7 @@ void DriveStage::resetPath(DriveType type) noexcept
 {
     Path& p = paths_[static_cast<std::size_t>(type)];
     p.pre.s = p.post.s = p.dc.s = 0.0f;
-    p.tanh.reset();
+    p.cubic.reset();
     p.soft.reset();
     p.hard.reset();
     p.asym.reset();
@@ -179,7 +179,7 @@ float DriveStage::voicing(DriveType type, float x, float knob) noexcept
     float y = 0.0f;
     switch (type) {
     case DriveType::mid:
-        y = p.tanh.processSample(u);
+        y = p.cubic.processSample(u);
         break;
     case DriveType::transparent:
         y = p.soft.processSample(u);
