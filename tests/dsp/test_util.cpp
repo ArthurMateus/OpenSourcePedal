@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <complex>
 #include <numbers>
 #include <random>
 #include <vector>
@@ -25,97 +24,45 @@ using osp::dsp::OnePoleSmoother;
 
 constexpr int kMaxBlock = 2048;
 
-// Minimal radix-2 FFT for the splatter check. Test-only; replaced by the shared harness from #62 when it lands.
-void fft(std::vector<std::complex<double>>& x)
-{
-    const std::size_t n = x.size();
-    for (std::size_t i = 1, j = 0; i < n; ++i) {
-        std::size_t bit = n >> 1;
-        for (; j & bit; bit >>= 1)
-            j ^= bit;
-        j ^= bit;
-        if (i < j)
-            std::swap(x[i], x[j]);
-    }
-    for (std::size_t len = 2; len <= n; len <<= 1) {
-        const double ang = -2.0 * std::numbers::pi / static_cast<double>(len);
-        const std::complex<double> wlen(std::cos(ang), std::sin(ang));
-        for (std::size_t i = 0; i < n; i += len) {
-            std::complex<double> w(1.0);
-            for (std::size_t k = 0; k < len / 2; ++k, w *= wlen) {
-                const auto u = x[i + k];
-                const auto v = x[i + k + len / 2] * w;
-                x[i + k] = u + v;
-                x[i + k + len / 2] = u - v;
-            }
-        }
-    }
-}
+// REQ-TEST-003 (ADR-0007, amended by #81): a step of the smoothed parameter at a non-block-aligned sample on a
+// 1 kHz sine. Gate: RMS residual against a per-sample double-precision reference of the smoothing law, relative to
+// the steady-state output RMS, ≤ −60 dBc.
+constexpr int kStepAt = 30'001; // not a multiple of any tested block size
 
-// Zipper metric (ADR-0007 REQ-TEST-003, "residual" variant): power in the block-rate sidebands f0 ± m·fs/B
-// (m = 1…4, ±10 Hz each) relative to the carrier, in dBc. Per-block parameter steps put their energy exactly there.
-// The literal "outside f0 ± 50 Hz" form cannot be met by any smoother: an ideal per-sample 50 ms −60→0 dB ramp
-// already scores −34 dBc on it (measured, see PR #64). 4-term Blackman-Harris window (−92 dB sidelobes).
-double zipperDbc(const std::vector<float>& y, double fs, double f0, int blockSize)
+std::vector<double> sine1k(double fs, int n)
 {
-    const std::size_t n = y.size();
-    std::vector<std::complex<double>> x(n);
-    for (std::size_t i = 0; i < n; ++i) {
-        const double t = 2.0 * std::numbers::pi * static_cast<double>(i) / static_cast<double>(n);
-        const double w = 0.35875 - 0.48829 * std::cos(t) + 0.14128 * std::cos(2 * t) - 0.01168 * std::cos(3 * t);
-        x[i] = w * y[i];
-    }
-    fft(x);
-    auto bandPower = [&](double fc) {
-        double p = 0.0;
-        for (std::size_t k = 0; k <= n / 2; ++k)
-            if (std::abs(static_cast<double>(k) * fs / static_cast<double>(n) - fc) <= 10.0)
-                p += std::norm(x[k]);
-        return p;
-    };
-    double sidebands = 0.0;
-    for (int m = 1; m <= 4; ++m)
-        for (const double sign : {-1.0, 1.0}) {
-            const double fc = f0 + sign * m * fs / blockSize;
-            if (fc > 0.0 && fc < fs / 2)
-                sidebands += bandPower(fc);
-        }
-    return 10.0 * std::log10(sidebands / bandPower(f0));
-}
-
-// Bin-centred sine with an odd bin index (ADR-0007 §2: coprime with the power-of-two FFT length).
-std::vector<float> binCentredSine(double fs, double nominalHz, int n, double* exactHz)
-{
-    auto k = static_cast<long>(std::lround(nominalHz * n / fs));
-    if (k % 2 == 0)
-        ++k;
-    *exactHz = static_cast<double>(k) * fs / n;
-    std::vector<float> x(static_cast<std::size_t>(n));
+    std::vector<double> x(static_cast<std::size_t>(n));
     for (int i = 0; i < n; ++i)
-        x[static_cast<std::size_t>(i)] =
-            static_cast<float>(0.5 * std::sin(2.0 * std::numbers::pi * static_cast<double>(k) * i / n));
+        x[static_cast<std::size_t>(i)] = 0.5 * std::sin(2.0 * std::numbers::pi * 1000.0 * i / fs);
     return x;
 }
 
-// Gain ramped from −60 dB to 0 dB over 50 ms in the middle of the window (parameter written once per 64-sample
-// block of `blockSize`, as the host does). `next(target)` maps the per-block target to the per-sample applied gain.
-template <typename NextGain>
-std::vector<float> gainRampRender(const std::vector<float>& in, double fs, int blockSize, NextGain&& next)
+// Applies the per-sample gain law `ref(i)` (double) and the primitive under test `next()` (float, driven in blocks
+// of `blockSize`, with the target written exactly at kStepAt) to the same sine, and returns the residual in dBc.
+template <typename Ref, typename Next, typename Step>
+double residualDbc(double fs, int blockSize, Ref&& ref, Next&& next, Step&& step)
 {
-    std::vector<float> out(in.size());
-    const int total = static_cast<int>(in.size());
-    const int rampStart = total / 2 - static_cast<int>(0.025 * fs);
-    const int rampLen = static_cast<int>(0.050 * fs);
+    const int n = kStepAt + static_cast<int>(0.2 * fs);
+    const auto x = sine1k(fs, n);
+    std::vector<float> y(static_cast<std::size_t>(n));
     const auto rt = osp::rt::test::runAsAudioThread([&] {
-        for (int pos = 0; pos < total; pos += blockSize) {
-            const double p = std::clamp(static_cast<double>(pos - rampStart) / rampLen, 0.0, 1.0);
-            const auto target = static_cast<float>(std::pow(10.0, (-60.0 + 60.0 * p) / 20.0));
-            for (int i = pos; i < std::min(pos + blockSize, total); ++i)
-                out[static_cast<std::size_t>(i)] = in[static_cast<std::size_t>(i)] * next(target);
+        for (int pos = 0; pos < n; pos += blockSize) {
+            for (int i = pos; i < std::min(pos + blockSize, n); ++i) {
+                if (i == kStepAt)
+                    step();
+                y[static_cast<std::size_t>(i)] = static_cast<float>(x[static_cast<std::size_t>(i)]) * next();
+            }
         }
     });
     OSP_REQUIRE_RT_CLEAN(rt);
-    return out;
+    double err = 0.0, sig = 0.0;
+    for (int i = 0; i < n; ++i) {
+        const double r = x[static_cast<std::size_t>(i)] * ref(i);
+        err += (y[static_cast<std::size_t>(i)] - r) * (y[static_cast<std::size_t>(i)] - r);
+    }
+    const double steady = std::max(std::abs(ref(0)), std::abs(ref(n - 1))); // larger of the two settled gains
+    sig = 0.125 * steady * steady * n;                                       // RMS² of 0.5·steady·sine
+    return 10.0 * std::log10(err / sig);
 }
 
 } // namespace
@@ -261,36 +208,65 @@ TEST_CASE("DelayLine: exact integer delay, in place, block-size invariant, reset
     REQUIRE(d.getDelay() == 255);
 }
 
-TEST_CASE("Smoothing: no zipper noise on a 50 ms gain ramp (REQ-TEST-003)", "[dsp][util][zipper]")
+TEST_CASE("Smoothing: residual vs per-sample reference <= -60 dBc (REQ-TEST-003)", "[dsp][util][zipper]")
 {
     const double fs = GENERATE(44100.0, 48000.0, 88200.0, 96000.0);
-    const int blockSize = GENERATE(32, 64);
-    const int n = fs > 50000.0 ? 131072 : 65536;
-    double f0 = 0.0;
-    const auto in = binCentredSine(fs, 1000.0, n, &f0);
+    const int blockSize = GENERATE(1, 32, 64, 127, 512);
+    const bool up = GENERATE(true, false); // min→max and max→min
+    CAPTURE(fs, blockSize, up);
+    const double lo = 0.001, hi = 1.0; // −60 dB → 0 dB
+    const double from = up ? lo : hi, to = up ? hi : lo;
 
-    LinearRamp ramp; // "Gain / level" class: 20 ms linear ramp of the linear gain
-    ramp.reset(0.001f);
+    // LinearRamp, 20 ms ("Gain / level"): g = from + (to − from)·min(1, (i − s + 1) / L).
+    LinearRamp ramp;
+    ramp.reset(static_cast<float>(from));
     ramp.prepare(fs, 0.020);
-    const auto linear = gainRampRender(in, fs, blockSize, [&](float t) { ramp.setTarget(t); return ramp.next(); });
+    const int len = ramp.lengthSamples();
+    const double rLinear = residualDbc(
+        fs, blockSize,
+        [&](int i) { return i < kStepAt ? from : from + (to - from) * std::min(1.0, double(i - kStepAt + 1) / len); },
+        [&] { return ramp.next(); }, [&] { ramp.setTarget(static_cast<float>(to)); });
 
-    OnePoleSmoother pole; // "Filter / tone" class: 20 ms one-pole
+    // OnePoleSmoother, τ = 20 ms ("Filter / tone"): g = to + (from − to)·a^(i − s + 1).
+    OnePoleSmoother pole;
     pole.prepare(fs, 0.020);
-    pole.reset(0.001f);
-    const auto onePole = gainRampRender(in, fs, blockSize, [&](float t) { pole.setTarget(t); return pole.next(); });
+    pole.reset(static_cast<float>(from));
+    const double a = std::exp(-1.0 / (0.020 * fs));
+    const double rPole = residualDbc(
+        fs, blockSize, [&](int i) { return i < kStepAt ? from : to + (from - to) * std::pow(a, i - kStepAt + 1); },
+        [&] { return pole.next(); }, [&] { pole.setTarget(static_cast<float>(to)); });
 
-    const auto stepped = gainRampRender(in, fs, blockSize, [](float t) { return t; }); // no smoothing
+    // Crossfader, 10 ms: the same law as LinearRamp between the two gains.
+    Crossfader xf;
+    xf.prepare(fs);
+    xf.reset(false);
+    const int xlen = xf.lengthSamples();
+    float ga = static_cast<float>(from), gb = static_cast<float>(to), unit = 1.0f, mixed = 0.0f;
+    const double rXfade = residualDbc(
+        fs, blockSize,
+        [&](int i) { return i < kStepAt ? from : from + (to - from) * std::min(1.0, double(i - kStepAt + 1) / xlen); },
+        [&] {
+            const float pa = ga * unit, pb = gb * unit;
+            xf.process(&pa, &pb, &mixed, 1);
+            return mixed;
+        },
+        [&] { xf.setTarget(true); });
 
-    const double zLinear = zipperDbc(linear, fs, f0, blockSize);
-    const double zPole = zipperDbc(onePole, fs, f0, blockSize);
-    const double zStepped = zipperDbc(stepped, fs, f0, blockSize);
-    CAPTURE(fs, blockSize, zLinear, zPole, zStepped);
-    REQUIRE(zLinear <= -60.0);
-    REQUIRE(zPole <= -60.0);
-    REQUIRE(zLinear <= zStepped - 20.0); // smoothing removes the per-block steps the metric detects
-    REQUIRE(zPole <= zStepped - 20.0);
-    WARN("zipper dBc fs=" << fs << " B=" << blockSize << ": linear " << zLinear << ", one-pole " << zPole
-                          << ", stepped " << zStepped);
+    // Negative control: an unsmoothed step measured against the 20 ms linear law must fail the gate.
+    float raw = static_cast<float>(from);
+    const double rRaw = residualDbc(
+        fs, blockSize,
+        [&](int i) { return i < kStepAt ? from : from + (to - from) * std::min(1.0, double(i - kStepAt + 1) / len); },
+        [&] { return raw; }, [&] { raw = static_cast<float>(to); });
+
+    CAPTURE(rLinear, rPole, rXfade, rRaw);
+    REQUIRE(rLinear <= -60.0);
+    REQUIRE(rPole <= -60.0);
+    REQUIRE(rXfade <= -60.0);
+    REQUIRE(rRaw > -60.0);
+    if (blockSize == 64)
+        WARN("REQ-TEST-003 residual dBc fs=" << fs << (up ? " up" : " down") << ": linear " << rLinear << ", one-pole "
+                                             << rPole << ", crossfade " << rXfade << ", unsmoothed " << rRaw);
 }
 
 TEST_CASE("util: RT checker with 1000 random parameter vectors, NaN/subnormal scan", "[dsp][util][rt]")
