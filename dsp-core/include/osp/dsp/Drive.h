@@ -124,6 +124,7 @@ private:
         Adaa2<HardClipShape> hard;
         Adaa2<detail::AsymClipShape> asym;
         float gain = 1.0f, gainKnob = -1.0f; // linear gain cached for gainKnob
+        float restInput = 0.0f;              // shaper input at zero input: G·b (fuzz), else 0
         float rest = 0.0f;                   // fuzz: shaper output at zero input, f(G·b)
     };
     // REQ-303 rests on every voicing delaying by exactly kDelaySamples: changing a shaper's ADAA order must fail here.
@@ -135,6 +136,7 @@ private:
 
     float voicing(DriveType type, float x, float knob) noexcept;
     void resetPath(DriveType type) noexcept;
+    void updateGain(DriveType type, float knob) noexcept;
     void updateLowCut(float hz) noexcept;
     void updateTone(float knob) noexcept;
 

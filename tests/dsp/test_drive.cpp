@@ -372,3 +372,23 @@ TEST_CASE("Drive: the wet path is time-aligned with the dry path (phase delay at
         CHECK(std::abs(phaseDelay) < 0.5);
     }
 }
+
+TEST_CASE("Drive: silence in after prepare()/reset() is silence out (biased fuzz primed at rest)", "[dsp][drive]")
+{
+    const int t = GENERATE(0, 1, 2, 3);
+    const float drive = GENERATE(0.0f, 5.0f, 10.0f);
+    CAPTURE(kNames[t], drive);
+    DriveStage stage;
+    stage.setType(kTypes[t]);
+    stage.setDrive(drive);
+    stage.prepare(192000.0, 64);
+    const std::vector<float> zeros(4096, 0.0f);
+    for (int pass = 0; pass < 2; ++pass) { // straight after prepare(), then after reset()
+        const auto out = render(stage, zeros);
+        float worst = 0.0f;
+        for (float v : out)
+            worst = std::max(worst, std::abs(v));
+        CHECK(worst <= 1e-6f);
+        stage.reset();
+    }
+}

@@ -174,3 +174,15 @@ TEST_CASE("ADAA: RT-clean, and reset() gives bit-identical renders", "[dsp][adaa
     OSP_REQUIRE_OUTPUT_CLEAN(a);
     REQUIRE(a == b);
 }
+
+TEST_CASE("ADAA: Adaa2::reset(x) primes the history, so a constant x outputs exactly f(x)", "[dsp][adaa]")
+{
+    for (double x : {-3.0, -0.4, 0.0, 0.25, 0.9, 7.0}) {
+        CAPTURE(x);
+        Adaa2<HardClipShape> a;
+        a.reset(x);
+        for (int n = 0; n < 4; ++n)
+            CHECK(a.processSample(static_cast<float>(x)) ==
+                  static_cast<float>(HardClipShape::f(static_cast<float>(x))));
+    }
+}

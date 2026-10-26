@@ -153,6 +153,18 @@ void DriveStage::setEnabled(bool on) noexcept
     enable_.setTarget(on ? 1.0f : 0.0f);
 }
 
+void DriveStage::updateGain(DriveType type, float knob) noexcept
+{
+    const auto t = static_cast<std::size_t>(type);
+    const Voicing& v = kVoicings[t];
+    Path& p = paths_[t];
+    p.gainKnob = knob;
+    p.gain = dbToGain(v.gainMinDb + (v.gainMaxDb - v.gainMinDb) * knob / 10.0f);
+    // The shaper input at rest is exactly this float product (hp = 0 in voicing()), so rest matches it to the bit.
+    p.restInput = p.gain * (0.0f + v.inputBias);
+    p.rest = static_cast<float>(detail::AsymClipShape::f(static_cast<double>(p.restInput)));
+}
+
 void DriveStage::resetPath(DriveType type) noexcept
 {
     Path& p = paths_[static_cast<std::size_t>(type)];
@@ -160,7 +172,9 @@ void DriveStage::resetPath(DriveType type) noexcept
     p.cubic.reset();
     p.soft.reset();
     p.hard.reset();
-    p.asym.reset();
+    // The fuzz input at rest is G·b, not 0: prime its history there, so silence after reset() stays silent (#102).
+    updateGain(type, drive_.current());
+    p.asym.reset(static_cast<double>(p.restInput));
 }
 
 void DriveStage::updateLowCut(float hz) noexcept
@@ -179,11 +193,8 @@ float DriveStage::voicing(DriveType type, float x, float knob) noexcept
     const auto t = static_cast<std::size_t>(type);
     const Voicing& v = kVoicings[t];
     Path& p = paths_[t];
-    if (knob != p.gainKnob) {
-        p.gainKnob = knob;
-        p.gain = dbToGain(v.gainMinDb + (v.gainMaxDb - v.gainMinDb) * knob / 10.0f);
-        p.rest = static_cast<float>(detail::AsymClipShape::f(static_cast<double>(p.gain) * v.inputBias));
-    }
+    if (knob != p.gainKnob)
+        updateGain(type, knob);
     const float hp = v.preHpHz > 0.0f ? p.pre.highPass(x) : x;
     const float u = p.gain * (hp + v.inputBias) + v.fullBand * x;
     float y = 0.0f;
