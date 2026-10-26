@@ -95,8 +95,8 @@ void FdnTank::prepare(double sampleRate, const Config& c)
     }
 
     dampCoeff_ = static_cast<float>(1.0 - std::exp(-2.0 * std::numbers::pi * kDampHz / sampleRate));
-    // The decay parameter is the mid-band RT60 (ISO 3382-1 T_mid: the 500 Hz and 1 kHz octaves), so the damping
-    // loss at their geometric centre is compensated in the loop gains. Above it, the tail decays faster.
+    // The decay parameter is the mid-band RT60 (ISO 3382-1 T_mid: the mean of the 500 Hz and 1 kHz octave T30s), so the
+    // damping loss at their geometric centre is compensated in the loop gains. Above it, the tail decays faster.
     const std::complex<double> z = std::polar(1.0, -2.0 * std::numbers::pi * kMidHz / sampleRate);
     dampCompensation_ = std::abs(1.0 - (1.0 - dampCoeff_) * z) / dampCoeff_;
     decay_.prepare(sampleRate, 0.020);

@@ -11,8 +11,9 @@
 // O. Smith, "Physical Audio Signal Processing", FDN reverberation chapter (CCRMA, accessed 2026-10-25); G. Luff, "Let's
 // Write a Reverb", ADC 2021 (multichannel Hadamard diffuser and Householder feedback; the structure only, no code: the
 // example repository has no licence, time-based-effects.md §3). The decay parameter is the mid-band RT60 (ISO 3382-1
-// T_mid, 500 Hz and 1 kHz octaves): the damping loss at 707 Hz is compensated, so higher frequencies decay faster, as
-// in a real room. Freeze ramps the loop to lossless (g = 1, damping and modulation off) and mutes the input over 50 ms.
+// T_mid, the mean of the 500 Hz and 1 kHz octave T30s): the damping loss at 707 Hz is compensated, so higher
+// frequencies decay faster, as in a real room. Freeze ramps the loop to lossless (g = 1, damping and modulation off)
+// and mutes the input over 50 ms.
 
 #include "osp/dsp/util/Smoothers.h"
 
@@ -44,15 +45,19 @@ public:
     void prepare(double sampleRate, const Config& config);
     void reset() noexcept;
 
-    // RT-safe, once per block. decay 0.3…20 s (smoothed 20 ms), mod 0…1 (smoothed 20 ms), freeze ramps 50 ms.
-    void setDecaySeconds(float seconds) noexcept { decay_.setTarget(seconds); }
-    void setModulation(float amount) noexcept { mod_.setTarget(amount); }
+    // RT-safe, once per block. decay 0.3…20 s (smoothed 20 ms), mod 0…1 (smoothed 20 ms), freeze ramps 50 ms. Values
+    // are clamped NaN-safely (NaN → the minimum): an unclamped mod would read outside the delay lines, and a NaN decay
+    // would make the loop NaN for good (PR #103 review).
+    void setDecaySeconds(float seconds) noexcept { decay_.setTarget(clampSafe(seconds, 0.3f, 20.0f)); }
+    void setModulation(float amount) noexcept { mod_.setTarget(clampSafe(amount, 0.0f, 1.0f)); }
     void setFreeze(bool freeze) noexcept { freeze_.setTarget(freeze ? 1.0f : 0.0f); }
 
     // RT-safe. Wet only (no dry). in and out buffers must not alias each other.
     void process(const float* inL, const float* inR, float* outL, float* outR, int numSamples) noexcept;
 
 private:
+    static float clampSafe(float v, float lo, float hi) noexcept { return v > lo ? (v < hi ? v : hi) : lo; }
+
     struct Line {
         std::vector<float> buf;
         int write = 0;
