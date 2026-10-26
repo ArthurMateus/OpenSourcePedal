@@ -64,11 +64,13 @@ struct MatchOptions {
     AnalysisOptions analysis;
     double flatnessWeight = 1.0; // per dB² of flatness difference
     double spectrumWeight = 0.5; // per dB² of weighted spectral residual
+    double spreadWeight = 0.5;   // per dB² of envelope-spread difference (the gain on single-note playing)
 };
 
 struct Candidate {
     Setting setting;
     double flatnessDistance = 0.0; // RMS dB over the flatness bands
+    double spreadDistance = 0.0;   // RMS dB over the envelope-spread bands
     double residualDb = 0.0;       // robust (Huber) residual in dB, predicted (additive model)
     double score = 0.0;
 };
@@ -80,6 +82,7 @@ struct MatchResult {
     double residualDb = 0.0;      // weighted RMS spectral difference, measured on the final render
     double robustResidualDb = 0.0; // the same with Huber weights: leakage bands count less (used for the choice)
     double flatnessDistance = 0.0;
+    double spreadDistance = 0.0;
     double unmatchedResidualDb = 0.0; // the DI through the default chain (clean, cab 0, flat EQ), for comparison
     std::vector<Candidate> ranking; // the chosen setting's candidate first, then the next best by predicted score
 };
