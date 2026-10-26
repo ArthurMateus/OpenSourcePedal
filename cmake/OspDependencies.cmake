@@ -3,6 +3,16 @@
 include_guard(GLOBAL)
 include(FetchContent)
 
+# HIIR 1.50 (WTFPL-2.0), header-only, used by dsp-core's IIR oversampler (ADR-0005 D1, ADR-0006 D2). There is no
+# repository, only this archive, so it is pinned by SHA-256 (checked against ADR-0006 on 2026-10-26). The archive has
+# no CMakeLists.txt: SOURCE_SUBDIR keeps FetchContent to a download.
+FetchContent_Declare(hiir
+    URL      http://ldesoras.fr/src/hiir-1.50.zip
+    URL_HASH SHA256=8a13724e8d698a40f53687d40466443879f6250abd2229097f3990b76e6855a6
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
+    SOURCE_SUBDIR osp-no-build)
+FetchContent_MakeAvailable(hiir)
+
 # nlohmann/json v3.12.0 (MIT): preset and state JSON in engine/ (PRIVATE, never in a public header). ADR-0006 D2.
 FetchContent_Declare(nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
