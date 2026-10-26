@@ -45,6 +45,13 @@
       "baseline": "#66, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 5 runs (R 0.186-0.196, 0.209-0.218 %); earlier runs read R 0.145-0.21",
       "headroom": "about 2.9x the measured 0.21 %: defaults (opto) with the tone tilt on; all three mode detectors run every sample"
     },
+    "fdn_hall": {
+      "kind": "block",
+      "r0": 0.633103,
+      "maxCpuPercent": 3.0,
+      "baseline": "#72 part 1, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 7 quiet runs (R 0.602-0.659), T_ref 10.6-11.1 ms",
+      "headroom": "about 4.4x the measured 0.68 %: 8-line FDN, 4 diffuser stages (32 delay taps + 4 Hadamard), 8 modulated linear-interpolated reads with std::sin LFOs, stereo; reverb is one of the heavier non-amp blocks, so the ceiling leaves room for the block wrapper (pre-delay, filters, mix) in part 2"
+    },
     "passthrough_chain": {
       "kind": "full_chain",
       "r0": 0.000486,
