@@ -34,8 +34,10 @@ therefore a plain preset (ADR-0003) the plugin reproduces exactly, and every int
 - **Gain feature:** spectral flatness (Wiener entropy) per octave 500 Hz–8 kHz, of each frame's power spectrum
   *divided by the LTAS*. A static linear filter scales both by |H|², so the feature is blind to EQ and cab and
   only sees the harmonic fill that clipping adds. Measured on the bundled DI: a 12 dB tilt through the real graphic
-  EQ moves it ≤ 0.03 dB per band; a tanh clipper 30 dB into it raises it 3.0 dB on average, and the dist voicing at
-  drive 8 by 4.0 dB (`tests/engine/test_tone_profile.cpp`).
+  EQ moves it ≤ 0.03 dB per band; a tanh clipper 30 dB into it raises it 3.0 dB on average (`tests/engine/test_tone_profile.cpp`).
+- **Rate independence:** the frame (4096 at 44.1/48 kHz), hop and median filters scale with the sample rate, so they
+  span the same time and bandwidth at every rate; the tool also resamples the reference to the DI rate before
+  profiling (#118 review).
 
 ### D3. Search
 
