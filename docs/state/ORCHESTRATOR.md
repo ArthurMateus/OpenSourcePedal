@@ -63,9 +63,9 @@
 | #64 smoothing primitives | Moth acct3 | #82 | MERGED |
 | #66 compressor | Lyra | #85, #87 MERGED (dea4eb3, approved by Wren) | DONE (issue closed) |
 | #65 gate | Moth | #88 MERGED (c1d1a45) | DONE (issue closed) |
-| #72 reverb (3 parts) | Moth | #103 part 1 (review: Lyra). #105 part 2 block wrapper, stacked on #103 (review: Sable) | part 3 Dattorro plate in progress |
+| #72 reverb (3 parts) | Moth | #103 part 1 CHANGES-REQ (Lyra: unclamped setModulation → OOB, NaN decay sticks). #105 part 2 stacked (review: Sable) | Moth fixing #103, then part 3 plate |
 | #68 EQ | Lyra | #90 MERGED (3bf87fc), #91 MERGED (11939e1, Moth re-approved), #92 base main | review: Wren |
-| #69 cab IR (4 parts) | Lyra | #93, #100 MERGED (62be52c) | part 3 after the #103 review |
+| #69 cab IR (4 parts) | Lyra | #93, #100 MERGED. #107 part 3 IrLoader CHANGES-REQ (acct2: Debug job lacks lfs: true; LFS bandwidth cache suggested) | Lyra fixing, then part 4 |
 | #71 delay | Lyra (after #69 part 3) | | queued |
 | #94 third-party notices in Credits/installer (Signalsmith, HIIR, nlohmann, JUCE, VST3, ASIO) | — | | filed by Lyra; HIIR added |
 | #95 engine v1 signal graph (Phase 5) | unassigned (architect) | | filed. +Moth: report round(sum D) not sum round(D), and add an end-to-end REQ-301 Live test |
