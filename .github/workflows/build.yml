@@ -19,9 +19,22 @@ jobs:
     # VS 2022 / MSVC v143 is required by AGENTS.md section 3, so pin the image rather than windows-latest.
     runs-on: windows-2022
     steps:
+      # LFS objects (the CC0 IRs and DI clips the asset tests read, #69) come from a cache keyed on their object ids,
+      # so a run only downloads them when an asset changes (LFS bandwidth quota, PR #107 review).
       - uses: actions/checkout@v4
         with:
           lfs: false
+      - name: List LFS objects
+        shell: bash
+        run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
+      - name: Cache LFS objects
+        uses: actions/cache@v4
+        with:
+          path: .git/lfs
+          key: lfs-${{ hashFiles('.lfs-assets-id') }}
+      - name: Fetch LFS objects
+        shell: bash
+        run: git lfs pull
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
@@ -104,9 +117,22 @@ jobs:
     name: windows-msvc-debug (RT checker)
     runs-on: windows-2022
     steps:
+      # LFS objects (the CC0 IRs and DI clips the asset tests read, #69) come from a cache keyed on their object ids,
+      # so a run only downloads them when an asset changes (LFS bandwidth quota, PR #107 review).
       - uses: actions/checkout@v4
         with:
           lfs: false
+      - name: List LFS objects
+        shell: bash
+        run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
+      - name: Cache LFS objects
+        uses: actions/cache@v4
+        with:
+          path: .git/lfs
+          key: lfs-${{ hashFiles('.lfs-assets-id') }}
+      - name: Fetch LFS objects
+        shell: bash
+        run: git lfs pull
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
