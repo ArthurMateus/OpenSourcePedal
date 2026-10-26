@@ -1,6 +1,6 @@
 # ADR-0005: Oversampling and anti-aliasing strategy
 
-- Status: **Proposed** (2026-10-25). It becomes Accepted when the PR merges.
+- Status: **Accepted** (2026-10-25; cross-account review approved and merged in Phase 2).
 - Deciders: architect (acct1/Sable). Issue #27.
 - Rests on: [`docs/research/oversampling.md`](../research/oversampling.md) (#10, cited as OS §x),
   [`docs/research/nam-runtime.md`](../research/nam-runtime.md) (NR §x), ADR-0001 (no JUCE in `dsp-core`),
@@ -42,7 +42,7 @@ Oversampled regions follow `docs/spec/signal-flow.md` (#52):
 |---|---|---|---|---|---|---|
 | **OS-1** | Drive A → Drive B (adjacent, every voicing) | 4× | 2× | 8× | IIR (Live), FIR (HQ) | Soft-clip voicings: 1st order. Fuzz/hard-clip voicings: 2nd order |
 | **OS-2** | Classic amp (preamp → tone stack → power amp) | 4× | 2× | 8× | IIR (Live), FIR (HQ) | 1st order per stage |
-| none | Compressor, gate, EQ, cab IR, modulation, delay, reverb, doubler | 1× | 1× | 1× | n/a | none (saturating delay/tape modes: 2× + ADAA1 inside the block, in a later ADR amendment) |
+| none | Compressor, gate, EQ, cab IR, modulation, delay, reverb, doubler | 1× | 1× | 1× | n/a | none. Exception: saturating delay/tape modes run 2× + ADAA1 on the wet feedback path only. Their oversampler latency is absorbed by shortening the delay line, so `L_dly` = 0 (signal-flow #52), which requires the minimum delay time to be ≥ that latency. The dry path is untouched |
 | none | NAM amp | 1× (native rate, ADR-0002 D4) | 1× | 1× in v1 (see D7) | n/a | n/a |
 
 - **OS open question 2 (shared domain), decided by the orchestrator:**
@@ -52,6 +52,9 @@ Oversampled regions follow `docs/spec/signal-flow.md` (#52):
     the oversampled rate).
   - **OS-2** is the classic amp's own region. It stays separate from OS-1 because NAM channels sit in the same amp slot
     and must not be forced into OS-2 (signal-flow §OS regions).
+  - The clean DI blend (`amp.cleanBlendPct`, signal-flow #52) is delayed by the integer `L_slot + L_cab`, so the
+    total latency is unchanged. Against an IIR amp path, the residual fraction (≤ 0.5 sample, D4) remains between the
+    blended signals. This is accepted, because the amp path is nonlinear and no null applies.
   - The cost is that soft-clip voicings in OS-1 run at 4× rather than the 2× the research suggests (OS §3.1). The
     extra CPU is accepted for one pair and constant latency.
 

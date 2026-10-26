@@ -52,7 +52,7 @@
 
 ## 4. Signal chain and blocks (4xx)
 
-Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges and defaults are in `parameters.md` (#23).
+Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges and defaults are in `parameters.md` (#23). **Where a range here differs from parameters.md, parameters.md wins.**
 
 | ID | Requirement | Pri | Verify | Source |
 |---|---|---|---|---|
@@ -69,14 +69,16 @@ Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges an
 | REQ-411 | NAM calibration: input interface level (dBu, default 12; a **global setting**, ADR-0003 §7) and output mode Raw / Normalized (−18 dB) / Calibrated from file metadata (per preset) | M | U | nam §3; ADR-0003 |
 | REQ-412 | NAM models run at their native rate. Other host rates use the Lanczos resampler (A = 12), with its latency reported | M | U | nam §3; os §1.6 |
 | REQ-413 | **Cab:** 2 IR slots, each with IR (factory or user WAV/AIFF, any rate, resampled on load), Level −∞…+6 dB, Pan, Phase invert and On. Loading happens off the audio thread | M | U, RT | ref R3; ADR-0004 §4 |
-| REQ-414 | **EQ:** 9-band graphic (63 Hz–16 kHz octave centres, ±12 dB) + HPF 20–250 Hz + LPF 2–17 kHz, and a 4-band parametric mode | M | U | ref R4 |
+| REQ-414 | **EQ:** 9-band graphic (63 Hz–16 kHz octave centres, ±12 dB) + low cut 20–500 Hz + high cut 2–20 kHz (12 dB/oct), and a 4-band parametric mode. Exact ranges: parameters.md | M | U | ref R4; parameters.md |
 | REQ-415 | **Modulation:** chorus, flanger, phaser, vibe, tremolo, with a position switch **pre-amp / post-cab** (one block). This answers ref Q1 | M | U | ref Q1; tbe §1.5 |
-| REQ-416 | **Delay:** digital / analog (BBD) / tape modes, 1–2000 ms free time (`delay.time_ms`), tempo sync, tap tempo, ping-pong, feedback low/high cut, ducking | M | U, G | tbe §1.3; ref R5 |
-| REQ-417 | **Reverb:** room, hall, plate and shimmer ("dreamscape"); decay up to 8.5 s; HPF 50–700 Hz; LPF 1–10 kHz | M | U, G | tbe §1.1–1.2; ref R5 |
+| REQ-416 | **Delay:** digital / analog (BBD) / tape modes, 7–3000 ms free time (`delay.timeMs`; the minimum must stay ≥ the saturating modes' oversampler latency, ADR-0005 D2, which is a few samples), tempo sync, tap tempo, ping-pong, feedback low/high cut, ducking | M | U, G | tbe §1.3; ref R5; parameters.md |
+| REQ-417 | **Reverb:** room, hall, plate and shimmer ("dreamscape"); decay 0.3–20 s (`reverb.decayS`); low cut 50–700 Hz; high cut 1–10 kHz; freeze | M | U, G | tbe §1.1–1.2; ref R5; parameters.md |
+| REQ-425 | **Reverb spring mode** (`reverb.mode = spring`) | S | U, G | tb §1.7; parameters.md |
 | REQ-418 | **Doubler:** stereo double-tracking from a short modulated delay, with zero added latency | S | U | ref R6 |
 | REQ-419 | **Tuner:** chromatic, ±1 cent accuracy for 40–1000 Hz sine input; full page + always-visible strip; mutes output while open (option) | M | U, I | ref R6 |
-| REQ-420 | **Transpose ±12 st**, polyphonic octaver, whammy, harmonizer, wah, envelope filter, amp blend mode, DI blend | P | — | ref R8, Q2–Q4; tb §1.1 |
-| REQ-421 | Oversampling quality is a **global** Live/HQ setting. Offline renders (host non-realtime flag, `osp-render`) use HQ. Factors and filters are defined by the oversampling ADR (#27) | M | U | os Q1 |
+| REQ-420 | **Transpose ±12 st**, polyphonic octaver, whammy, harmonizer, wah, envelope filter, amp blend mode | P | — | ref R8, Q2–Q3; tb §1.1 |
+| REQ-424 | **Clean DI blend** (`amp.cleanBlendPct`): a parallel path from the amp input that skips amp, cab and EQ and is latency-aligned to the wet path. At 100 % the output equals the delayed amp input (null ≤ −120 dBFS after alignment); `L_total` is unchanged by the blend value | M | U | ref Q4; ta T1; signal-flow §1 |
+| REQ-421 | Oversampling quality is a **global** Live/HQ user setting (app settings and plugin state, not presets). Inside hosts, offline renders use the user's setting in v1 (no automatic switch). `osp-render` may force HQ with `--quality hq`. Factors and filters: ADR-0005 D2/D3 | M | U | os Q1; ADR-0005 D6 |
 | REQ-422 | Aliasing per nonlinear block meets the ASR thresholds of the oversampling ADR (#27), measured with the bin-centred method | M | U | os §3.3; tt §2.3 |
 | REQ-423 | Continuous parameters are smoothed: no zipper noise per ADR-0007 REQ-TEST-003 (a 50 ms min→max ramp on a 1 kHz sine gives spectral splatter outside f0 ± 50 Hz ≤ −60 dBc) | M | U | AGENTS §4; ADR-0007; realtime-rules RT-13 |
 
@@ -147,10 +149,11 @@ Order and routing are specified in `signal-flow.md` (#22). Parameters, ranges an
 |---|---|
 | ref Q1 modulation position | Switchable pre-amp / post-cab (REQ-415) |
 | ref Q2 Transpose/Doubler latency | Doubler v1 with zero latency (REQ-418). Transpose post-v1 (REQ-420). Constant-latency rule (REQ-303) |
-| ref Q3 amp blend, Q4 DI blend | Post-v1 (REQ-420) |
+| ref Q3 amp blend | Post-v1 (REQ-420) |
+| ref Q4 DI blend | v1 clean DI blend on the amp block (REQ-424, signal-flow §1) |
 | ref Q5 channels per preset | All 3 per preset; switching is a parameter (REQ-406) |
 | ref Q6 Global Lock storage | Lock on/off in the settings file (REQ-504); the locked blocks stay in the preset and are skipped on load (REQ-503, ADR-0003 §7) |
-| os Q1 global vs per-block HQ | Global; offline forces HQ (REQ-421). Factors: #27 |
+| os Q1 global vs per-block HQ | Global user setting; only `osp-render` may force HQ (REQ-421, ADR-0005 D6) |
 | os Q3 / tt Q4 ASR gates | Owned by #27 (thresholds) and #29 (gate vs warn). Verified by REQ-422 |
 | tt Q3 golden storage | Owned by #29 |
 | ta Q1 harmonizer | Post-v1 (REQ-420) |
