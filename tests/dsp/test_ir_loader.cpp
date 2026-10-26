@@ -62,7 +62,10 @@ std::complex<double> response(const std::vector<float>& h, double fs, double hz)
 
 // Worst complex error of `out` vs `in` over `freqs`, in dB relative to the largest |H_in| there. The kernel adds no
 // delay, so the phases compare directly; a relative measure does not blow up in the notches of a real IR.
-double worstErrorDb(const std::vector<float>& in, double inRate, const std::vector<float>& out, double outRate,
+double worstErrorDb(const std::vector<float>& in,
+                    double inRate,
+                    const std::vector<float>& out,
+                    double outRate,
                     const std::vector<double>& freqs)
 {
     double peak = 0.0, err = 0.0;
