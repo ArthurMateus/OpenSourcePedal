@@ -117,7 +117,20 @@ void PartitionedConvolver::reset() noexcept
     std::fill(history_.begin(), history_.end(), 0.0f);
     for (auto& stage : stages_)
         stage->clear();
-    phase_ = 0;
+    setStartPhase(startPhase_);
+}
+
+int PartitionedConvolver::framePosition() const noexcept
+{
+    return stages_.empty() ? -1 : stages_.back()->pos;
+}
+
+void PartitionedConvolver::setStartPhase(int samples) noexcept
+{
+    startPhase_ = samples > 0 ? samples % kMaxPartition : 0;
+    phase_ = startPhase_ % kHeadLength;
+    for (auto& stage : stages_)
+        stage->pos = startPhase_ % stage->size; // every size divides kMaxPartition, so the phases stay consistent
 }
 
 void PartitionedConvolver::process(const float* in, float* out, int numSamples) noexcept
