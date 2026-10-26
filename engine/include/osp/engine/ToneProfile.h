@@ -23,6 +23,8 @@ double bandHz(int band) noexcept;
 
 // Octave bands for the flatness feature: 500-1k, 1k-2k, 2k-4k, 4k-8k.
 constexpr int kFlatnessBands = 4;
+// Octave bands for the envelope spread: 250-500 Hz ... 4k-8k.
+constexpr int kSpreadBands = 5;
 
 enum class Source { automatic, mono, mid, side, left, right };
 const char* toString(Source s) noexcept;
@@ -38,6 +40,7 @@ pickSource(const float* left, const float* right, std::size_t n, double sampleRa
 struct Profile {
     std::array<double, kBands> levelDb{};          // LTAS, mean over the fit weights = 0 dB
     std::array<double, kFlatnessBands> flatnessDb{}; // Wiener entropy per octave, <= 0 dB (0 = white noise)
+    std::array<double, kSpreadBands> spreadDb{};     // envelope spread per octave: P90 - P20 of frame energy, dB
     double activeSeconds = 0.0;                      // frames above the silence gate
     double sampleRate = 0.0;                         // rate it was analysed at
 };
@@ -65,5 +68,7 @@ Bands normalised(Bands x) noexcept;
 double residualDb(const Bands& a, const Bands& b) noexcept;
 // RMS dB of the flatness difference over the flatness bands.
 double flatnessDistance(const Profile& a, const Profile& b) noexcept;
+// RMS dB of the envelope-spread difference over the spread bands.
+double spreadDistance(const Profile& a, const Profile& b) noexcept;
 
 } // namespace osp::engine::tonematch

@@ -385,7 +385,7 @@ MatchResult match(
     std::vector<Candidate> all;
     for (const Setting& d : drives) {
         const Profile p = analyse(renderStages(di, fs, d, cabs, kDriveOnly, 256), fs, o.analysis);
-        const double flat = flatnessDistance(ref, p);
+        const double flat = flatnessDistance(ref, p), spread = spreadDistance(ref, p);
         for (std::size_t c = 0; c < cabs.size(); ++c) {
             Bands need{};
             for (int k = 0; k < kBands; ++k)
@@ -399,7 +399,9 @@ MatchResult match(
             cand.setting.eqHighCutHz = kHighCutHz[fit.highCut];
             cand.flatnessDistance = flat;
             cand.residualDb = fit.residualDb; // robust
-            cand.score = o.flatnessWeight * flat * flat + o.spectrumWeight * fit.residualDb * fit.residualDb;
+            cand.spreadDistance = spread;
+            cand.score = o.flatnessWeight * flat * flat + o.spreadWeight * spread * spread +
+                         o.spectrumWeight * fit.residualDb * fit.residualDb;
             all.push_back(cand);
         }
     }
@@ -441,8 +443,9 @@ MatchResult match(
         const Profile got = analyse(out, fs, o.analysis);
         const double res = residualDb(ref.levelDb, got.levelDb);
         const double robust = robustResidualDb(ref.levelDb, got.levelDb);
-        const double flat = flatnessDistance(ref, got);
-        const double score = o.flatnessWeight * flat * flat + o.spectrumWeight * robust * robust;
+        const double flat = flatnessDistance(ref, got), spread = spreadDistance(ref, got);
+        const double score =
+            o.flatnessWeight * flat * flat + o.spreadWeight * spread * spread + o.spectrumWeight * robust * robust;
         if (score < bestScore) {
             bestScore = score;
             winner = i;
@@ -452,6 +455,7 @@ MatchResult match(
             result.matched = got;
             result.residualDb = res;
             result.flatnessDistance = flat;
+            result.spreadDistance = spread;
         }
     }
     // The refined winner first, then the next best by predicted score (#119 review: it could be 2nd or 3rd).
