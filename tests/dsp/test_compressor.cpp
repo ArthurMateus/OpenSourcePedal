@@ -1,3 +1,4 @@
+#include "measure.hpp"
 #include "osp/dsp/Compressor.h"
 #include "rt_checker.hpp"
 
@@ -5,9 +6,11 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include <cmath>
+#include <complex>
 #include <cstdint>
 #include <tuple>
 #include <vector>
+#include <xmmintrin.h>
 
 using osp::dsp::CompMode;
 using osp::dsp::Compressor;
@@ -252,4 +255,216 @@ TEST_CASE("Compressor: 1000 random parameter vectors, mode switches, NaN/subnorm
     const auto tail = render(comp, silence, 512);
     REQUIRE(comp.getGainReductionDb() == 0.0f);
     REQUIRE(tail.back() == 0.0f);
+}
+
+namespace {
+
+// Identity compressor (ratio 1, auto makeup off), so only the stage under test shapes the signal.
+Compressor identity(double fs)
+{
+    return make(fs, CompMode::vca, -20.0f, 1.0f, 0.0f, 10.0f, 150.0f);
+}
+
+// |H| of the analog tilt prototype at the frequency the prewarped bilinear transform maps `hz` to.
+double tiltTheoryDb(double hz, double fs, float knob)
+{
+    const double g = std::pow(10.0, (knob - 5.0) * 1.2 / 20.0);
+    const double w = std::tan(3.14159265358979323846 * hz / fs) / std::tan(3.14159265358979323846 * 1000.0 / fs);
+    return 20.0 * std::log10(std::abs(std::complex<double>(1.0, g * w) / std::complex<double>(g, w)));
+}
+
+// First block boundary at or after the middle of `n` samples: where a per-block parameter change lands.
+int deliverySample(int n, int block)
+{
+    return (n / 2 + block - 1) / block * block;
+}
+
+// Renders `in` with `change()` applied before the block that starts at `at`.
+template <typename Change>
+std::vector<float> renderWithStep(Compressor& comp, const std::vector<float>& in, int block, int at, Change&& change)
+{
+    std::vector<float> out(in.size());
+    const int total = static_cast<int>(in.size());
+    const auto rt = osp::rt::test::runAsAudioThread([&] {
+        for (int pos = 0; pos < total; pos += block) {
+            if (pos == at)
+                change();
+            comp.process(in.data() + pos, out.data() + pos, std::min(block, total - pos));
+        }
+    });
+    OSP_REQUIRE_RT_CLEAN(rt);
+    return out;
+}
+
+} // namespace
+
+TEST_CASE("Compressor: tone is a +-6 dB tilt around 1 kHz", "[dsp][comp][tone]")
+{
+    const double fs = GENERATE(44100.0, 48000.0, 96000.0);
+    const float knob = GENERATE(0.0f, 2.5f, 7.5f, 10.0f);
+    CAPTURE(fs, knob);
+    for (double nominal : {30.0, 1000.0, 5000.0, 18000.0}) {
+        const auto tone = osp::measure::coherentTone(nominal, fs);
+        const std::size_t len = osp::measure::kWarmupSamples + osp::measure::kCoherentFftSize;
+        const auto in = osp::measure::makeTone(tone, fs, -12.0, len);
+        auto comp = identity(fs);
+        comp.setTone(knob);
+        comp.reset();
+        const auto out = render(comp, in, 512);
+        std::vector<double> tailIn(in.end() - osp::measure::kCoherentFftSize, in.end());
+        std::vector<double> tailOut(out.end() - osp::measure::kCoherentFftSize, out.end());
+        const double measured = osp::measure::toDb(std::abs(osp::measure::realFft(tailOut)[tone.bin]) /
+                                                   std::abs(osp::measure::realFft(tailIn)[tone.bin]));
+        CAPTURE(tone.frequency, measured);
+        REQUIRE(std::abs(measured - tiltTheoryDb(tone.frequency, fs, knob)) <= 0.05);
+        if (knob == 10.0f && nominal == 30.0)
+            REQUIRE(std::abs(measured + 6.0) <= 0.3);
+        if (knob == 10.0f && nominal == 18000.0 && fs >= 48000.0)
+            REQUIRE(std::abs(measured - 6.0) <= 0.3);
+    }
+}
+
+TEST_CASE("Compressor: makeup, blend and tone steps leave <= -60 dBc residual (REQ-TEST-003)", "[dsp][comp][zipper]")
+{
+    const double fs = GENERATE(44100.0, 48000.0, 96000.0);
+    const int block = GENERATE(37, 64, 512);
+    const bool up = GENERATE(true, false);
+    CAPTURE(fs, block, up);
+    const auto tone = osp::measure::coherentTone(1000.0, fs);
+    const int n = static_cast<int>(0.4 * fs);
+    const auto in = osp::measure::makeTone(tone, fs, -12.0, static_cast<std::size_t>(n));
+    const int at = deliverySample(n, block);
+    const int len = static_cast<int>(std::lround(0.020 * fs));
+    auto ramp = [&](int i, double from, double to) {
+        return i < at ? from : from + (to - from) * std::min(1.0, static_cast<double>(i - at + 1) / len);
+    };
+    std::vector<double> ref(static_cast<std::size_t>(n));
+
+    // Makeup 0 <-> 24 dB: linear ramp of the linear gain over 20 ms.
+    const double m0 = up ? 1.0 : std::pow(10.0, 1.2), m1 = up ? std::pow(10.0, 1.2) : 1.0;
+    auto comp = identity(fs);
+    comp.setMakeupDb(up ? 0.0f : 24.0f);
+    comp.reset();
+    auto out = renderWithStep(comp, in, block, at, [&] { comp.setMakeupDb(up ? 24.0f : 0.0f); });
+    for (int i = 0; i < n; ++i)
+        ref[static_cast<std::size_t>(i)] = in[static_cast<std::size_t>(i)] * ramp(i, m0, m1);
+    const double rMakeup = osp::measure::residualDbc(out, ref);
+
+    // Blend 0 <-> 100 % with a +12 dB wet path: out = x ((1 - b) + b m).
+    const double m = std::pow(10.0, 0.6);
+    comp = identity(fs);
+    comp.setMakeupDb(12.0f);
+    comp.setBlendPct(up ? 0.0f : 100.0f);
+    comp.reset();
+    out = renderWithStep(comp, in, block, at, [&] { comp.setBlendPct(up ? 100.0f : 0.0f); });
+    for (int i = 0; i < n; ++i) {
+        const double b = ramp(i, up ? 0.0 : 1.0, up ? 1.0 : 0.0);
+        ref[static_cast<std::size_t>(i)] = in[static_cast<std::size_t>(i)] * ((1.0 - b) + b * m);
+    }
+    const double rBlend = osp::measure::residualDbc(out, ref);
+
+    // Tone 0 <-> 10: one-pole 20 ms on the knob, reference tilt recomputed every sample in double.
+    comp = identity(fs);
+    comp.setTone(up ? 0.0f : 10.0f);
+    comp.reset();
+    out = renderWithStep(comp, in, block, at, [&] { comp.setTone(up ? 10.0f : 0.0f); });
+    const double a = std::exp(-1.0 / (0.020 * fs)), k = 1.0 / std::tan(3.14159265358979323846 * 1000.0 / fs);
+    const double from = up ? 0.0 : 10.0, to = up ? 10.0 : 0.0;
+    double x1 = 0.0, y1 = 0.0;
+    for (int i = 0; i < n; ++i) {
+        const double knob = i < at ? from : to + (from - to) * std::pow(a, i - at + 1);
+        const double g = std::pow(10.0, (knob - 5.0) * 1.2 / 20.0), a0 = k + g;
+        const double x = in[static_cast<std::size_t>(i)];
+        const double y = ((g * k + 1.0) * x + (1.0 - g * k) * x1 - (g - k) * y1) / a0;
+        x1 = x;
+        y1 = y;
+        ref[static_cast<std::size_t>(i)] = y;
+    }
+    const double rTone = osp::measure::residualDbc(out, ref);
+
+    CAPTURE(rMakeup, rBlend, rTone);
+    REQUIRE(rMakeup <= -60.0);
+    REQUIRE(rBlend <= -60.0);
+    REQUIRE(rTone <= -60.0);
+    if (block == 64 && fs == 48000.0)
+        WARN("REQ-TEST-003 comp residual dBc (" << (up ? "up" : "down") << "): makeup " << rMakeup << ", blend "
+                                                << rBlend << ", tone " << rTone);
+}
+
+TEST_CASE("Compressor: auto makeup brings a -12 dBFS DI back to about -12 dBFS", "[dsp][comp]")
+{
+    // Auto makeup is the static GR at -12 dBFS. On a sine the peak detector sags between peaks, so the dynamic GR
+    // is a little lower and the output a little hot, more so with slower attacks (measured: 1 ms -11.82,
+    // 10 ms -11.26, 30 ms -10.64 dBFS in vca). Defaults otherwise (T -20, R 4, knee 6, release 150).
+    auto peakOut = [](float attackMs) {
+        Compressor comp;
+        comp.setMode(CompMode::vca);
+        comp.setAttackMs(attackMs);
+        comp.prepare(48000.0, 64);
+        const auto tone = osp::measure::coherentTone(997.0, 48000.0);
+        const auto out = render(comp, osp::measure::makeTone(tone, 48000.0, -12.0, 48000), 64);
+        float peak = 0.0f;
+        for (std::size_t i = out.size() - 24000; i < out.size(); ++i)
+            peak = std::max(peak, std::abs(out[i]));
+        return 20.0 * std::log10(peak);
+    };
+    const double fast = peakOut(1.0f), byDefault = peakOut(10.0f);
+    CAPTURE(fast, byDefault);
+    REQUIRE(std::abs(fast + 12.0) <= 0.5);
+    REQUIRE(byDefault >= -12.0);
+    REQUIRE(byDefault <= -11.0);
+}
+
+TEST_CASE("Compressor: mode and auto-makeup switches are click-free (xf 10)", "[dsp][comp]")
+{
+    // Heavy GR (T -40, R 20: about 26.6 dB of auto makeup at -12 dBFS), switch mid-signal.
+    const double fs = 48000.0;
+    const auto tone = osp::measure::coherentTone(997.0, fs);
+    const auto in = osp::measure::makeTone(tone, fs, -12.0, 48000);
+    auto maxStep = [](const std::vector<float>& y, int from, int to) {
+        float m = 0.0f;
+        for (int i = from + 1; i < to; ++i)
+            m = std::max(m, std::abs(y[static_cast<std::size_t>(i)] - y[static_cast<std::size_t>(i - 1)]));
+        return m;
+    };
+    // Switch at 8 phases across one period (48 samples) with 1-sample blocks, so a hard switch cannot hide in a
+    // zero crossing.
+    for (int sw = 0; sw < 4; ++sw)
+        for (int at = 24000; at < 24048; at += 6) {
+            CAPTURE(sw, at);
+            auto comp = make(fs, CompMode::vca, -40.0f, 20.0f, 0.0f, 10.0f, 150.0f);
+            comp.setAutoMakeup(true);
+            comp.reset();
+            const auto out = renderWithStep(comp, in, 1, at, [&] {
+                if (sw == 0)
+                    comp.setAutoMakeup(false);
+                else
+                    comp.setMode(sw == 1 ? CompMode::opto : sw == 2 ? CompMode::dual : CompMode::vca);
+            });
+            // Steady state on both sides: the new mode may settle at a slightly different level (dual is louder).
+            const float steady = std::max(maxStep(out, at - 2400, at), maxStep(out, at + 2400, at + 4800));
+            const float after = maxStep(out, at - 1, at + 1440); // the 10 ms fade plus margin
+            CAPTURE(steady, after);
+            // A hard switch would add up to |x| * g * (auto gain - 1), about 0.24 here; the ramp adds ~5e-4 per sample.
+            REQUIRE(after <= steady + 1.0e-3f);
+        }
+}
+
+TEST_CASE("Compressor: tilt tail never goes subnormal, even with FTZ off", "[dsp][comp][tone]")
+{
+    REQUIRE((_mm_getcsr() & 0x8040u) == 0u); // FTZ and DAZ are off outside the RT harness
+    for (float knob : {0.0f, 10.0f}) {
+        CAPTURE(knob);
+        auto comp = identity(48000.0);
+        comp.setTone(knob);
+        comp.reset();
+        std::vector<float> x(48000, 0.0f);
+        x[0] = 1.0f;
+        std::vector<float> y(x.size());
+        for (std::size_t pos = 0; pos < x.size(); pos += 64)
+            comp.process(x.data() + pos, y.data() + pos, 64);
+        const auto scan = osp::rt::test::scanOutput(y);
+        CHECK(scan.subnormal == 0u);
+        CHECK(y.back() == 0.0f);
+    }
 }
