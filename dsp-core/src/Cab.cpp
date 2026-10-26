@@ -9,8 +9,15 @@ namespace osp::dsp {
 
 namespace {
 
+// Exact at centre (1, 1) and at the hard pans (√2, 0): the float trig would land an ulp off, and the default must
+// be bit-exact.
 void panGains(float pan, float& gl, float& gr) noexcept
 {
+    if (pan == 0.0f || pan <= -1.0f || pan >= 1.0f) {
+        gl = pan == 0.0f ? 1.0f : pan < 0.0f ? std::numbers::sqrt2_v<float> : 0.0f;
+        gr = pan == 0.0f ? 1.0f : pan < 0.0f ? 0.0f : std::numbers::sqrt2_v<float>;
+        return;
+    }
     const float theta = (pan + 1.0f) * (std::numbers::pi_v<float> / 4.0f);
     gl = std::numbers::sqrt2_v<float> * std::cos(theta);
     gr = std::numbers::sqrt2_v<float> * std::sin(theta);
@@ -48,7 +55,7 @@ void Cab::prepare(double sampleRate, int maxBlockSize)
         s.sign.prepare(sampleRate, 0.010);
         s.pan.prepare(sampleRate, 0.020);
         s.delay.prepare(sampleRate, 0.020);
-        s.delay.reset(s.delayMs * 0.001f * static_cast<float>(sampleRate));
+        s.delay.reset(static_cast<float>(double(s.delayMs) * sampleRate / 1000.0));
         s.history.assign(static_cast<std::size_t>(ring), 0.0f);
     }
     enableL_.prepare(sampleRate);
@@ -138,7 +145,7 @@ void Cab::setDelayMs(int slot, float ms) noexcept
         return;
     Slot& s = slots_[static_cast<std::size_t>(slot)];
     s.delayMs = std::clamp(ms, 0.0f, kMaxDelayMs);
-    s.delay.setTarget(s.delayMs * 0.001f * static_cast<float>(sampleRate_));
+    s.delay.setTarget(static_cast<float>(double(s.delayMs) * sampleRate_ / 1000.0));
 }
 
 void Cab::retire(PartitionedConvolver* ir) noexcept
@@ -205,7 +212,9 @@ void Cab::renderSlot(Slot& s, const float* in, float* outL, float* outR, int n) 
                 y = p1 + t * (p2 - p1);
             } else {
                 const float p0 = past(di - 1), p3 = past(di + 2);
-                y = p1 + 0.5f * t * (p2 - p0 + t * (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3 + t * (3.0f * (p1 - p2) + p3 - p0)));
+                y = p1 +
+                    0.5f * t *
+                        (p2 - p0 + t * (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3 + t * (3.0f * (p1 - p2) + p3 - p0)));
             }
         }
         s.write = (s.write + 1) & mask;
