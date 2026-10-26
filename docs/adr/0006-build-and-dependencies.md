@@ -49,12 +49,13 @@ which licence, how the targets map to the module boundaries in AGENTS.md §2, an
 | nanobench | v4.6.0 → `b709728dba4df0356d467abfb0ba20781a8031c0` | MIT | Yes | `tests/osp-bench` | test-tooling §3 |
 | libebur128 | v1.2.6 → `67b33abe1558160ed76ada1322329b0e9e058b02` | MIT | Yes | `tools/osp-render`, `tests/` | test-tooling §3 |
 | dr_wav (dr_libs) | v0.14.6 → `14423ee630e4b36596d042fa055d7f1d0a02ca38` (pinned in #46) | Unlicense OR MIT-0 (file header) | Yes | `tools/`, `tests/` WAV I/O (no JUCE in tools) | this ADR |
+| signalsmith_dsp (Signalsmith `dsp`) | v1.7.3 → `ca390d28c41ea5108a528e2e81faa4088f2f8ac8` | MIT (`LICENSE.txt` at this commit) | Yes | `tests/measure` FFT now; `dsp-core` cab convolution later | Amendment A1 below (#62) |
 
 Not built or shipped, CI only: **pluginval v1.0.4** release binary (GPL-3.0), downloaded in the workflow (test-tooling §2.5).
 Python tooling (`tools/*.py`) pins `pyloudnorm==0.1.1`, `numpy` and `scipy` in `tools/requirements.txt` (MIT/BSD).
 
 Deliberately **not** in v1: NeuralAudio and RTNeural (nam-runtime Q1, owner: NAM ADR #26), clap-juce-extensions
-(CLAP is out of v1, framework-comparison Q1), and an FFT library (see Deferred).
+(CLAP is out of v1, framework-comparison Q1). The FFT library is settled by Amendment A1.
 
 Rules:
 - A dependency enters the build only in the PR that first uses it, together with its `THIRD_PARTY.md` row. This table is
@@ -131,12 +132,30 @@ AGENTS.md §3 paths hold because Ninja is single-config.
 
 | Question | Owner | Note |
 |---|---|---|
-| FFT / partitioned convolution library for the cab IR and the test FFT (test-tooling Q2) | Cab block ticket (dsp-engineer) via an ADR-0006 amendment | Candidates: PFFFT (`marton78/pffft` v1.1.0; licence BSD-like, GitHub reports NOASSERTION, must be verified) or Signalsmith `dsp` (MIT, time-based-effects PR #32). Must be shared by `dsp-core` and `tests/` |
 | NeuralAudio as a second NAM backend | NAM ADR (#26) | Not fetched in v1 |
 | Linux/Clang RTSan CI job | Test strategy ADR (#29) | Enabled by `OSP_BUILD_APP=OFF` |
 | pluginval strictness 9 vs 8 | #29 | Download mechanism fixed here |
 | AVX2 baseline | dsp-engineer, after Phase-3 `osp-bench` | `OSP_ENABLE_AVX2` exists from day one |
 | ~~Exact `dr_wav` commit pin~~ | Done in #46 | `14423ee…` (0.14.6) |
+
+## Amendment A1 (2026-10-25, #62): FFT library = Signalsmith `dsp`
+
+The FFT deferred above (test-tooling Q2) is **Signalsmith `dsp` v1.7.3** (`fft.h`, `RealFFT<T>`), pinned in D2.
+
+- **Licence.** MIT: `LICENSE.txt` read at the pinned commit on 2026-10-25 (copyright Geraint Luff / Signalsmith Audio
+  Ltd). PFFFT (`marton78/pffft` v1.1.0) was the other candidate. GitHub reports its licence as NOASSERTION (an
+  FFTPACK-derived BSD-like notice), which would need a manual licence review first.
+- **Fit.** Header-only, so there is nothing extra to build and no `/WX` exposure (`SYSTEM`). It is templated on the
+  sample type: `double` for the test harness (ADR-0007 §2 asks for float64) and `float` for `dsp-core` later. It has no
+  OS headers; `perf.h` includes only SSE/NEON intrinsics, so the D3 layering rule still holds.
+- **Scope now.** Fetched only when `OSP_BUILD_TESTS=ON`, for `tests/measure`. The cab IR ticket moves the declaration
+  out of the tests block when `dsp-core` first uses it. That ticket owns the RT side: `RealFFT::setSize` allocates,
+  so call it in `prepare()` only.
+- **Risk.** It has no hand-written SIMD kernels, so it may be slower than PFFFT for partitioned convolution
+  (*unverified*). If `osp-bench` shows the FFT dominating the cab block, revisit behind the block's own wrapper.
+- **Quirk.** At tag v1.7.3, `common.h` still says `SIGNALSMITH_DSP_VERSION_STRING "1.7.0"`. Pin by commit, not by
+  that macro.
+- Source: https://github.com/Signalsmith-Audio/dsp (tags and `LICENSE.txt` read via the GitHub API, 2026-10-25).
 
 ## Consequences
 

@@ -6,14 +6,22 @@ target_include_directories(osp_rt_checker PUBLIC rt)
 target_link_libraries(osp_rt_checker PUBLIC osp_dsp_core)
 osp_apply_settings(osp_rt_checker)
 
+# Measurement harness (ADR-0007 §2): FFT, coherent THD/ASR, splatter, null.
+add_library(osp_measure STATIC
+    measure/measure.cpp)
+target_include_directories(osp_measure PUBLIC measure)
+target_link_libraries(osp_measure PRIVATE signalsmith-dsp)
+osp_apply_settings(osp_measure)
+
 add_executable(osp_tests
     dsp/test_gain.cpp
     dsp/test_util.cpp
     engine/test_chain.cpp
     engine/test_version.cpp
+    measure/test_measure.cpp
     rt/test_rt_checker.cpp)
 
-target_link_libraries(osp_tests PRIVATE osp_engine osp_rt_checker Catch2::Catch2WithMain)
+target_link_libraries(osp_tests PRIVATE osp_engine osp_measure osp_rt_checker Catch2::Catch2WithMain)
 osp_apply_settings(osp_tests)
 # The RT checker is always compiled into the test binary (ADR-0006 D4).
 target_compile_definitions(osp_tests PRIVATE OSP_RT_CHECKER=1)
