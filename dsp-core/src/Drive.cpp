@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <numbers>
 
 namespace osp::dsp {
@@ -11,19 +12,27 @@ namespace {
 struct Voicing {
     float gainMinDb, gainMaxDb; // over drive 0…10
     float preHpHz;              // 0 = none
-    float fullBand;             // c in u = G·hp(x) + c·x
+    float fullBand;             // c in u = G·(hp(x) + b) + c·x
+    float inputBias;            // b, in the input domain (fuzz only)
     float postLpHz, outGain;
 };
 
 // Own engineering values, unverified (see Drive.h). The mid minimum (21.6 dB) is 1 + 51k/4.7k, its maximum (41.4 dB)
 // adds the 500k drive pot to the 51k leg (tone-targets-b F1). kOut = 0.25 puts a saturated drive at the −12 dBFS DI
 // nominal peak (tone-targets-a §3.4), so level 0 dB keeps the level roughly where it came in.
+// - transparent is not a flat clean boost: at drive 0 with tone flat it measures −1.7 dB at 10 kHz and −5.7 dB at
+//   20 kHz (4x at 44.1 kHz; #102 review), from the 16 kHz post-LPF plus ADAA2's (1 + 2·cos w)/3.
+// - fuzz biases the input before the gain (b = 0.01, about −40 dBFS), so the clip threshold stays at x = −b and the
+//   duty cycle, and with it the even harmonics, survives at every drive. A bias after the gain makes the wave a
+//   symmetric square at high gain (H2 −57.6 dB at max drive; #102 review). At max drive, input below about −40 dBFS
+//   stays at the rail: the gated "sputter" of a starved fuzz, by design.
 constexpr Voicing kVoicings[] = {
-    {21.6f, 41.4f, 720.0f, 1.0f, 6000.0f, 0.25f}, // mid
-    {0.0f, 26.0f, 0.0f, 0.0f, 16000.0f, 1.0f},    // transparent
-    {12.0f, 60.0f, 160.0f, 0.0f, 4500.0f, 0.25f}, // dist
-    {20.0f, 60.0f, 100.0f, 0.0f, 7000.0f, 0.25f}, // fuzz
+    {21.6f, 41.4f, 720.0f, 1.0f, 0.0f, 6000.0f, 0.25f}, // mid
+    {0.0f, 26.0f, 0.0f, 0.0f, 0.0f, 16000.0f, 1.0f},    // transparent
+    {12.0f, 60.0f, 160.0f, 0.0f, 0.0f, 4500.0f, 0.25f}, // dist
+    {20.0f, 60.0f, 100.0f, 0.0f, 0.01f, 7000.0f, 0.25f}, // fuzz
 };
+static_assert(std::size(kVoicings) == 4, "kVoicings is indexed by DriveType");
 
 constexpr double kDcHz = 10.0;
 constexpr double kToneHz = 1500.0, kBrightHz = 3000.0, kBrightDb = 6.0, kQ = 0.70710678118654752;
@@ -173,9 +182,10 @@ float DriveStage::voicing(DriveType type, float x, float knob) noexcept
     if (knob != p.gainKnob) {
         p.gainKnob = knob;
         p.gain = dbToGain(v.gainMinDb + (v.gainMaxDb - v.gainMinDb) * knob / 10.0f);
+        p.rest = static_cast<float>(detail::AsymClipShape::f(static_cast<double>(p.gain) * v.inputBias));
     }
     const float hp = v.preHpHz > 0.0f ? p.pre.highPass(x) : x;
-    const float u = p.gain * hp + v.fullBand * x;
+    const float u = p.gain * (hp + v.inputBias) + v.fullBand * x;
     float y = 0.0f;
     switch (type) {
     case DriveType::mid:
@@ -188,7 +198,7 @@ float DriveStage::voicing(DriveType type, float x, float knob) noexcept
         y = p.hard.processSample(u);
         break;
     case DriveType::fuzz:
-        y = p.asym.processSample(u);
+        y = p.asym.processSample(u) - p.rest; // silence in, silence out
         break;
     }
     y = p.post.lowPass(v.outGain * y);
@@ -205,6 +215,7 @@ void DriveStage::process(float* io, int numSamples) noexcept
         const float x = io[n];
         const float dry = dry1_;
         dry1_ = x;
+        // Fully disabled: the smoothers stay frozen and ramp from their old values under the enable fade (harmless).
         if (bypassed_ || (!enable_.isRamping() && enable_.current() == 0.0f)) {
             io[n] = dry;
             continue;

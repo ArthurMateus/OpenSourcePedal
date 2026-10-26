@@ -12,7 +12,8 @@
 // - mid: TS-style. 720 Hz pre-HPF with the full-band path added (c = 1), so only the mids get the gain and clip:
 //   the HPF that the 0.047 µF + 4.7 kΩ leg forms in that circuit (tone-targets-b F1). Cubic soft clip.
 // - transparent: 0.35·u + 0.65·cubic(u) (own design). Clean boost with edge; kOut = 1.
-// - dist: 160 Hz pre-HPF, hard clip. fuzz: 100 Hz pre-HPF, asymmetric hard clip (rails −1.3/+0.7).
+// - dist: 160 Hz pre-HPF, hard clip. fuzz: 100 Hz pre-HPF, input bias before the gain, asymmetric hard clip
+//   (rails −1.3/+0.7), so it keeps its even harmonics at every drive.
 // Every voicing uses ADAA2. ADR-0005 D2 asks for at least 1st order on soft clip, but mid at 41 dB drives the cubic
 // into its rails, and ADAA1 (with tanh) measured −36.6 dB ASR at 5 kHz/max drive against the −40 dB gate. Every
 // corner, gain range and shape is an engineering starting point (unverified), for the preset designer to calibrate.
@@ -123,7 +124,14 @@ private:
         Adaa2<HardClipShape> hard;
         Adaa2<detail::AsymClipShape> asym;
         float gain = 1.0f, gainKnob = -1.0f; // linear gain cached for gainKnob
+        float rest = 0.0f;                   // fuzz: shaper output at zero input, f(G·b)
     };
+    // REQ-303 rests on every voicing delaying by exactly kDelaySamples: changing a shaper's ADAA order must fail here.
+    static_assert(decltype(Path::cubic)::kDelaySamples == kDelaySamples &&
+                      decltype(Path::soft)::kDelaySamples == kDelaySamples &&
+                      decltype(Path::hard)::kDelaySamples == kDelaySamples &&
+                      decltype(Path::asym)::kDelaySamples == kDelaySamples,
+                  "every voicing must delay by kDelaySamples (the mix/enable dry paths assume it)");
 
     float voicing(DriveType type, float x, float knob) noexcept;
     void resetPath(DriveType type) noexcept;
@@ -137,14 +145,14 @@ private:
     std::array<Path, 4> paths_{};
     SvfState lowCutState_, toneState_, brightState_;
     SvfCoeffs lowCutCoeffs_, toneCoeffs_, brightCoeffs_;
-    OnePoleSmoother drive_;  // 30 ms, knob
-    OnePoleSmoother tone_;   // 20 ms, knob
+    OnePoleSmoother drive_; // 30 ms, knob
+    OnePoleSmoother tone_; // 20 ms, knob
     OnePoleSmoother lowCut_; // 20 ms, Hz
-    LinearRamp level_;       // 20 ms, linear gain
-    LinearRamp mix_;         // 20 ms, 0…1
-    LinearRamp typeFade_;    // xf 10, 0 = typeFrom_, 1 = typeTo_
-    LinearRamp bright_;      // xf 10, 0…1
-    LinearRamp enable_;      // 10 ms block enable, 0…1
+    LinearRamp level_; // 20 ms, linear gain
+    LinearRamp mix_; // 20 ms, 0…1
+    LinearRamp typeFade_; // xf 10, 0 = typeFrom_, 1 = typeTo_
+    LinearRamp bright_; // xf 10, 0…1
+    LinearRamp enable_; // 10 ms block enable, 0…1
 };
 
 } // namespace osp::dsp
