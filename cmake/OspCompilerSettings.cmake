@@ -1,14 +1,24 @@
 # Compiler and linker settings for OUR targets (ADR-0006 D6). Third-party targets keep their own warning levels.
 include_guard(GLOBAL)
 
-# osp_apply_settings(<target>): warnings, conformance, floating point and Release optimisation flags.
+# osp_apply_settings(<target> [WARNINGS_ON <sources...>]): warnings, conformance, floating point and Release
+# optimisation flags. With WARNINGS_ON, /W4 and /WX apply only to those sources: a JUCE plugin target also compiles
+# JUCE's module sources, which keep their own warning level (ADR-0006 D1).
 function(osp_apply_settings target)
+    cmake_parse_arguments(PARSE_ARGV 1 arg "" "" "WARNINGS_ON")
     if(MSVC)
         target_compile_options(${target} PRIVATE
-            /W4 /permissive- /utf-8 /Zc:__cplusplus /Zc:preprocessor /EHsc /fp:precise
+            /permissive- /utf-8 /Zc:__cplusplus /EHsc /fp:precise
             $<$<CONFIG:Release>:/O2 /Ob2 /GL>)
+        # Flags JUCE module sources may not tolerate: only on our own code.
+        set(own_flags /W4 /Zc:preprocessor)
         if(OSP_WARNINGS_AS_ERRORS)
-            target_compile_options(${target} PRIVATE /WX)
+            list(APPEND own_flags /WX)
+        endif()
+        if(arg_WARNINGS_ON)
+            set_source_files_properties(${arg_WARNINGS_ON} TARGET_DIRECTORY ${target} PROPERTIES COMPILE_OPTIONS "${own_flags}")
+        else()
+            target_compile_options(${target} PRIVATE ${own_flags})
         endif()
         if(OSP_ENABLE_AVX2)
             target_compile_options(${target} PRIVATE /arch:AVX2)
