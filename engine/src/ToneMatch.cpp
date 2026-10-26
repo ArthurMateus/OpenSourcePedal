@@ -10,6 +10,7 @@
 #include "osp/dsp/conv/PartitionedConvolver.h"
 
 #include <algorithm>
+#include <memory>
 #include <cmath>
 #include <cstdio>
 #include <stdexcept>
@@ -350,41 +351,75 @@ render(const std::vector<float>& di, double fs, const Setting& s, const std::vec
     return renderStages(di, fs, s, cabs, kFull, blockSize);
 }
 
-MatchResult match(
-    const Profile& ref, const std::vector<float>& di, double fs, const std::vector<CabIr>& cabs, const MatchOptions& o)
+struct Matcher::State {
+    std::vector<float> di;
+    double fs = 0.0;
+    std::vector<CabIr> cabs;
+    MatchOptions o;
+    EqModel eqModel;
+    std::vector<Bands> cabBands;
+    Setting base;
+    std::vector<Setting> drives;        // drive candidates ...
+    std::vector<Profile> driveProfiles; // ... and the DI through each, rendered once (ToneSections: one per tone)
+    Profile untouched;                  // the DI through the default chain
+};
+
+Matcher::Matcher(std::vector<float> di, double fs, std::vector<CabIr> cabs, MatchOptions o)
+    : s_(std::make_unique<State>())
 {
     if (di.empty() || cabs.empty())
         throw std::invalid_argument("tonematch: empty DI or no cab IRs");
-    if (ref.sampleRate > 0.0 && ref.sampleRate != fs) // the profile is not rate-exact (ToneProfile.h)
-        throw std::invalid_argument("tonematch: reference profiled at a different rate than the DI; resample it");
     const double diPeak = peakDb(di);
     if (!std::isfinite(diPeak))
         throw std::invalid_argument("tonematch: DI is silent");
+    State& st = *s_;
+    st.di = std::move(di);
+    st.fs = fs;
+    st.cabs = std::move(cabs);
+    st.o = o;
+    st.eqModel = buildEqModel(fs);
+    for (const auto& c : st.cabs)
+        st.cabBands.push_back(impulseBandsDb(c.ir, fs));
 
-    const EqModel eqModel = buildEqModel(fs);
-    std::vector<Bands> cabBands;
-    for (const auto& c : cabs)
-        cabBands.push_back(impulseBandsDb(c.ir, fs));
-
-    Setting base;
     // input.gainDb is -24...+24 dB (parameters.md §2.1): score the gain the preset will really apply (#119 review).
-    base.inputGainDb = static_cast<float>(std::clamp(kDiPeakDb - diPeak, -24.0, 24.0));
+    st.base.inputGainDb = static_cast<float>(std::clamp(kDiPeakDb - diPeak, -24.0, 24.0));
 
-    // Drive candidates: each is rendered and profiled once; cab and EQ are scored on top of it.
-    std::vector<Setting> drives{base};
+    // Drive candidates: each is rendered and profiled once; cab and EQ are scored on top of it per reference.
+    st.drives.push_back(st.base);
     for (DriveKind k : {DriveKind::mid, DriveKind::transparent, DriveKind::dist, DriveKind::fuzz})
         for (float knob : kDriveKnobs)
             for (float tight : kTightHz) {
-                Setting s = base;
-                s.drive = k;
-                s.driveKnob = knob;
-                s.tightHz = tight;
-                drives.push_back(s);
+                Setting d = st.base;
+                d.drive = k;
+                d.driveKnob = knob;
+                d.tightHz = tight;
+                st.drives.push_back(d);
             }
+    for (const Setting& d : st.drives)
+        st.driveProfiles.push_back(analyse(renderStages(st.di, fs, d, st.cabs, kDriveOnly, 256), fs, o.analysis));
+    st.untouched = analyse(renderStages(st.di, fs, st.base, st.cabs, kFull, 256), fs, o.analysis);
+}
+
+Matcher::~Matcher() = default;
+Matcher::Matcher(Matcher&&) noexcept = default;
+Matcher& Matcher::operator=(Matcher&&) noexcept = default;
+
+MatchResult Matcher::match(const Profile& ref) const
+{
+    const State& st = *s_;
+    const auto& di = st.di;
+    const double fs = st.fs;
+    const auto& cabs = st.cabs;
+    const auto& o = st.o;
+    const auto& eqModel = st.eqModel;
+    const auto& cabBands = st.cabBands;
+    if (ref.sampleRate > 0.0 && ref.sampleRate != fs) // the profile is not rate-exact (ToneProfile.h)
+        throw std::invalid_argument("tonematch: reference profiled at a different rate than the DI; resample it");
 
     std::vector<Candidate> all;
-    for (const Setting& d : drives) {
-        const Profile p = analyse(renderStages(di, fs, d, cabs, kDriveOnly, 256), fs, o.analysis);
+    for (std::size_t ci = 0; ci < st.drives.size(); ++ci) {
+        const Setting& d = st.drives[ci];
+        const Profile& p = st.driveProfiles[ci];
         const double flat = flatnessDistance(ref, p);
         for (std::size_t c = 0; c < cabs.size(); ++c) {
             Bands need{};
@@ -461,9 +496,14 @@ MatchResult match(
         if (i != winner)
             result.ranking.push_back(all[static_cast<std::size_t>(i)]);
 
-    const Profile untouched = analyse(renderStages(di, fs, base, cabs, kFull, 256), fs, o.analysis);
-    result.unmatchedResidualDb = residualDb(ref.levelDb, untouched.levelDb);
+    result.unmatchedResidualDb = residualDb(ref.levelDb, st.untouched.levelDb);
     return result;
+}
+
+MatchResult match(
+    const Profile& ref, const std::vector<float>& di, double fs, const std::vector<CabIr>& cabs, const MatchOptions& o)
+{
+    return Matcher(di, fs, cabs, o).match(ref);
 }
 
 std::string sanitiseUtf8(const std::string& in, std::size_t maxChars)

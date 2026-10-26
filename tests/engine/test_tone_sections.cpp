@@ -1,0 +1,145 @@
+// Guitar parts and tone sections (ADR-0008 D5), on synthetic songs with a known answer built from the bundled CC0
+// DI: guitar 1 (left) plays clean, crunch, clean again with different excerpts; guitar 2 (right) plays fuzz through
+// another cab the whole time. A double-tracked guitar must stay one part.
+
+#include "osp/dsp/conv/IrLoader.h"
+#include "osp/engine/ToneMatch.h"
+#include "osp/engine/ToneSections.h"
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <dr_wav.h>
+
+#include <cmath>
+#include <string>
+#include <vector>
+
+namespace tmatch = osp::engine::tonematch;
+
+namespace {
+
+std::vector<float> readMono(const std::string& path, unsigned& rate)
+{
+    unsigned ch = 0;
+    drwav_uint64 frames = 0;
+    float* raw = drwav_open_file_and_read_pcm_frames_f32(path.c_str(), &ch, &rate, &frames, nullptr);
+    REQUIRE(raw != nullptr);
+    std::vector<float> x(frames);
+    for (drwav_uint64 i = 0; i < frames; ++i)
+        x[i] = raw[i * ch];
+    drwav_free(raw, nullptr);
+    return x;
+}
+
+std::vector<tmatch::CabIr> cabs(double fs)
+{
+    std::vector<tmatch::CabIr> out;
+    for (const char* n : {"412-a", "412-e"}) {
+        unsigned rate = 0;
+        const auto raw = readMono(std::string(OSP_ASSET_DIR) + "/cab/" + n + ".wav", rate);
+        out.push_back({n, std::string("factory:ir/") + n, "",
+                       osp::dsp::IrLoader::condition(raw.data(), static_cast<int>(raw.size()), rate, fs)});
+    }
+    return out;
+}
+
+// `seconds` of the DI starting at `from`, through setting s, peak-normalised to 0.5.
+std::vector<float> part(const std::vector<float>& di, double fs, double from, double seconds, const tmatch::Setting& s,
+                        const std::vector<tmatch::CabIr>& c)
+{
+    const auto a = static_cast<std::size_t>(from * fs), b = a + static_cast<std::size_t>(seconds * fs);
+    auto y = tmatch::render(std::vector<float>(di.begin() + static_cast<std::ptrdiff_t>(a),
+                                               di.begin() + static_cast<std::ptrdiff_t>(std::min(b, di.size()))),
+                            fs, s, c);
+    float peak = 0.0f;
+    for (float v : y)
+        peak = std::max(peak, std::abs(v));
+    for (auto& v : y)
+        v *= 0.5f / peak;
+    return y;
+}
+
+void append(std::vector<float>& to, const std::vector<float>& x) { to.insert(to.end(), x.begin(), x.end()); }
+
+} // namespace
+
+TEST_CASE("tonematch: two guitars, one changing tone, are split into parts and tones", "[tonematch][slow]")
+{
+    unsigned rate = 0;
+    const auto di = readMono(std::string(OSP_ASSET_DIR) + "/di/strum-arp-01.wav", rate);
+    const double fs = rate;
+    const auto c = cabs(fs);
+    tmatch::Setting clean, crunch, fuzz;
+    crunch.drive = tmatch::DriveKind::dist;
+    crunch.driveKnob = 6.0f;
+    fuzz.drive = tmatch::DriveKind::fuzz;
+    fuzz.driveKnob = 8.0f;
+    fuzz.cab = 1;
+    fuzz.eqDb = {0, 0, -4, -4, 0, 4, 4, 0, 0};
+
+    std::vector<float> left, right;
+    append(left, part(di, fs, 0.0, 8.0, clean, c));  // tone 1
+    append(left, part(di, fs, 1.0, 8.0, crunch, c)); // tone 2
+    append(left, part(di, fs, 2.5, 8.0, clean, c));  // tone 1 again, other notes
+    for (double from : {0.5, 2.0, 1.5})
+        append(right, part(di, fs, from, 8.0, fuzz, c));
+    REQUIRE(left.size() == right.size());
+
+    const auto r = tmatch::findSections(left.data(), right.data(), left.size(), fs);
+    REQUIRE(r.parts.size() == 2);
+    CHECK(r.parts[0].source == tmatch::Source::left);
+    int leftTones = 0, rightTones = 0;
+    for (const auto& s : r.sections) {
+        std::string ranges;
+        for (const auto& t : s.ranges)
+            ranges += " " + std::to_string(t.startSeconds) + "-" + std::to_string(t.endSeconds);
+        WARN("guitar " << s.part + 1 << ", tone " << s.tone + 1 << ":" << ranges);
+        (s.part == 0 ? leftTones : rightTones)++;
+    }
+    CHECK(leftTones == 2);
+    CHECK(rightTones == 1);
+
+    // Guitar 1, tone 1: 0-8 s and 16-24 s; tone 2: 8-16 s, each boundary within one hop (2 s).
+    for (const auto& s : r.sections) {
+        if (s.part != 0)
+            continue;
+        if (s.tone == 0) {
+            REQUIRE(s.ranges.size() == 2);
+            CHECK(std::abs(s.ranges[0].endSeconds - 8.0) <= 2.0);
+            CHECK(std::abs(s.ranges[1].startSeconds - 16.0) <= 2.0);
+        } else {
+            REQUIRE(s.ranges.size() == 1);
+            CHECK(std::abs(s.ranges[0].startSeconds - 8.0) <= 2.0);
+            CHECK(std::abs(s.ranges[0].endSeconds - 16.0) <= 2.0);
+        }
+    }
+
+    // Each tone matches back to a setting of its own kind: the crunch section to a driven one, the clean to clean.
+    const tmatch::Matcher m(di, fs, c);
+    for (const auto& s : r.sections) {
+        const auto res = m.match(s.profile);
+        WARN("guitar " << s.part + 1 << ", tone " << s.tone + 1 << ": " << tmatch::toString(res.setting.drive) << " "
+                       << res.setting.driveKnob << ", cab " << c[static_cast<std::size_t>(res.setting.cab)].name
+                       << ", residual " << res.residualDb << " dB");
+        const bool expectClean = s.part == 0 && s.tone == 0;
+        CHECK((res.setting.drive == tmatch::DriveKind::clean) == expectClean);
+        if (s.part == 1)
+            CHECK(res.setting.cab == 1);
+    }
+}
+
+TEST_CASE("tonematch: a double-tracked guitar stays one part", "[tonematch]")
+{
+    unsigned rate = 0;
+    const auto di = readMono(std::string(OSP_ASSET_DIR) + "/di/strum-arp-01.wav", rate);
+    const double fs = rate;
+    const auto c = cabs(fs);
+    tmatch::Setting crunch;
+    crunch.drive = tmatch::DriveKind::mid;
+    crunch.driveKnob = 5.0f;
+    const auto l = part(di, fs, 0.0, 9.0, crunch, c);
+    const auto r = part(di, fs, 0.6, 9.0, crunch, c); // the "second take": same tone, other timing
+    const auto res = tmatch::findSections(l.data(), r.data(), std::min(l.size(), r.size()), fs);
+    CHECK(res.parts.size() == 1);
+    CHECK(res.sections.size() == 1);
+}

@@ -6,6 +6,7 @@
 
 #include "osp/dsp/conv/IrLoader.h"
 #include "osp/engine/ToneMatch.h"
+#include "osp/engine/ToneSections.h"
 
 #include <dr_mp3.h>
 #include <dr_wav.h>
@@ -105,6 +106,49 @@ std::string makeUuid()
     return u;
 }
 
+bool writeWav(const std::string& path, const std::vector<float>& x, unsigned rate)
+{
+    drwav_data_format fmt{};
+    fmt.container = drwav_container_riff;
+    fmt.format = DR_WAVE_FORMAT_IEEE_FLOAT;
+    fmt.channels = 1;
+    fmt.sampleRate = rate;
+    fmt.bitsPerSample = 32;
+    drwav wav;
+    if (!drwav_init_file_write(&wav, path.c_str(), &fmt, nullptr))
+        return false;
+    const auto written = drwav_write_pcm_frames(&wav, x.size(), x.data());
+    drwav_uninit(&wav);
+    return written == x.size();
+}
+
+bool writeText(const std::string& path, const std::string& text)
+{
+    std::ofstream f(path, std::ios::binary);
+    f << text;
+    f.close();
+    return static_cast<bool>(f);
+}
+
+// "dir/song.osp.json" + "-g1-t2" -> "dir/song-g1-t2.osp.json" (the same for .json and .wav).
+std::string withSuffix(const std::string& path, const std::string& suffix)
+{
+    for (const char* ext : {".osp.json", ".json", ".wav"}) {
+        const std::string e = ext;
+        if (path.size() > e.size() && lower(path.substr(path.size() - e.size())) == e)
+            return path.substr(0, path.size() - e.size()) + suffix + path.substr(path.size() - e.size());
+    }
+    return path + suffix;
+}
+
+std::string mmss(double seconds)
+{
+    char b[16];
+    const int t = static_cast<int>(std::lround(seconds));
+    std::snprintf(b, sizeof b, "%d:%02d", t / 60, t % 60);
+    return b;
+}
+
 int usage()
 {
     std::fprintf(stderr, "usage: osp-tonematch --ref <song.wav|mp3> --di <my-di.wav> --out <preset.json> [options]\n"
@@ -113,7 +157,10 @@ int usage()
                          "  --no-hpss           keep percussive energy (use for an isolated guitar stem)\n"
                          "  --ir-dir <dir>      cab IR folder (default: the bundled assets/cab)\n"
                          "  --render <out.wav>  also write the DI through the matched setting\n"
-                         "  --name <text>       preset name (default: Tone match)\n");
+                         "  --name <text>       preset name (default: Tone match)\n"
+                         "  --tones             find each guitar part and every tone it uses over the whole song, and\n"
+                         "                      write one preset per tone: <out>-g<part>-t<tone>.osp.json (with\n"
+                         "                      --render also <render>-g<p>-t<t>.wav and the song's own -ref.wav)\n");
     return 2;
 }
 
@@ -140,11 +187,15 @@ int main(int argc, char** argv)
     double start = 0.0, end = -1.0;
     tmatch::Source source = tmatch::Source::automatic;
     tmatch::MatchOptions opt;
-    bool factoryIrs = true;
+    bool factoryIrs = true, tones = false;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "--no-hpss") {
             opt.analysis.hpss = false;
+            continue;
+        }
+        if (a == "--tones") {
+            tones = true;
             continue;
         }
         if (i + 1 >= argc)
@@ -212,7 +263,7 @@ int main(int argc, char** argv)
         }
         // analyse() reads at most maxSeconds: cut here so the report shows the part really analysed (#120 review).
         const auto cap = static_cast<std::size_t>(opt.analysis.maxSeconds * ref.rate);
-        const bool capped = to - from > cap;
+        const bool capped = !tones && to - from > cap;
         if (capped)
             to = from + cap;
         const auto left = channel(ref, 0, from, to);
@@ -228,7 +279,7 @@ int main(int argc, char** argv)
             ref.rate == di.rate
                 ? refMono
                 : osp::dsp::IrLoader::resample(refMono.data(), static_cast<int>(refMono.size()), ref.rate, fsDi);
-        const tmatch::Profile refProfile = tmatch::analyse(refAtDi, fsDi, opt.analysis);
+        const tmatch::Profile refProfile = tones ? tmatch::Profile{} : tmatch::analyse(refAtDi, fsDi, opt.analysis);
         std::vector<tmatch::CabIr> cabs;
         std::vector<fs::path> irFiles;
         for (const auto& e : fs::directory_iterator(irDir))
@@ -254,6 +305,67 @@ int main(int argc, char** argv)
         if (cabs.empty()) {
             std::fprintf(stderr, "osp-tonematch: no .wav IRs in %s\n", irDir.c_str());
             return 1;
+        }
+
+        if (tones) {
+            // Every guitar part and every tone it uses (ToneSections.h), each matched with one shared Matcher: the DI
+            // is rendered through the drive candidates once, not once per tone.
+            const auto atDi = [&](const std::vector<float>& x) {
+                return ref.rate == di.rate
+                           ? x
+                           : osp::dsp::IrLoader::resample(x.data(), static_cast<int>(x.size()), ref.rate, fsDi);
+            };
+            tmatch::SectionOptions so;
+            so.analysis = opt.analysis;
+            // An explicit --source gives one part from that channel; auto lets the left/right split decide.
+            const bool stereo = ref.channels > 1 && source == tmatch::Source::automatic;
+            const auto l = stereo ? atDi(left) : refAtDi;
+            const auto rr = stereo ? atDi(right) : std::vector<float>{};
+            const float* rp = stereo ? rr.data() : nullptr;
+            std::printf("reference: %s (%u ch, %u Hz), %.1f-%.1f s, finding guitar parts and tones ...\n",
+                        refPath.c_str(), ref.channels, ref.rate, static_cast<double>(from) / ref.rate,
+                        static_cast<double>(to) / ref.rate);
+            const auto sec = tmatch::findSections(l.data(), rp, l.size(), fsDi, so);
+            std::printf("%zu guitar part(s):", sec.parts.size());
+            for (std::size_t i = 0; i < sec.parts.size(); ++i)
+                std::printf(" guitar %zu = %s%s", i + 1, sec.parts[i].label.c_str(),
+                            i + 1 < sec.parts.size() ? "," : "\n");
+            std::printf("rendering your DI through the drive candidates (once for all tones) ...\n");
+            const tmatch::Matcher matcher(diMono, fsDi, cabs, opt);
+            std::printf("\n  %-18s %-28s %-34s %s\n", "part / tone", "where", "matched setting", "residual");
+            for (const auto& t : sec.sections) {
+                const std::string tag = "-g" + std::to_string(t.part + 1) + "-t" + std::to_string(t.tone + 1);
+                const tmatch::MatchResult r = matcher.match(t.profile);
+                std::string where;
+                for (const auto& range : t.ranges)
+                    where += (where.empty() ? "" : ", ") + mmss(range.startSeconds + static_cast<double>(from) / ref.rate) +
+                             "-" + mmss(range.endSeconds + static_cast<double>(from) / ref.rate);
+                const auto& st = r.setting;
+                char setting[96];
+                std::snprintf(setting, sizeof setting, "%s %.0f, cab %s",
+                              st.drive == tmatch::DriveKind::clean ? "clean" : tmatch::toString(st.drive),
+                              st.driveKnob, cabs[static_cast<std::size_t>(st.cab)].name.c_str());
+                const std::string label = "guitar " + std::to_string(t.part + 1) + ", tone " + std::to_string(t.tone + 1);
+                std::printf("  %-18s %-28s %-34s %.2f dB\n", label.c_str(), where.c_str(), setting, r.residualDb);
+                const std::string preset = withSuffix(outPath, tag);
+                if (!writeText(preset, tmatch::toPresetJson(r, cabs, name + " - " + label, makeUuid()))) {
+                    std::fprintf(stderr, "osp-tonematch: cannot write %s\n", preset.c_str());
+                    return 1;
+                }
+                if (!renderPath.empty()) {
+                    const std::string render = withSuffix(renderPath, tag), refWav = withSuffix(renderPath, tag + "-ref");
+                    if (!writeWav(render, tmatch::render(diMono, fsDi, st, cabs), di.rate) ||
+                        !writeWav(refWav, tmatch::sectionAudio(l.data(), rp, l.size(), fsDi, sec, t), di.rate)) {
+                        std::fprintf(stderr, "osp-tonematch: cannot write %s\n", render.c_str());
+                        return 1;
+                    }
+                }
+            }
+            std::printf("\npresets: %s\n", withSuffix(outPath, "-g*-t*").c_str());
+            if (!renderPath.empty())
+                std::printf("renders: %s (yours) and *-ref.wav (the song's section) for A/B\n",
+                            withSuffix(renderPath, "-g*-t*").c_str());
+            return 0;
         }
 
         std::printf("reference: %s (%u ch, %u Hz), %.1f-%.1f s%s, source %s, %.1f s of active audio%s\n",
@@ -304,32 +416,17 @@ int main(int argc, char** argv)
                         r.ranking[i].flatnessDistance);
         }
 
-        {
-            std::ofstream f(outPath, std::ios::binary);
-            f << tmatch::toPresetJson(r, cabs, name, makeUuid());
-            f.close();
-            if (!f) {
-                std::fprintf(stderr, "osp-tonematch: cannot write %s\n", outPath.c_str());
-                return 1;
-            }
+        if (!writeText(outPath, tmatch::toPresetJson(r, cabs, name, makeUuid()))) {
+            std::fprintf(stderr, "osp-tonematch: cannot write %s\n", outPath.c_str());
+            return 1;
         }
         std::printf("\npreset:  %s\n", outPath.c_str());
 
         if (!renderPath.empty()) {
-            const auto out = tmatch::render(diMono, fsDi, s, cabs);
-            drwav_data_format fmt{};
-            fmt.container = drwav_container_riff;
-            fmt.format = DR_WAVE_FORMAT_IEEE_FLOAT;
-            fmt.channels = 1;
-            fmt.sampleRate = di.rate;
-            fmt.bitsPerSample = 32;
-            drwav wav;
-            if (!drwav_init_file_write(&wav, renderPath.c_str(), &fmt, nullptr)) {
+            if (!writeWav(renderPath, tmatch::render(diMono, fsDi, s, cabs), di.rate)) {
                 std::fprintf(stderr, "osp-tonematch: cannot write %s\n", renderPath.c_str());
                 return 1;
             }
-            drwav_write_pcm_frames(&wav, out.size(), out.data());
-            drwav_uninit(&wav);
             std::printf("render:  %s\n", renderPath.c_str());
         }
     } catch (const std::exception& e) {

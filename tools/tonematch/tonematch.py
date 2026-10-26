@@ -14,6 +14,7 @@ build/tonematch), which is git-ignored; nothing here is ever committed or bundle
 Examples:
   python tools/tonematch/tonematch.py --ref song.mp3 --di my-di.wav --start 32 --end 58
   python tools/tonematch/tonematch.py --ref "https://www.youtube.com/watch?v=..." --di my-di.wav --stem
+  python tools/tonematch/tonematch.py --ref song.mp3 --di my-di.wav --stem --tones --render preview.wav
 """
 from __future__ import annotations
 
@@ -135,6 +136,8 @@ def main() -> int:
     ap.add_argument("--source", default="auto", choices=["auto", "mono", "mid", "side", "left", "right"])
     ap.add_argument("--stem", action="store_true", help="isolate the guitar with Demucs first (recommended)")
     ap.add_argument("--no-hpss", action="store_true", help="keep percussive energy (an already clean guitar stem)")
+    ap.add_argument("--tones", action="store_true",
+                    help="one preset per guitar part and tone over the whole song (guitar 1 tone 1, ...); best with --stem")
     ap.add_argument("--ir-dir", help="cab IR folder (default: the bundled assets/cab)")
     ap.add_argument("--work", default=str(ROOT / "build" / "tonematch"), help="download/stem cache folder")
     ap.add_argument("--exe", help="path to osp-tonematch")
@@ -164,6 +167,8 @@ def main() -> int:
         cmd += ["--render", a.render]
     if a.no_hpss:
         cmd += ["--no-hpss"]
+    if a.tones:
+        cmd += ["--tones"]
     return subprocess.run(cmd).returncode
 
 

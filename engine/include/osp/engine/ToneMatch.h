@@ -20,6 +20,7 @@
 
 #include <array>
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -81,6 +82,21 @@ struct MatchResult {
     double flatnessDistance = 0.0;
     double unmatchedResidualDb = 0.0; // the DI through the default chain (clean, cab 0, flat EQ), for comparison
     std::vector<Candidate> ranking; // the chosen setting's candidate first, then the next best by predicted score
+};
+
+// One DI, many references (ADR-0008 D5): the constructor renders and profiles the drive candidates once (the slow
+// part), and each match() then costs only the cab/EQ fit and the refinement renders. Throws like match().
+class Matcher {
+public:
+    Matcher(std::vector<float> di, double sampleRate, std::vector<CabIr> cabs, MatchOptions options = {});
+    ~Matcher();
+    Matcher(Matcher&&) noexcept;
+    Matcher& operator=(Matcher&&) noexcept;
+    MatchResult match(const Profile& reference) const;
+
+private:
+    struct State;
+    std::unique_ptr<State> s_;
 };
 
 // `di` is the player's dry guitar at `sampleRate`, `reference` the profiled target, analysed at that same rate.
