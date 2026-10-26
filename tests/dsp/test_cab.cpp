@@ -196,10 +196,11 @@ TEST_CASE("Cab: IR swap crossfades over 25 ms and retires the old object", "[dsp
     for (int i = 0; i < fade; ++i) { // linear crossfade, the gains sum to 1
         const float g = static_cast<float>(i + 1) / static_cast<float>(fade);
         const float ref = (1.0f - g) * yA[static_cast<std::size_t>(kSwapAt + i)] + g * yB[static_cast<std::size_t>(i)];
-        REQUIRE(std::abs(y.l[static_cast<std::size_t>(kSwapAt + i)] - ref) < 1e-6f);
+        REQUIRE(std::abs(y.l[static_cast<std::size_t>(kSwapAt + i)] - ref) < 1e-5f); // outputs are O(10)
     }
+    // The incoming convolver runs at a staggered frame phase, so it matches the phase-0 reference to rounding only.
     for (std::size_t n = static_cast<std::size_t>(kSwapAt + fade); n < x.size(); ++n)
-        REQUIRE(y.l[n] == yB[n - kSwapAt]);
+        REQUIRE(std::abs(y.l[n] - yB[n - kSwapAt]) < 1e-5f);
     REQUIRE(retired == std::vector<PartitionedConvolver*>{a.get()});
     REQUIRE_FALSE(cab.isSwapping(0));
 }

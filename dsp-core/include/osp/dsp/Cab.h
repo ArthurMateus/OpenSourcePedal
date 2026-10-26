@@ -11,6 +11,12 @@
 // installed) is returned by popRetired() for the retire queue. setIr() retires at most one object and process() at
 // most one per slot, so draining popRetired() after each of them keeps the kRetireCapacity ring from overflowing.
 //
+// CPU peak: the 1024-sample stage of a long IR does one 2048-point FFT pair plus its whole delay-line sum in the
+// callback that completes a frame. The block staggers those callbacks (PR #93 review): slot k's convolvers run
+// with frame phases in [512·k, 512·k + 512), and each swap moves the incoming one 256 samples away from the one
+// it replaces, so the two slots, and an IR fading in, never complete a 1024 frame in the same callback. A slot that
+// was skipped (off, or block bypassed) is reset and re-phased when it comes back, which also drops its stale input.
+//
 // Own decisions (parameters.md leaves them open):
 // - Pan law: constant power, normalised to unity at centre, gL = √2·cos θ, gR = √2·sin θ, θ = (pan + 1)·π/4. The
 //   default (centre) keeps the mono gain staging on both channels; a hard pan is +3 dB on one side.
@@ -85,12 +91,16 @@ private:
         float delayMs = 0.0f;
         std::vector<float> history;               // align delay ring, power-of-two length
         int write = 0;
+        int phase = 0;      // frame phase offset of the active convolver (see the CPU peak note)
+        bool stale = false; // skipped since the last render: reset and re-phase before the next one
     };
 
     void retire(PartitionedConvolver* ir) noexcept;
     void startSwap(Slot& s, PartitionedConvolver* ir) noexcept;
     void completeSwap(Slot& s) noexcept;
     void renderSlot(Slot& s, const float* in, float* outL, float* outR, int n) noexcept;
+    int slotBase(const Slot& s) const noexcept;
+    int phaseNow(int phase) const noexcept;
 
     double sampleRate_ = 0.0;
     int maxBlock_ = 0;
@@ -100,6 +110,7 @@ private:
     std::vector<float> mono_, incoming_, wetL_, wetR_;
     std::array<PartitionedConvolver*, kRetireCapacity> retired_{};
     int retiredCount_ = 0;
+    unsigned clock_ = 0; // samples processed since reset(), modulo 2^32 (only its value mod 1024 is used)
 };
 
 } // namespace osp::dsp

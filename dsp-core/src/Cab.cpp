@@ -9,6 +9,8 @@ namespace osp::dsp {
 
 namespace {
 
+constexpr int kMaxPartition = PartitionedConvolver::kMaxPartition;
+
 // Exact at centre (1, 1) and at the hard pans (√2, 0): the float trig would land an ulp off, and the default must
 // be bit-exact.
 void panGains(float pan, float& gl, float& gr) noexcept
@@ -67,11 +69,16 @@ void Cab::prepare(double sampleRate, int maxBlockSize)
 
 void Cab::reset() noexcept
 {
+    clock_ = 0;
     for (auto& s : slots_) {
         while (s.incoming != nullptr || s.pending != nullptr)
             completeSwap(s);
-        if (s.active != nullptr)
+        s.phase = slotBase(s);
+        s.stale = false;
+        if (s.active != nullptr) {
+            s.active->setStartPhase(s.phase);
             s.active->reset();
+        }
         for (auto* ramp : {&s.enabled, &s.level, &s.sign, &s.pan, &s.delay})
             ramp->reset(ramp->target());
         std::fill(s.history.begin(), s.history.end(), 0.0f);
@@ -164,6 +171,10 @@ void Cab::startSwap(Slot& s, PartitionedConvolver* ir) noexcept
         s.active = ir;
         return;
     }
+    const int base = slotBase(s);
+    s.phase = base + (s.phase - base + kMaxPartition / 4) % (kMaxPartition / 2);
+    if (ir != nullptr)
+        ir->setStartPhase(phaseNow(s.phase)); // ir is cold: just prepared by the worker
     s.incoming = ir;
     s.swap.reset(false);
     s.swap.setTarget(true);
@@ -182,10 +193,31 @@ void Cab::completeSwap(Slot& s) noexcept
     }
 }
 
+int Cab::slotBase(const Slot& s) const noexcept
+{
+    return static_cast<int>(&s - slots_.data()) * (kMaxPartition / 2);
+}
+
+int Cab::phaseNow(int phase) const noexcept
+{
+    return static_cast<int>((clock_ + static_cast<unsigned>(phase)) % static_cast<unsigned>(kMaxPartition));
+}
+
 void Cab::renderSlot(Slot& s, const float* in, float* outL, float* outR, int n) noexcept
 {
-    if (!s.enabled.isRamping() && s.enabled.current() == 0.0f)
-        return; // slot off: skipped, its history goes stale (the xf 10 fade-in covers that)
+    if (!s.enabled.isRamping() && s.enabled.current() == 0.0f) {
+        s.stale = true; // slot off: skipped
+        return;
+    }
+    if (s.stale) { // back after a skip: drop the stale input and re-phase (one-off clear, RT-safe)
+        for (PartitionedConvolver* ir : {s.active, s.incoming})
+            if (ir != nullptr) {
+                ir->setStartPhase(phaseNow(s.phase));
+                ir->reset();
+            }
+        std::fill(s.history.begin(), s.history.end(), 0.0f);
+        s.stale = false;
+    }
 
     float* const m = mono_.data();
     convolve(s.active, in, m, n);
@@ -250,10 +282,14 @@ void Cab::process(const float* in, float* outL, float* outR, int numSamples) noe
             std::fill(wetR_.begin(), wetR_.begin() + n, 0.0f);
             for (auto& s : slots_)
                 renderSlot(s, x, wetL_.data(), wetR_.data(), n);
+        } else {
+            for (auto& s : slots_)
+                s.stale = true;
         }
         // Right first: `in` may alias outL.
         enableR_.process(x, wetR_.data(), outR + done, n);
         enableL_.process(x, wetL_.data(), outL + done, n);
+        clock_ += static_cast<unsigned>(n);
     }
 }
 
