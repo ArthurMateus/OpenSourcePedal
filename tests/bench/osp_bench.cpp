@@ -29,7 +29,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -88,10 +87,9 @@ struct Result {
 };
 
 // Runs `perBlock(in, out, n)` over 1 s of audio in 64-sample blocks, kEpochs times, and returns the median time.
-double measure(ankerl::nanobench::Bench& bench,
-               const char* name,
-               const std::vector<float>& input,
-               const std::function<void(const float*, float*, int)>& perBlock)
+// A template rather than std::function, so the per-block call can inline and costs nothing in the measurement (#83).
+template <typename PerBlock>
+double measure(ankerl::nanobench::Bench& bench, const char* name, const std::vector<float>& input, PerBlock&& perBlock)
 {
     std::vector<float> out(input.size());
     bench.run(name, [&] {
