@@ -17,11 +17,11 @@ using osp::dsp::OversamplingFilter;
 
 namespace {
 
-// ADR-0005 D3, IIR (Live): {up dB, up transition, down dB, down transition} per stage (0 = fs <-> 2fs).
+// ADR-0005 D3 + Amendment A1, IIR (Live): {up dB, up transition, down dB, down transition} per stage (0 = fs <-> 2fs).
 struct StageSpec {
     double upDb, upTw, downDb, downTw;
 };
-constexpr StageSpec kSpecs[] = {{90, 0.05, 75, 0.06}, {100, 0.10, 85, 0.12}, {110, 0.10, 95, 0.12}};
+constexpr StageSpec kSpecs[] = {{90, 0.05, 75, 0.01}, {100, 0.10, 85, 0.12}, {110, 0.10, 95, 0.12}};
 
 std::vector<float> noise(int n, std::uint32_t seed)
 {
@@ -159,7 +159,7 @@ TEST_CASE("Oversampler: IIR passband, images, aliases and 1 kHz delay per rate a
             image = std::max(image, upDb[b]);
     CHECK(image <= -kSpecs[0].upDb);
 
-    // Down only: oversampled-rate sines that fold into the base band (f/fs in [0.62, factor/2)) at least 75 dB down.
+    // Down only: oversampled-rate sines that fold into the base band (f/fs in [0.52, factor/2)) at least 75 dB down.
     double alias = -400.0;
     for (double f = 0.5 + kSpecs[0].downTw * 2.0; f < factor / 2.0 - 0.002; f += 0.01 * factor) {
         alias = std::max(alias, toneGainDb(f / factor, factor, kLen, [&](const float* in, float* out) {
