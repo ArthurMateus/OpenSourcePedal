@@ -4,10 +4,10 @@
 
 #include <algorithm>
 #include <bit>
-#include <cassert>
 #include <cmath>
 #include <limits>
 #include <numbers>
+#include <stdexcept>
 
 namespace osp::measure {
 
@@ -24,7 +24,8 @@ double powerToDb(double power) noexcept
 std::vector<std::complex<double>> realFft(std::span<const double> x)
 {
     const std::size_t n = x.size();
-    assert(n >= 2 && std::has_single_bit(n));
+    if (n < 2 || !std::has_single_bit(n))
+        throw std::invalid_argument("realFft: size must be a power of two >= 2");
     signalsmith::fft::RealFFT<double> fft(n);
     std::vector<std::complex<double>> half(n / 2);
     fft.fft(x.data(), half.data());
@@ -74,7 +75,8 @@ std::vector<float> makeTone(const CoherentTone& tone, double sampleRate, double 
 
 HarmonicReport analyseCoherent(std::span<const float> output, std::size_t bin, std::size_t fftSize)
 {
-    assert(output.size() >= fftSize && bin > 0 && bin < fftSize / 2);
+    if (output.size() < fftSize || bin == 0 || bin >= fftSize / 2)
+        throw std::invalid_argument("analyseCoherent: output shorter than the FFT, or bin outside (0, N/2)");
     const auto power = powerSpectrum(toDouble(output.last(fftSize)));
     const std::size_t nyquist = fftSize / 2;
 
@@ -153,14 +155,25 @@ double residualDbcImpl(std::span<const float> output, std::span<const Ref> refer
     std::size_t compared = 0;
     if (output.size() > latency)
         compared = std::min(output.size() - latency, reference.size());
-    double residual = 0.0, signal = 0.0;
+    const std::size_t edge = compared / 10;
+    if (edge == 0)
+        throw std::invalid_argument("residualDbc: need at least 10 overlapping samples");
+
+    double residual = 0.0;
     for (std::size_t i = 0; i < compared; ++i) {
-        const double ref = static_cast<double>(reference[i]);
-        const double d = static_cast<double>(output[i + latency]) - ref;
+        const double d = static_cast<double>(output[i + latency]) - static_cast<double>(reference[i]);
         residual += d * d;
-        signal += ref * ref;
     }
-    return powerToDb(residual) - powerToDb(signal);
+    // Steady-state level at f0 (#81): the louder of the two settled ends (first and last 10 % of the overlap),
+    // so the result does not depend on where the step sits in the record.
+    auto meanSquare = [&](std::size_t from) {
+        double sum = 0.0;
+        for (std::size_t i = from; i < from + edge; ++i)
+            sum += static_cast<double>(reference[i]) * static_cast<double>(reference[i]);
+        return sum / static_cast<double>(edge);
+    };
+    const double steady = std::max(meanSquare(0), meanSquare(compared - edge));
+    return powerToDb(residual / static_cast<double>(compared)) - powerToDb(steady);
 }
 
 } // namespace

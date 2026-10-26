@@ -6,7 +6,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 
+#include <algorithm>
 #include <cmath>
+#include <stdexcept>
 #include <vector>
 
 using namespace osp::measure;
@@ -166,6 +168,44 @@ TEST_CASE("Measure: smoothing residual (gate) and splatter (informative) rank ra
     const auto smooth32 = withGain(Shape::raisedCosine);
     std::copy(smooth32.begin(), smooth32.end(), delayed.begin() + 5);
     CHECK(residualDbc(delayed, reference, 5) == Approx(matched).margin(1e-9));
+}
+
+TEST_CASE("Measure: smoothing residual is relative to the steady state, wherever the step sits", "[measure]")
+{
+    const auto x = makeTone(coherentTone(1000.0, 48000.0), 48000.0, -6.0, kN);
+    auto stepAt = [&](std::size_t start, double scale) {
+        std::vector<double> y(x.size());
+        for (std::size_t n = 0; n < x.size(); ++n)
+            y[n] = scale * (n < start ? 0.5 : 1.0) * static_cast<double>(x[n]);
+        return y;
+    };
+    auto toFloat = [](const std::vector<double>& v) {
+        std::vector<float> f(v.size());
+        std::transform(v.begin(), v.end(), f.begin(), [](double d) { return static_cast<float>(d); });
+        return f;
+    };
+
+    // Known answer: no step, a 10 % level error → −20 dBc against the steady state.
+    CHECK(residualDbc(toFloat(stepAt(0, 1.1)), stepAt(0, 1.0)) == Approx(-20.0).margin(0.01));
+
+    // A residual confined to the step region gives the same dBc whether the step is early or late.
+    auto residualForStepAt = [&](std::size_t start) {
+        auto out = toFloat(stepAt(start, 1.0));
+        for (std::size_t n = start; n < start + 480; ++n)
+            out[n] = static_cast<float>(0.75 * x[n]); // a crude 10 ms "ramp" that misses the law
+        return residualDbc(out, stepAt(start, 1.0));
+    };
+    CHECK(residualForStepAt(kN / 4 + 37) == Approx(residualForStepAt(3 * kN / 4 + 37)).margin(0.01));
+}
+
+TEST_CASE("Measure: invalid input fails loudly in every build type", "[measure]")
+{
+    const std::vector<double> notPow2(1000, 0.0);
+    CHECK_THROWS_AS(realFft(notPow2), std::invalid_argument);
+    const std::vector<float> shortRecord(1024, 0.0f);
+    CHECK_THROWS_AS(analyseCoherent(shortRecord, 1365), std::invalid_argument);
+    CHECK_THROWS_AS(residualDbc(shortRecord, std::vector<float>(5, 0.0f)), std::invalid_argument);
+    CHECK_THROWS_AS(residualDbc(shortRecord, shortRecord, 2000), std::invalid_argument);
 }
 
 TEST_CASE("Measure: latency-aligned null", "[measure]")
