@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "reference": {
+    "kernel": "64 x RBJ low-pass biquad (TDF-II, float), 200 Hz...12.8 kHz log-spaced, Q 0.7071",
+    "sampleRate": 48000,
+    "blockSize": 64,
+    "audioSeconds": 1.0,
+    "epochs": 21
+  },
+  "ceilings": { "fullChainCpuPercent": 25.0, "namCpuPercent": 8.0 },
+  "regressionTolerance": 0.10,
+  "benchmarks": {
+    "gain": {
+      "kind": "block",
+      "r0": 0.001016,
+      "maxCpuPercent": 0.05,
+      "baseline": "first osp-bench run, #46, 2026-10-25, local VS 2022 Release build, T_ref 10.45 ms",
+      "headroom": "maxCpuPercent is about 50x the measured 0.0011 %: the block is far below timer noise, so only gross regressions should trip it"
+    },
+    "passthrough_chain": {
+      "kind": "full_chain",
+      "r0": 0.000486,
+      "maxCpuPercent": 25.0,
+      "baseline": "first osp-bench run, #46, 2026-10-25, local VS 2022 Release build, T_ref 10.45 ms",
+      "headroom": "full chain: the fixed 25 % ceiling (AGENTS.md section 4) applies"
+    }
+  }
+}

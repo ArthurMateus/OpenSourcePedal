@@ -1,7 +1,7 @@
 # OpenSourcePedal: top-level build. Layout, options and flags follow ADR-0006 (docs/adr/0006-build-and-dependencies.md).
 cmake_minimum_required(VERSION 3.25)
 
-project(OpenSourcePedal VERSION 0.1.0 LANGUAGES CXX)
+project(OpenSourcePedal VERSION 0.1.0 LANGUAGES C CXX) # C: libebur128 (tools/)
 
 # --- Options (ADR-0006 D4) ---------------------------------------------------------------------------------------
 # OSP_BUILD_APP defaults to OFF until JUCE lands (#42). ADR-0006 D4 flips it to ON there.
@@ -36,4 +36,8 @@ add_subdirectory(engine)
 if(OSP_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(OSP_BUILD_TOOLS)
+    add_subdirectory(tools)
 endif()

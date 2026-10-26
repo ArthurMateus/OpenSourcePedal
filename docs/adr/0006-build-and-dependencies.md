@@ -48,7 +48,7 @@ which licence, how the targets map to the module boundaries in AGENTS.md §2, an
 | Catch2 | v3.16.1 → `08092139210881f01a34e60c5f2fd6afa0ea4024` | BSL-1.0 | Yes | `tests/` | test-tooling §3 |
 | nanobench | v4.6.0 → `b709728dba4df0356d467abfb0ba20781a8031c0` | MIT | Yes | `tests/osp-bench` | test-tooling §3 |
 | libebur128 | v1.2.6 → `67b33abe1558160ed76ada1322329b0e9e058b02` | MIT | Yes | `tools/osp-render`, `tests/` | test-tooling §3 |
-| dr_wav (dr_libs) | v0.14.6, commit pinned when `osp-render` lands | Unlicense OR MIT-0 (file header) | Yes | `tools/`, `tests/` WAV I/O (no JUCE in tools) | this ADR |
+| dr_wav (dr_libs) | v0.14.6 → `14423ee630e4b36596d042fa055d7f1d0a02ca38` (pinned in #46) | Unlicense OR MIT-0 (file header) | Yes | `tools/`, `tests/` WAV I/O (no JUCE in tools) | this ADR |
 
 Not built or shipped, CI only: **pluginval v1.0.4** release binary (GPL-3.0), downloaded in the workflow (test-tooling §2.5).
 Python tooling (`tools/*.py`) pins `pyloudnorm==0.1.1`, `numpy` and `scipy` in `tools/requirements.txt` (MIT/BSD).
@@ -136,7 +136,7 @@ AGENTS.md §3 paths hold because Ninja is single-config.
 | Linux/Clang RTSan CI job | Test strategy ADR (#29) | Enabled by `OSP_BUILD_APP=OFF` |
 | pluginval strictness 9 vs 8 | #29 | Download mechanism fixed here |
 | AVX2 baseline | dsp-engineer, after Phase-3 `osp-bench` | `OSP_ENABLE_AVX2` exists from day one |
-| Exact `dr_wav` commit pin | First `osp-render` PR | Version 0.14.6 is the approved line |
+| ~~Exact `dr_wav` commit pin~~ | Done in #46 | `14423ee…` (0.14.6) |
 
 ## Consequences
 
