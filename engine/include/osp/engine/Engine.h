@@ -2,20 +2,21 @@
 
 // Public engine header: no JUCE, no NAM, no Eigen (ADR-0006 D3). Threading rules: ADR-0004, docs/spec/threading.md.
 
-#include "osp/dsp/Gain.h"
+#include "osp/engine/Chain.h"
 
 #include <array>
 #include <atomic>
 
 namespace osp::engine {
 
-// v1 pass-through engine: one Gain per channel. Grows into the signal graph in later tickets.
+// Host-facing wrapper: one Chain per channel (the same Chain osp-render and osp-bench drive), the host-owned
+// parameter atomics, and block splitting. The signal graph grows inside Chain.
 class Engine {
 public:
     static constexpr int kMaxChannels = 2;
 
     // Control thread, before prepare(). The host owns the atomic (APVTS raw value, in dB); ADR-0004 rule 3.
-    void setGainParameter(const std::atomic<float>* gainDb) noexcept { gainDb_ = gainDb; }
+    void setOutputLevelParameter(const std::atomic<float>* levelDb) noexcept { outputLevelDb_ = levelDb; }
 
     // Control thread, audio stopped (JUCE prepareToPlay contract). The only call that may allocate.
     void prepare(double sampleRate, int maxBlockSize);
@@ -27,12 +28,12 @@ public:
     // Before prepare() the buffers are zero-filled.
     void process(float* const* channels, int numChannels, int numSamples) noexcept;
 
-    int getLatencySamples() const noexcept { return 0; }
+    int getLatencySamples() const noexcept { return chains_[0].getLatencySamples(); }
     int getMaxBlockSize() const noexcept { return maxBlockSize_; }
 
 private:
-    const std::atomic<float>* gainDb_ = nullptr;
-    std::array<osp::dsp::Gain, kMaxChannels> gains_{};
+    const std::atomic<float>* outputLevelDb_ = nullptr;
+    std::array<Chain, kMaxChannels> chains_{};
     int maxBlockSize_ = 0;
 };
 

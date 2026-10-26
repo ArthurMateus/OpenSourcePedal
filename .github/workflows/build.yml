@@ -31,3 +31,9 @@ jobs:
         run: cmake --build --preset ci
       - name: Test
         run: ctest --preset ci
+      # REQ-TEST-007. The R regression gate stays off until baselines come from the CI runner: sub-0.01 % blocks
+      # move R by up to ~30 % between local runs (timer noise), see #46.
+      - name: Benchmarks (CPU ceilings)
+        run: |
+          ./build/release/tests/osp-bench.exe --out build/bench.json
+          python tools/bench/check_budget.py build/bench.json --no-regression

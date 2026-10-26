@@ -17,7 +17,7 @@ PluginProcessor::PluginProcessor()
       presetId_(juce::Uuid().toDashedString().toLowerCase().toStdString())
 {
     // The engine reads the host-owned atomic once per block (ADR-0004 rule 3).
-    engine_.setGainParameter(parameters_.getRawParameterValue(kGainId));
+    engine_.setOutputLevelParameter(parameters_.getRawParameterValue(kGainId));
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParameterLayout()

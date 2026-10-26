@@ -29,7 +29,7 @@ TEST_CASE("Engine: pass-through across rates and host block sizes, incl. 2 x max
 
     std::atomic<float> gainDb{0.0f};
     osp::engine::Engine engine;
-    engine.setGainParameter(&gainDb);
+    engine.setOutputLevelParameter(&gainDb);
     engine.prepare(sampleRate, 2048);
     REQUIRE(engine.getLatencySamples() == 0);
 
@@ -50,7 +50,7 @@ TEST_CASE("Engine: reads the gain atomic once per block and ramps to it", "[engi
 {
     std::atomic<float> gainDb{0.0f};
     osp::engine::Engine engine;
-    engine.setGainParameter(&gainDb);
+    engine.setOutputLevelParameter(&gainDb);
     engine.prepare(48000.0, 64);
 
     gainDb.store(-6.0206f);

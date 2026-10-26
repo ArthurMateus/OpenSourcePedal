@@ -8,6 +8,7 @@ osp_apply_settings(osp_rt_checker)
 
 add_executable(osp_tests
     dsp/test_gain.cpp
+    engine/test_chain.cpp
     engine/test_engine.cpp
     engine/test_state.cpp
     engine/test_version.cpp
@@ -20,6 +21,8 @@ target_compile_definitions(osp_tests PRIVATE OSP_RT_CHECKER=1)
 
 include(Catch)
 catch_discover_tests(osp_tests DISCOVERY_MODE PRE_TEST)
+
+add_subdirectory(bench)
 
 # App-level tests link the plugin's shared-code target (JUCE), so they exist only with OSP_BUILD_APP.
 if(OSP_BUILD_APP)

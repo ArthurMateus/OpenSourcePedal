@@ -1,4 +1,5 @@
 add_library(osp_engine STATIC
+    src/Chain.cpp
     src/Engine.cpp
     src/State.cpp
     src/Version.cpp)
