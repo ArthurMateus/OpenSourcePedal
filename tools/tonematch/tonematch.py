@@ -39,6 +39,8 @@ def fail(msg: str) -> None:
 
 def find_exe(explicit: str | None) -> Path:
     if explicit:
+        if not Path(explicit).exists():
+            fail(f"--exe {explicit} does not exist")
         return Path(explicit)
     for p in EXE_CANDIDATES:
         if p.exists():
@@ -62,6 +64,7 @@ def download(url: str, work: Path) -> Path:
     if out.exists():
         print(f"using cached download {out}")
         return out
+    print("Only download recordings you have the right to download.")
     print(f"downloading audio with yt-dlp -> {out}")
     cmd = ["yt-dlp", "--no-playlist", "-x", "--audio-format", "wav", "-o", str(work / f"ref-{key}.%(ext)s"), url]
     if subprocess.run(cmd).returncode != 0 or not out.exists():
@@ -81,18 +84,40 @@ def to_wav(ref: Path, work: Path) -> Path:
     return out
 
 
-def separate_guitar(ref: Path, work: Path) -> Path:
+def file_key(path: Path) -> str:
+    """Content hash, so two different songs with the same file name never share a cached stem (#120 review)."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()[:16]
+
+
+def demucs_command() -> list[str]:
+    """Demucs as a module of this Python, or a `demucs` launcher on PATH (pipx, conda)."""
     try:
         import demucs  # noqa: F401  (only checks that it is installed)
+
+        return [sys.executable, "-m", "demucs"]
     except ImportError:
-        fail("--stem needs Demucs: pip install demucs")
-    out_dir = work / "stems"
+        exe = shutil.which("demucs")
+        if exe:
+            return [exe]
+    fail("--stem needs Demucs: pip install demucs")
+    raise AssertionError  # unreachable
+
+
+def separate_guitar(ref: Path, work: Path) -> Path:
+    cmd = demucs_command()
+    key = file_key(ref)
+    out_dir = work / "stems" / key
     stem = out_dir / "htdemucs_6s" / ref.stem / "guitar.wav"
     if stem.exists():
         print(f"using cached guitar stem {stem}")
         return stem
-    print("separating the guitar stem with Demucs htdemucs_6s (this can take a few minutes on a CPU)")
-    cmd = [sys.executable, "-m", "demucs", "-n", "htdemucs_6s", "--two-stems", "guitar", "-o", str(out_dir), str(ref)]
+    print("separating the guitar stem with Demucs htdemucs_6s (this can take a few minutes on a CPU; on first use")
+    print("Demucs downloads its model weights into its own cache, outside this repository)")
+    cmd += ["-n", "htdemucs_6s", "--two-stems", "guitar", "-o", str(out_dir), str(ref)]
     if subprocess.run(cmd).returncode != 0 or not stem.exists():
         fail("Demucs failed")
     return stem
@@ -109,6 +134,7 @@ def main() -> int:
     ap.add_argument("--end", type=float, help="reference section end, seconds")
     ap.add_argument("--source", default="auto", choices=["auto", "mono", "mid", "side", "left", "right"])
     ap.add_argument("--stem", action="store_true", help="isolate the guitar with Demucs first (recommended)")
+    ap.add_argument("--no-hpss", action="store_true", help="keep percussive energy (an already clean guitar stem)")
     ap.add_argument("--ir-dir", help="cab IR folder (default: the bundled assets/cab)")
     ap.add_argument("--work", default=str(ROOT / "build" / "tonematch"), help="download/stem cache folder")
     ap.add_argument("--exe", help="path to osp-tonematch")
@@ -136,6 +162,8 @@ def main() -> int:
         cmd += ["--ir-dir", a.ir_dir]
     if a.render:
         cmd += ["--render", a.render]
+    if a.no_hpss:
+        cmd += ["--no-hpss"]
     return subprocess.run(cmd).returncode
 
 

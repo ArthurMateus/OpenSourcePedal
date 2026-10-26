@@ -2,6 +2,8 @@
 // a chain setting to the player's own DI with osp::engine::tonematch, and writes a preset JSON plus, on request, the
 // DI rendered through that setting. YouTube links are resolved by tools/tonematch/tonematch.py, which calls this.
 
+#include "Sha256.h"
+
 #include "osp/dsp/conv/IrLoader.h"
 #include "osp/engine/ToneMatch.h"
 
@@ -71,6 +73,14 @@ std::vector<float> channel(const Audio& a, unsigned c, std::size_t from, std::si
     for (std::size_t i = from; i < to; ++i)
         out.push_back(a.interleaved[i * a.channels + std::min(c, a.channels - 1)]);
     return out;
+}
+
+// A whole-string decimal number >= 0, or false.
+bool parseSeconds(const std::string& v, double& out)
+{
+    char* endp = nullptr;
+    out = std::strtod(v.c_str(), &endp);
+    return !v.empty() && endp == v.c_str() + v.size() && std::isfinite(out) && out >= 0.0;
 }
 
 std::string fileUri(const fs::path& p)
@@ -150,11 +160,13 @@ int main(int argc, char** argv)
             renderPath = v;
         else if (a == "--name")
             name = v;
-        else if (a == "--start")
-            start = std::atof(v.c_str());
-        else if (a == "--end")
-            end = std::atof(v.c_str());
-        else if (a == "--ir-dir") {
+        else if (a == "--start") {
+            if (!parseSeconds(v, start))
+                return usage();
+        } else if (a == "--end") {
+            if (!parseSeconds(v, end))
+                return usage();
+        } else if (a == "--ir-dir") {
             irDir = v;
             factoryIrs = false;
         } else if (a == "--source") {
@@ -189,22 +201,34 @@ int main(int argc, char** argv)
             return 1;
         }
         const std::size_t from = std::min(ref.frames(), static_cast<std::size_t>(std::max(0.0, start) * ref.rate));
-        const std::size_t to =
-            end > start ? std::min(ref.frames(), static_cast<std::size_t>(end * ref.rate)) : ref.frames();
-        if (to <= from) {
-            std::fprintf(stderr, "osp-tonematch: empty --start/--end range\n");
+        if (end >= 0.0 && end <= start) {
+            std::fprintf(stderr, "osp-tonematch: --end must be after --start\n");
             return 1;
         }
+        std::size_t to = end >= 0.0 ? std::min(ref.frames(), static_cast<std::size_t>(end * ref.rate)) : ref.frames();
+        if (to <= from) {
+            std::fprintf(stderr, "osp-tonematch: --start is past the end of the reference\n");
+            return 1;
+        }
+        // analyse() reads at most maxSeconds: cut here so the report shows the part really analysed (#120 review).
+        const auto cap = static_cast<std::size_t>(opt.analysis.maxSeconds * ref.rate);
+        const bool capped = to - from > cap;
+        if (capped)
+            to = from + cap;
         const auto left = channel(ref, 0, from, to);
         const auto right = channel(ref, 1, from, to);
         tmatch::Source used = tmatch::Source::mono;
         const auto refMono =
             pickSource(left.data(), ref.channels > 1 ? right.data() : nullptr, left.size(), ref.rate, source, &used);
-        const tmatch::Profile refProfile = tmatch::analyse(refMono, ref.rate, opt.analysis);
-
-        // The DI is taken as mono (channel 0) at its own rate; IRs are conditioned to that rate.
+        // The DI is taken as mono (channel 0) at its own rate; the reference and the IRs are resampled to it, since
+        // the profile is not rate-exact between 44.1 and 48 kHz (ToneProfile.h, #120 review).
         const auto diMono = channel(di, 0, 0, di.frames());
         const double fsDi = di.rate;
+        const auto refAtDi =
+            ref.rate == di.rate
+                ? refMono
+                : osp::dsp::IrLoader::resample(refMono.data(), static_cast<int>(refMono.size()), ref.rate, fsDi);
+        const tmatch::Profile refProfile = tmatch::analyse(refAtDi, fsDi, opt.analysis);
         std::vector<tmatch::CabIr> cabs;
         std::vector<fs::path> irFiles;
         for (const auto& e : fs::directory_iterator(irDir))
@@ -219,6 +243,11 @@ int main(int argc, char** argv)
             tmatch::CabIr c;
             c.name = p.stem().string();
             c.uri = factoryIrs ? "factory:ir/" + c.name : fileUri(p);
+            if (!factoryIrs) { // preset.v1 needs the hash of a user file
+                c.sha256 = osp::tools::Sha256::ofFile(p.string());
+                if (c.sha256.empty())
+                    continue;
+            }
             c.ir = osp::dsp::IrLoader::condition(raw.data(), static_cast<int>(raw.size()), irA.rate, fsDi);
             cabs.push_back(std::move(c));
         }
@@ -227,10 +256,13 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        std::printf("reference: %s (%u ch, %u Hz), %.1f…%.1f s, source %s, %.1f s of active audio%s\n", refPath.c_str(),
-                    ref.channels, ref.rate, static_cast<double>(from) / ref.rate, static_cast<double>(to) / ref.rate,
+        std::printf("reference: %s (%u ch, %u Hz), %.1f-%.1f s%s, source %s, %.1f s of active audio%s\n",
+                    refPath.c_str(), ref.channels, ref.rate, static_cast<double>(from) / ref.rate,
+                    static_cast<double>(to) / ref.rate, capped ? " (capped: pass --start/--end)" : "",
                     tmatch::toString(used), refProfile.activeSeconds,
                     opt.analysis.hpss ? ", drums removed (HPSS)" : "");
+        if (ref.rate != di.rate)
+            std::printf("           resampled %u -> %u Hz to match the DI\n", ref.rate, di.rate);
         std::printf("DI:        %s (%u Hz, %.1f s), %zu cab IRs\n", diPath.c_str(), di.rate,
                     static_cast<double>(diMono.size()) / fsDi, cabs.size());
         std::printf("searching drive x cab x EQ ...\n");
@@ -265,13 +297,22 @@ int main(int argc, char** argv)
         std::printf("runners-up:\n");
         for (std::size_t i = 1; i < r.ranking.size(); ++i) {
             const auto& c = r.ranking[i].setting;
-            std::printf("  %s %.0f tight %.0f, cab %s (predicted residual %.2f dB, flatness %.2f dB)\n",
-                        tmatch::toString(c.drive), c.driveKnob, c.tightHz,
+            std::printf("  %s %.0f, tight %s, cab %s (predicted residual %.2f dB, flatness %.2f dB)\n",
+                        tmatch::toString(c.drive), c.driveKnob,
+                        c.tightHz > 20.0f ? (std::to_string(static_cast<int>(c.tightHz)) + " Hz").c_str() : "off",
                         cabs[static_cast<std::size_t>(c.cab)].name.c_str(), r.ranking[i].residualDb,
                         r.ranking[i].flatnessDistance);
         }
 
-        std::ofstream(outPath, std::ios::binary) << tmatch::toPresetJson(r, cabs, name, makeUuid());
+        {
+            std::ofstream f(outPath, std::ios::binary);
+            f << tmatch::toPresetJson(r, cabs, name, makeUuid());
+            f.close();
+            if (!f) {
+                std::fprintf(stderr, "osp-tonematch: cannot write %s\n", outPath.c_str());
+                return 1;
+            }
+        }
         std::printf("\npreset:  %s\n", outPath.c_str());
 
         if (!renderPath.empty()) {

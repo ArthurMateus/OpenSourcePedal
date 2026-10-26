@@ -81,5 +81,11 @@ The CLI run takes about 40 s for a 10 s DI with 7 IRs (49 drive renders with HPS
 - The 9-band graphic EQ cannot follow narrow resonances (a pick-up or mic-position notch); that residual is reported.
 - The flatness feature compares "harmonic fill", which also depends on playing (chords vs single notes). Playing the
   same part as the reference gives the most reliable gain estimate.
-- Follow-ups: UI (worker thread, progress, A/B with the reference), the amp candidates above, golden tests for the
+- `input` is a Global-Lock block: with Global Lock on, a preset's matched `input.gainDb` is not applied, and the
+  drive then sees the DI at the user's global input level instead of −12 dBFS peak (#119 review).
+- The bundled IRs are still "interim / tests-only" (Blocker B-002), and no spec defines `factory:ir/<name>` ids yet;
+  the tool uses the file stem until the factory IR set is final (#120 review).
+- WAV/MP3 paths over 260 characters fail on Windows (`fopen` in dr_wav/dr_mp3); the tool's UTF-8 manifest fixes
+  non-ASCII paths and names, not length.
+- - Follow-ups: UI (worker thread, progress, A/B with the reference), the amp candidates above, golden tests for the
   CLI output once the preset loader lands.

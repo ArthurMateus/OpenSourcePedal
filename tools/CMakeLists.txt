@@ -20,6 +20,10 @@ target_include_directories(osp_dr_mp3 SYSTEM PUBLIC "${dr_libs_SOURCE_DIR}")
 target_compile_definitions(osp_dr_mp3 PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 add_executable(osp-tonematch tonematch/osp_tonematch.cpp)
+# activeCodePage UTF-8 (Windows 10 1903+): argv and fopen use UTF-8, so non-ASCII names and paths work (#120 review).
+if(MSVC)
+    target_sources(osp-tonematch PRIVATE tonematch/utf8.manifest)
+endif()
 target_link_libraries(osp-tonematch PRIVATE osp_engine osp_dr_wav osp_dr_mp3)
 target_compile_definitions(osp-tonematch PRIVATE OSP_ASSET_DIR="${PROJECT_SOURCE_DIR}/assets" _CRT_SECURE_NO_WARNINGS)
 osp_apply_settings(osp-tonematch)
