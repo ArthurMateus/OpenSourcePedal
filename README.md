@@ -52,6 +52,10 @@ tone with `--tones`: it splits guitar 1 (left) from guitar 2 (right) when they d
 tone over the whole song, and writes `<out>-g1-t1.osp.json`, `<out>-g1-t2.osp.json`, ... with the time ranges of each.
 With `--render`, every tone also gets your render and the song's own section (`-ref.wav`) to compare by ear.
 
+Record your DI as WAV straight into an instrument (Hi-Z) input with the guitar's tone knob up: a clean match can only
+pass on the treble your DI has. The tool prints your DI's treble and warns when it is too dark, and it flags any match
+whose EQ hit its ±12 dB limit.
+
 ```powershell
 python tools/tonematch/tonematch.py --ref song.mp3 --di my-di.wav --stem --tones --render preview.wav
 ```

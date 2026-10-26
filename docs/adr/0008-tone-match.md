@@ -133,6 +133,10 @@ the stand-in DI's playing, effects the chain does not model, and stem bleed; unv
   robust fit reduce this, but a Demucs stem (`--stem`) or a solo-guitar section (`--start/--end`) is better.
 - Time-based effects (delay, reverb, modulation) and the compressor are not matched in v1.
 - The 9-band graphic EQ cannot follow narrow resonances (a pick-up or mic-position notch); that residual is reported.
+- A DI without treble cannot give a bright clean tone: the owner heard the real-song renders as muffled, because the
+  bundled lossy DI reads −33.6 dB on `diTrebleDb` (2–6 kHz against 0.5–2 kHz). The tool prints every DI's treble,
+  warns below `kDarkDiDb` (−20 dB, a judgement between that DI and a full-band one at −4.3 dB), and flags each
+  match whose EQ sits at ±12 dB, so the user knows when the chain ran out of range.
 - Both gain features depend on the playing as well as the gain: on the bundled DI a strum → arpeggio change moves
   flatness about as much as clean → crunch. A DI of a different kind of part breaks the match (all 12 cross-guitar
   matrix runs), and inside a song a playing change can read as a tone change. Playing the same part as the

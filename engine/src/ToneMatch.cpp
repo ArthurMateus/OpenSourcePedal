@@ -362,6 +362,7 @@ struct Matcher::State {
     std::vector<Setting> drives;        // drive candidates ...
     std::vector<Profile> driveProfiles; // ... and the DI through each, rendered once (ToneSections: one per tone)
     Profile untouched;                  // the DI through the default chain
+    double treble = 0.0;                // diTrebleDb() of the dry DI
 };
 
 Matcher::Matcher(std::vector<float> di, double fs, std::vector<CabIr> cabs, MatchOptions o)
@@ -398,6 +399,7 @@ Matcher::Matcher(std::vector<float> di, double fs, std::vector<CabIr> cabs, Matc
     for (const Setting& d : st.drives)
         st.driveProfiles.push_back(analyse(renderStages(st.di, fs, d, st.cabs, kDriveOnly, 256), fs, o.analysis));
     st.untouched = analyse(renderStages(st.di, fs, st.base, st.cabs, kFull, 256), fs, o.analysis);
+    st.treble = diTrebleDb(analyse(st.di, fs, o.analysis));
 }
 
 Matcher::~Matcher() = default;
@@ -503,6 +505,7 @@ MatchResult Matcher::match(const Profile& ref) const
             result.ranking.push_back(all[static_cast<std::size_t>(i)]);
 
     result.unmatchedResidualDb = residualDb(ref.levelDb, st.untouched.levelDb);
+    result.diTrebleDb = st.treble;
     return result;
 }
 
@@ -512,6 +515,32 @@ MatchResult match(
     if (ref.sampleRate > 0.0 && ref.sampleRate != fs) // before the expensive renders (#121 review)
         throw std::invalid_argument("tonematch: reference profiled at a different rate than the DI; resample it");
     return Matcher(di, fs, cabs, o).match(ref);
+}
+
+double diTrebleDb(const Profile& di) noexcept
+{
+    double hi = 0.0, mid = 0.0;
+    int nh = 0, nm = 0;
+    for (int k = 0; k < kBands; ++k) {
+        const double f = bandHz(k);
+        if (f >= 2000.0 && f <= 6000.0) {
+            hi += di.levelDb[k];
+            ++nh;
+        } else if (f >= 500.0 && f < 2000.0) {
+            mid += di.levelDb[k];
+            ++nm;
+        }
+    }
+    return hi / nh - mid / nm;
+}
+
+std::vector<int> eqBandsAtLimit(const Setting& s)
+{
+    std::vector<int> out;
+    for (std::size_t j = 0; j < s.eqDb.size(); ++j)
+        if (std::abs(s.eqDb[j]) >= 11.95f)
+            out.push_back(static_cast<int>(j));
+    return out;
 }
 
 std::string sanitiseUtf8(const std::string& in, std::size_t maxChars)

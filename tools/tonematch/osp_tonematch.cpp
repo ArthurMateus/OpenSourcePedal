@@ -149,6 +149,30 @@ std::string mmss(double seconds)
     return b;
 }
 
+// "4k +12, 8k +12": the graphic-EQ bands at their limit, empty when none is.
+std::string eqLimitText(const tmatch::Setting& s)
+{
+    static constexpr const char* kBand[9] = {"63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"};
+    std::string t;
+    for (int j : tmatch::eqBandsAtLimit(s))
+        t += (t.empty() ? "" : ", ") + std::string(kBand[j]) +
+             (s.eqDb[static_cast<std::size_t>(j)] > 0.0f ? " +12" : " -12");
+    return t;
+}
+
+void warnDarkDi(double trebleDb)
+{
+    std::printf("\nDI treble: %+.1f dB (2-6 kHz against 0.5-2 kHz; below %.0f dB clean matches sound dull)\n", trebleDb,
+                tmatch::kDarkDiDb);
+    if (trebleDb >= tmatch::kDarkDiDb)
+        return;
+    std::printf("\nwarning: your DI has very little treble (2-6 kHz is %.1f dB below its 0.5-2 kHz level; this tool\n"
+                "         expects at least %.0f dB). Clean matches will sound dull: no EQ setting can add treble that\n"
+                "         is not in the DI. Record it as WAV into an instrument (Hi-Z) input, guitar tone knob up,\n"
+                "         and not from a lossy (MP3/streamed) file.\n",
+                -trebleDb, tmatch::kDarkDiDb);
+}
+
 int usage()
 {
     std::fprintf(stderr,
@@ -352,6 +376,7 @@ int main(int argc, char** argv)
             std::printf("rendering your DI through the drive candidates (once for all tones) ...\n");
             const tmatch::Matcher matcher(diMono, fsDi, cabs, opt);
             std::printf("\n  %-18s %-10s %-34s %s\n", "part / tone", "residual", "matched setting", "where");
+            double treble = 0.0; // the DI's treble, the same for every tone
             for (const auto& t : sec.sections) {
                 const std::string tag = "-g" + std::to_string(t.part + 1) + "-t" + std::to_string(t.tone + 1);
                 const tmatch::MatchResult r = matcher.match(t.profile);
@@ -370,6 +395,10 @@ int main(int argc, char** argv)
                 char res[16];
                 std::snprintf(res, sizeof res, "%.2f dB", r.residualDb);
                 std::printf("  %-18s %-10s %-34s %s\n", label.c_str(), res, setting, where.c_str());
+                if (const std::string lim = eqLimitText(st); !lim.empty())
+                    std::printf("    ! EQ at its limit (%s dB): this tone wanted more than the EQ can give\n",
+                                lim.c_str());
+                treble = r.diTrebleDb;
                 const std::string preset = withSuffix(outPath, tag);
                 if (!writeText(preset, tmatch::toPresetJson(r, cabs, name + " - " + label, makeUuid()))) {
                     std::fprintf(stderr, "osp-tonematch: cannot write %s\n", preset.c_str());
@@ -388,6 +417,7 @@ int main(int argc, char** argv)
                     }
                 }
             }
+            warnDarkDi(treble);
             std::printf("\npresets: %s\n", withSuffix(outPath, "-g*-t*").c_str());
             if (!renderPath.empty())
                 std::printf("renders: %s (yours) and *-ref.wav (the song's section) for A/B\n",
@@ -425,6 +455,9 @@ int main(int argc, char** argv)
                     s.eqHighCutHz < 20000.0f ? (std::to_string(static_cast<int>(s.eqHighCutHz)) + " Hz").c_str()
                                              : "off");
         std::printf("  output    %+.1f dB\n", s.outputDb);
+        if (const std::string lim = eqLimitText(s); !lim.empty())
+            std::printf("  ! EQ at its limit (%s dB): the match wanted more than the EQ can give\n", lim.c_str());
+        warnDarkDi(r.diTrebleDb);
         std::printf("\nflatness (dB)  500-1k  1k-2k  2k-4k  4k-8k\n");
         std::printf("  reference   %6.1f %6.1f %6.1f %6.1f\n", r.reference.flatnessDb[0], r.reference.flatnessDb[1],
                     r.reference.flatnessDb[2], r.reference.flatnessDb[3]);
