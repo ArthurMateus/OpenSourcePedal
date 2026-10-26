@@ -3,11 +3,9 @@
 #include <cmath>
 #include <initializer_list>
 
-namespace osp::dsp
-{
+namespace osp::dsp {
 
-namespace
-{
+namespace {
 
 // Maps NaN to lo, so a broken host value can never poison the detector.
 float clampf(float v, float lo, float hi) noexcept
@@ -33,8 +31,7 @@ float Compressor::staticGainReductionDb(float xDb, float thresholdDb, float rati
     const float slope = 1.0f - 1.0f / ratio;
     if (2.0f * d <= -kneeDb)
         return 0.0f;
-    if (2.0f * d < kneeDb)
-    {
+    if (2.0f * d < kneeDb) {
         const float t = d + 0.5f * kneeDb;
         return slope * t * t / (2.0f * kneeDb);
     }
@@ -53,6 +50,7 @@ float Compressor::Detector::next(float x) noexcept
 Compressor::Compressor() noexcept
 {
     threshold_.reset(thresholdTarget_);
+    tone_.reset(5.0f);
     blend_.reset(1.0f);
     makeup_.reset(1.0f);
     updateAutoMakeup();
@@ -66,6 +64,8 @@ void Compressor::prepare(double sampleRate, int /*maxBlockSize*/) noexcept
     makeup_.prepare(sampleRate, 0.020);
     autoGain_.prepare(sampleRate, 0.010);
     modeFade_.prepare(sampleRate, 0.010);
+    tone_.prepare(sampleRate, 0.020);
+    tiltK_ = 1.0 / std::tan(3.14159265358979323846 * kTiltPivotHz / sampleRate);
     updateCoefficients();
     reset();
 }
@@ -81,6 +81,10 @@ void Compressor::reset() noexcept
     modeFrom_ = modeTo_ = pendingMode_;
     modeFade_.reset(0.0f);
     grDb_ = 0.0f;
+    tone_.reset(tone_.target());
+    x1_ = y1_ = 0.0f;
+    if (isPrepared())
+        updateTilt(tone_.target());
 }
 
 void Compressor::setThresholdDb(float dB) noexcept
@@ -105,8 +109,7 @@ void Compressor::setKneeDb(float dB) noexcept
 void Compressor::setAttackMs(float ms) noexcept
 {
     const float v = clampf(ms, 0.1f, 100.0f);
-    if (v != attackMs_)
-    {
+    if (v != attackMs_) {
         attackMs_ = v;
         updateCoefficients();
     }
@@ -115,8 +118,7 @@ void Compressor::setAttackMs(float ms) noexcept
 void Compressor::setReleaseMs(float ms) noexcept
 {
     const float v = clampf(ms, 20.0f, 1000.0f);
-    if (v != releaseMs_)
-    {
+    if (v != releaseMs_) {
         releaseMs_ = v;
         updateCoefficients();
     }
@@ -146,6 +148,43 @@ void Compressor::setMode(CompMode mode) noexcept
         modeFrom_ = modeTo_ = mode;
 }
 
+void Compressor::setTone(float knob) noexcept
+{
+    tone_.setTarget(clampf(knob, 0.0f, 10.0f));
+}
+
+void Compressor::updateTilt(float knob) noexcept
+{
+    tiltKnob_ = knob;
+    // Bilinear, prewarped at the pivot: a0 = k + G, b0 = (G k + 1) / a0, b1 = (1 - G k) / a0, a1 = (G - k) / a0.
+    const double g = std::pow(10.0, (static_cast<double>(knob) - 5.0) * 1.2 / 20.0);
+    const double a0 = tiltK_ + g;
+    b0_ = static_cast<float>((g * tiltK_ + 1.0) / a0);
+    b1_ = static_cast<float>((1.0 - g * tiltK_) / a0);
+    a1_ = static_cast<float>((g - tiltK_) / a0);
+}
+
+void Compressor::processTilt(float* out, int numSamples) noexcept
+{
+    if (!tone_.isSmoothing() && tone_.target() == 5.0f) {
+        // Flat: skip the filter, but keep its state consistent with the identity so that leaving 5 is seamless.
+        if (b0_ != 1.0f)
+            updateTilt(5.0f);
+        x1_ = y1_ = out[numSamples - 1];
+        return;
+    }
+    for (int i = 0; i < numSamples; ++i) {
+        const float knob = tone_.next();
+        if (knob != tiltKnob_)
+            updateTilt(knob);
+        const float x = out[i];
+        const float y = b0_ * x + b1_ * x1_ - a1_ * y1_;
+        x1_ = x;
+        y1_ = y;
+        out[i] = y;
+    }
+}
+
 void Compressor::updateCoefficients() noexcept
 {
     if (!isPrepared())
@@ -160,8 +199,7 @@ void Compressor::updateCoefficients() noexcept
 
 void Compressor::updateAutoMakeup() noexcept
 {
-    const float dB =
-        autoMakeup_ ? staticGainReductionDb(kAutoMakeupRefDb, thresholdTarget_, ratio_, kneeDb_) : 0.0f;
+    const float dB = autoMakeup_ ? staticGainReductionDb(kAutoMakeupRefDb, thresholdTarget_, ratio_, kneeDb_) : 0.0f;
     autoGain_.setTarget(dbToGain(dB));
 }
 
@@ -169,27 +207,23 @@ void Compressor::process(const float* in, float* out, int numSamples) noexcept
 {
     if (numSamples <= 0)
         return;
-    if (!isPrepared())
-    {
+    if (!isPrepared()) {
         for (int i = 0; i < numSamples; ++i)
             out[i] = 0.0f;
         return;
     }
-    if (bypassed_)
-    {
+    if (bypassed_) {
         for (int i = 0; i < numSamples; ++i)
             out[i] = in[i];
         return;
     }
 
     // Mode switches start at a block boundary, one at a time (xf 10: old and new run in parallel).
-    if (!modeFade_.isRamping())
-    {
+    if (!modeFade_.isRamping()) {
         if (modeFade_.current() > 0.0f)
             modeFrom_ = modeTo_;
         modeFade_.reset(0.0f);
-        if (pendingMode_ != modeTo_)
-        {
+        if (pendingMode_ != modeTo_) {
             modeTo_ = pendingMode_;
             modeFade_.setTarget(1.0f);
         }
@@ -197,18 +231,15 @@ void Compressor::process(const float* in, float* out, int numSamples) noexcept
 
     const float rootRatio = std::sqrt(ratio_);
     float gr[3] = {};
-    for (int i = 0; i < numSamples; ++i)
-    {
+    for (int i = 0; i < numSamples; ++i) {
         const float x = in[i];
         const float thr = threshold_.next();
-        const float xDb =
-            std::fmin(std::fmax(20.0f * std::log10(std::fmax(std::abs(x), 1.0e-6f)), -120.0f), 60.0f);
+        const float xDb = std::fmin(std::fmax(20.0f * std::log10(std::fmax(std::abs(x), 1.0e-6f)), -120.0f), 60.0f);
 
         // Every mode runs every sample, so a mode switch fades between two warm detectors.
         const float s = staticGainReductionDb(xDb, thr, ratio_, kneeDb_);
         gr[static_cast<int>(CompMode::vca)] = vca_.next(s);
-        gr[static_cast<int>(CompMode::opto)] =
-            std::fmax(optoFast_.next(s), optoSlow_.next(kOptoSlowDepth * s));
+        gr[static_cast<int>(CompMode::opto)] = std::fmax(optoFast_.next(s), optoSlow_.next(kOptoSlowDepth * s));
         const float g1 = dual1_.next(staticGainReductionDb(xDb, thr, rootRatio, kneeDb_));
         gr[static_cast<int>(CompMode::dual)] =
             g1 + dual2_.next(staticGainReductionDb(xDb - g1, thr, rootRatio, kneeDb_));
@@ -224,6 +255,7 @@ void Compressor::process(const float* in, float* out, int numSamples) noexcept
         const float b = blend_.next();
         out[i] = (1.0f - b) * x + b * wet;
     }
+    processTilt(out, numSamples);
 }
 
 } // namespace osp::dsp

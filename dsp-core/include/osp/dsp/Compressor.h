@@ -4,45 +4,43 @@
 //
 // Feed-forward compressor, `comp.*` in parameters.md §2.3. Latency 0 (signal-flow §4: no look-ahead in v1).
 //
-// Algorithm: log-domain gain computer with a quadratic soft knee and a smooth branching peak detector applied
-// to the gain reduction, as in D. Giannoulis, M. Massberg, J. D. Reiss, "Digital Dynamic Range Compressor
-// Design - A Tutorial and Analysis", J. Audio Eng. Soc. 60(6), 2012 (eqs. 4 and 17). Attack/release are the
-// 0→63 % time constants of that detector (parameters.md §1.4).
+// Algorithm: log-domain gain computer with a quadratic soft knee and a smooth branching peak detector applied to
+// the gain reduction, as in D. Giannoulis, M. Massberg, J. D. Reiss, "Digital Dynamic Range Compressor Design - A
+// Tutorial and Analysis", J. Audio Eng. Soc. 60(6), 2012 (eqs. 4 and 17). Attack/release are the 0→63 % time
+// constants of that detector (parameters.md §1.4).
 //
 // Modes (own design; the constants are not matched to any hardware, unverified):
 // - vca:  one detector.
-// - opto: program-dependent two-stage release. A fast detector (attack, release) runs in parallel with a slow
-// one
-//         that tracks kOptoSlowDepth of the gain reduction with kOptoSlowAttack x attack and kOptoSlowRelease
-//         x release. GR = max(fast, slow): short peaks release fast; sustained compression charges the slow
-//         stage, so the release drops quickly to the slow level and then tails off.
-// - dual: two stages in series, each with ratio sqrt(R) and the same threshold, so the hard-knee static curve
-//         is exactly R. The second stage sees the first stage's output and has 4x the attack.
+// - opto: program-dependent two-stage release. A fast detector (attack, release) runs in parallel with a slow one
+//         that tracks kOptoSlowDepth of the gain reduction with kOptoSlowAttack x attack and kOptoSlowRelease x
+//         release. GR = max(fast, slow): short peaks release fast; sustained compression charges the slow stage,
+//         so the release drops quickly to the slow level and then tails off.
+// - dual: two stages in series, each with ratio sqrt(R) and the same threshold, so the hard-knee static curve is
+//         exactly R. The second stage sees the first stage's output and has 4x the attack.
 //
-// Auto makeup = the static gain reduction at the DI nominal peak level kAutoMakeupRefDb (tone-targets-a
-// §3.4), so a DI at nominal level leaves at the same peak. It adds to the manual makeup. Makeup applies to
-// the wet path.
+// Auto makeup = the static gain reduction at the DI nominal peak level kAutoMakeupRefDb (tone-targets-a §3.4), so
+// a DI at nominal level leaves at the same peak. It adds to the manual makeup. Makeup applies to the wet path.
+//
+// Tone: first-order tilt at the comp output, H(s) = (G s + w0) / (s + G w0) with w0 = 2 pi kTiltPivotHz and
+// G = 10^(t / 20), t = (tone - 5) * 1.2 dB: -t dB at DC, +t dB at HF, exactly 0 dB at the pivot. Bilinear
+// transform prewarped at the pivot (R. Bristow-Johnson, "Audio EQ Cookbook", W3C Audio WG note, 2016). Direct
+// form I, so tone 5 (G = 1) is an exact identity. While the knob moves the coefficients are recomputed every
+// sample (parameters.md §1.4): a 16-sample hold measured -55 dBc on a 0 <-> 10 step, above the REQ-TEST-003 gate.
 
 #include "osp/dsp/util/Smoothers.h"
 
-namespace osp::dsp
-{
+namespace osp::dsp {
 
-enum class CompMode
-{
-    opto,
-    vca,
-    dual
-};
+enum class CompMode { opto, vca, dual };
 
-class Compressor
-{
+class Compressor {
 public:
     static constexpr float kAutoMakeupRefDb = -12.0f;
     static constexpr float kOptoSlowDepth = 0.5f;
     static constexpr float kOptoSlowAttack = 20.0f;
     static constexpr float kOptoSlowRelease = 8.0f;
     static constexpr float kDualStage2Attack = 4.0f;
+    static constexpr double kTiltPivotHz = 1000.0;
 
     // Starts at the parameters.md defaults.
     Compressor() noexcept;
@@ -62,6 +60,8 @@ public:
     void setMakeupDb(float dB) noexcept;
     void setAutoMakeup(bool on) noexcept;
     void setMode(CompMode mode) noexcept;
+    // comp.tone, 0...10 knob, 5 = flat. One-pole 20 ms on the knob.
+    void setTone(float knob) noexcept;
     // Hard bypass for tests (signal-flow §5): output = input.
     void setBypassed(bool bypassed) noexcept { bypassed_ = bypassed; }
 
@@ -77,14 +77,15 @@ public:
     static float staticGainReductionDb(float xDb, float thresholdDb, float ratio, float kneeDb) noexcept;
 
 private:
-    struct Detector
-    {
+    struct Detector {
         float attack = 0.0f, release = 0.0f, y = 0.0f;
         float next(float x) noexcept;
     };
 
     void updateCoefficients() noexcept;
     void updateAutoMakeup() noexcept;
+    void updateTilt(float knob) noexcept;
+    void processTilt(float* out, int numSamples) noexcept;
 
     double sampleRate_ = 0.0;
     float ratio_ = 4.0f, kneeDb_ = 6.0f, attackMs_ = 10.0f, releaseMs_ = 150.0f, makeupDb_ = 0.0f;
@@ -99,6 +100,10 @@ private:
     LinearRamp makeup_;         // 20 ms, linear gain of the manual makeup
     LinearRamp autoGain_;       // 10 ms (xf 10), linear gain of the auto makeup (1 when off)
     LinearRamp modeFade_;       // 10 ms (xf 10), 0 = modeFrom_, 1 = modeTo_
+    OnePoleSmoother tone_;      // 20 ms, knob
+    double tiltK_ = 0.0;        // 1 / tan(pi f0 / fs)
+    float b0_ = 1.0f, b1_ = 0.0f, a1_ = 0.0f, x1_ = 0.0f, y1_ = 0.0f;
+    float tiltKnob_ = 5.0f;     // knob the coefficients were computed for
 };
 
 } // namespace osp::dsp

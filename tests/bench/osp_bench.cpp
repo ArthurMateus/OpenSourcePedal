@@ -6,6 +6,7 @@
 // prints a table and writes them as JSON (--out). tools/bench/check_budget.py compares that JSON with
 // tests/bench/budget.json.
 
+#include "osp/dsp/Compressor.h"
 #include "osp/dsp/Gain.h"
 #include "osp/engine/Chain.h"
 
@@ -80,7 +81,9 @@ struct Result {
 };
 
 // Runs `perBlock(in, out, n)` over 1 s of audio in 64-sample blocks, kEpochs times, and returns the median time.
-double measure(ankerl::nanobench::Bench& bench, const char* name, const std::vector<float>& input,
+double measure(ankerl::nanobench::Bench& bench,
+               const char* name,
+               const std::vector<float>& input,
                const std::function<void(const float*, float*, int)>& perBlock)
 {
     std::vector<float> out(input.size());
@@ -137,14 +140,23 @@ int main(int argc, char** argv)
                            gain.process(in, out, n);
                        })});
 
+    // Compressor at its defaults (opto, -20 dB, 4:1, all three detectors run) with the tone tilt active (knob 7).
+    osp::dsp::Compressor comp;
+    comp.setTone(7.0f);
+    comp.prepare(kSampleRate, kBlock);
+    results.push_back({"comp", measure(bench, "comp", input, [&](const float* in, float* out, int n) {
+                           comp.setThresholdDb(-20.0f);
+                           comp.process(in, out, n);
+                       })});
+
     // Pass-through chain (the full engine chain as it stands), at 0 dB.
     osp::engine::Chain chain;
     chain.prepare(kSampleRate, kBlock);
-    results.push_back({"passthrough_chain", measure(bench, "passthrough_chain", input,
-                                                    [&](const float* in, float* out, int n) {
-                                                        chain.setOutputLevelDb(0.0f);
-                                                        chain.process(in, out, n);
-                                                    })});
+    results.push_back(
+        {"passthrough_chain", measure(bench, "passthrough_chain", input, [&](const float* in, float* out, int n) {
+             chain.setOutputLevelDb(0.0f);
+             chain.process(in, out, n);
+         })});
 
     std::printf("\nT_ref = %.6f s per 1 s of audio\n", tRef);
     std::printf("%-20s %12s %10s %10s\n", "benchmark", "T_median s", "CPU %", "R");
@@ -158,7 +170,8 @@ int main(int argc, char** argv)
             std::fprintf(stderr, "osp-bench: cannot write %s\n", outPath);
             return 1;
         }
-        std::fprintf(f, "{\n  \"schemaVersion\": 1,\n  \"sampleRate\": %.0f,\n  \"blockSize\": %d,\n", kSampleRate, kBlock);
+        std::fprintf(f, "{\n  \"schemaVersion\": 1,\n  \"sampleRate\": %.0f,\n  \"blockSize\": %d,\n", kSampleRate,
+                     kBlock);
         std::fprintf(f, "  \"epochs\": %d,\n  \"tRefSeconds\": %.9e,\n  \"benchmarks\": {\n", kEpochs, tRef);
         for (std::size_t i = 0; i < results.size(); ++i)
             std::fprintf(f, "    \"%s\": { \"tMedianSeconds\": %.9e, \"cpuPercent\": %.6f, \"r\": %.9f }%s\n",

@@ -17,6 +17,13 @@
       "baseline": "first osp-bench run, #46, 2026-10-25, local VS 2022 Release build, T_ref 10.45 ms",
       "headroom": "maxCpuPercent is about 50x the measured 0.0011 %: the block is far below timer noise, so only gross regressions should trip it"
     },
+    "comp": {
+      "kind": "block",
+      "r0": 0.1465,
+      "maxCpuPercent": 0.5,
+      "baseline": "first osp-bench run, #66, 2026-10-25, local VS 2022 Release build (3 runs: R 0.1445-0.1521, 0.149-0.154 %)",
+      "headroom": "about 3.3x the measured 0.15 %: defaults (opto) with the tone tilt on; all three mode detectors run every sample"
+    },
     "passthrough_chain": {
       "kind": "full_chain",
       "r0": 0.000486,
