@@ -14,9 +14,10 @@ jobs:
     # VS 2022 / MSVC v143 is required by AGENTS.md section 3, so pin the image rather than windows-latest.
     runs-on: windows-2022
     steps:
+      # LFS on: the asset tests (#69) read the bundled CC0 IRs and DI clips (~1.4 MB).
       - uses: actions/checkout@v4
         with:
-          lfs: false
+          lfs: true
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64

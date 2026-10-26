@@ -5,10 +5,7 @@ target_include_directories(osp_ebur128 SYSTEM PUBLIC "${libebur128_SOURCE_DIR}/e
 target_include_directories(osp_ebur128 PRIVATE "${libebur128_SOURCE_DIR}/ebur128/queue")
 target_compile_definitions(osp_ebur128 PRIVATE _USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS)
 
-add_library(osp_dr_wav STATIC render/dr_wav_impl.c)
-target_include_directories(osp_dr_wav SYSTEM PUBLIC "${dr_libs_SOURCE_DIR}")
-target_compile_definitions(osp_dr_wav PRIVATE _CRT_SECURE_NO_WARNINGS)
-
+# osp_dr_wav is defined in cmake/OspDependencies.cmake (shared with the tests).
 add_executable(osp-render render/osp_render.cpp)
 target_link_libraries(osp-render PRIVATE osp_engine osp_ebur128 osp_dr_wav)
 osp_apply_settings(osp-render)

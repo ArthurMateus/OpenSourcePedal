@@ -53,6 +53,11 @@ if(OSP_BUILD_TOOLS)
         GIT_TAG        67b33abe1558160ed76ada1322329b0e9e058b02 # v1.2.6
         GIT_SHALLOW    OFF
         SOURCE_SUBDIR  osp-no-build)
+    FetchContent_MakeAvailable(libebur128)
+endif()
+
+# dr_wav reads WAV files for tools/osp-render and for the tests that load the CC0 assets (#69). One shared target.
+if(OSP_BUILD_TESTS OR OSP_BUILD_TOOLS)
     # dr_libs (dr_wav 0.14.6, Unlicense OR MIT-0). dr_libs has no per-library tags. This commit's dr_wav.h reports
     # 0.14.6 (DRWAV_VERSION_*, checked 2026-10-25).
     FetchContent_Declare(dr_libs
@@ -60,5 +65,8 @@ if(OSP_BUILD_TOOLS)
         GIT_TAG        14423ee630e4b36596d042fa055d7f1d0a02ca38 # dr_wav 0.14.6
         GIT_SHALLOW    OFF
         SOURCE_SUBDIR  osp-no-build)
-    FetchContent_MakeAvailable(libebur128 dr_libs)
+    FetchContent_MakeAvailable(dr_libs)
+    add_library(osp_dr_wav STATIC "${CMAKE_SOURCE_DIR}/tools/render/dr_wav_impl.c")
+    target_include_directories(osp_dr_wav SYSTEM PUBLIC "${dr_libs_SOURCE_DIR}")
+    target_compile_definitions(osp_dr_wav PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif()
