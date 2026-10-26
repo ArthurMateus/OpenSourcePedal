@@ -17,11 +17,14 @@ osp_apply_settings(osp_measure)
 add_executable(osp_tests
     dsp/test_adaa.cpp
     dsp/test_compressor.cpp
+    dsp/test_eq.cpp
     dsp/test_fdn_tank.cpp
     dsp/test_svf.cpp
     dsp/test_gain.cpp
+    dsp/test_gate.cpp
     dsp/test_util.cpp
     engine/test_chain.cpp
+    engine/test_engine.cpp
     engine/test_version.cpp
     measure/test_measure.cpp
     measure/test_spectral.cpp

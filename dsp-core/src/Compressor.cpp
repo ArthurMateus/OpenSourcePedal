@@ -50,6 +50,7 @@ float Compressor::Detector::next(float x) noexcept
 Compressor::Compressor() noexcept
 {
     threshold_.reset(thresholdTarget_);
+    tone_.reset(5.0f);
     blend_.reset(1.0f);
     makeup_.reset(1.0f);
     updateAutoMakeup();
@@ -63,6 +64,8 @@ void Compressor::prepare(double sampleRate, int /*maxBlockSize*/) noexcept
     makeup_.prepare(sampleRate, 0.020);
     autoGain_.prepare(sampleRate, 0.010);
     modeFade_.prepare(sampleRate, 0.010);
+    tone_.prepare(sampleRate, 0.020);
+    tiltK_ = 1.0 / std::tan(3.14159265358979323846 * kTiltPivotHz / sampleRate);
     updateCoefficients();
     reset();
 }
@@ -78,6 +81,10 @@ void Compressor::reset() noexcept
     modeFrom_ = modeTo_ = pendingMode_;
     modeFade_.reset(0.0f);
     grDb_ = 0.0f;
+    tone_.reset(tone_.target());
+    x1_ = y1_ = 0.0f;
+    if (isPrepared())
+        updateTilt(tone_.target());
 }
 
 void Compressor::setThresholdDb(float dB) noexcept
@@ -139,6 +146,46 @@ void Compressor::setMode(CompMode mode) noexcept
     pendingMode_ = mode;
     if (!isPrepared())
         modeFrom_ = modeTo_ = mode;
+}
+
+void Compressor::setTone(float knob) noexcept
+{
+    tone_.setTarget(clampf(knob, 0.0f, 10.0f));
+}
+
+void Compressor::updateTilt(float knob) noexcept
+{
+    tiltKnob_ = knob;
+    // Bilinear, prewarped at the pivot: a0 = k + G, b0 = (G k + 1) / a0, b1 = (1 - G k) / a0, a1 = (G - k) / a0.
+    const double g = std::pow(10.0, (static_cast<double>(knob) - 5.0) * 1.2 / 20.0);
+    const double a0 = tiltK_ + g;
+    b0_ = static_cast<float>((g * tiltK_ + 1.0) / a0);
+    b1_ = static_cast<float>((1.0 - g * tiltK_) / a0);
+    a1_ = static_cast<float>((g - tiltK_) / a0);
+}
+
+void Compressor::processTilt(float* out, int numSamples) noexcept
+{
+    if (!tone_.isSmoothing() && tone_.target() == 5.0f) {
+        // Flat: skip the filter, but keep its state consistent with the identity so that leaving 5 is seamless.
+        if (b0_ != 1.0f)
+            updateTilt(5.0f);
+        x1_ = y1_ = out[numSamples - 1];
+        return;
+    }
+    for (int i = 0; i < numSamples; ++i) {
+        const float knob = tone_.next();
+        if (knob != tiltKnob_)
+            updateTilt(knob);
+        const float x = out[i];
+        float y = b0_ * x + b1_ * x1_ - a1_ * y1_;
+        // The tail decays by |a1| per sample: snap it at -400 dB so it never goes subnormal, even with FTZ off.
+        if (std::abs(y) < 1.0e-20f)
+            y = 0.0f;
+        x1_ = std::abs(x) < 1.0e-20f ? 0.0f : x;
+        y1_ = y;
+        out[i] = y;
+    }
 }
 
 void Compressor::updateCoefficients() noexcept
@@ -209,8 +256,9 @@ void Compressor::process(const float* in, float* out, int numSamples) noexcept
 
         const float wet = x * g * makeup_.next() * autoGain_.next();
         const float b = blend_.next();
-        out[i] = (1.0f - b) * x + b * wet;
+        out[i] = x + b * (wet - x); // exact dry at b = 0, and exact identity at every b when wet == dry
     }
+    processTilt(out, numSamples);
 }
 
 } // namespace osp::dsp
