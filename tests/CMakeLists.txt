@@ -16,6 +16,7 @@ osp_apply_settings(osp_measure)
 
 add_executable(osp_tests
     dsp/test_gain.cpp
+    dsp/test_gate.cpp
     dsp/test_util.cpp
     engine/test_chain.cpp
     engine/test_version.cpp

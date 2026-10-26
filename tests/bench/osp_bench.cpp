@@ -7,6 +7,7 @@
 // tests/bench/budget.json.
 
 #include "osp/dsp/Gain.h"
+#include "osp/dsp/Gate.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
 #include "osp/dsp/util/Smoothers.h"
@@ -163,6 +164,15 @@ int main(int argc, char** argv)
                            xf.setTarget((blockCount++ / 75) % 2 == 0);
                            pad.process(in, padded.data(), n);
                            xf.process(in, padded.data(), out, n);
+                       })});
+
+    // Noise gate (enabled, defaults) on the noise input: peak detector + state machine + gain per sample.
+    osp::dsp::Gate gate;
+    gate.prepare(kSampleRate, kBlock);
+    gate.setEnabled(true);
+    gate.reset();
+    results.push_back({"gate", measure(bench, "gate", input, [&](const float* in, float* out, int n) {
+                           gate.process(in, out, n);
                        })});
 
     // Pass-through chain (the full engine chain as it stands), at 0 dB.
