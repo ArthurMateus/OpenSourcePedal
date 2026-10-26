@@ -57,8 +57,8 @@
 |---|---|---|---|
 | #62 measurement harness | Sable | #80, #84 | MERGED (Signalsmith dsp FFT, ADR-0006 A1) |
 | #63 oversampler + ADAA | Sable | #86 MERGED. #96 APPROVED (Moth @1ac07d4); orchestrator main-merges 12a0851, 2b1da82 (conflict-only) | auto-merge on green. Part 3 (FIR HQ) deferred |
-| #67 drive | Sable | dsp/67-drive (WIP + handoff pushed) | ASR gates fail (~-30 dB @5 kHz vs -40) via D3 decimator transition band; investigating, outcome goes to #98 |
-| #98 ADR-0005 D3 wording + possible decimator amendment | Sable (with #67) | | filed |
+| #67 drive | Sable | #102 part 1/2 DriveStage (4 voicings, ADAA2, +728; stacked on #101) | review: Wren after #61. Part 2 (DriveRegion / OS-1) in progress |
+| #98 ADR-0005 A1 (stage-0 decimator 75 dB / 0.01) + D3 wording | Sable | #101 (base main) APPROVED acct2, conditional: Status → Accepted | merge after #96; retarget #102 first |
 | #99 HIIR release-asset mirror | release-devops (Wren after #43) | | filed |
 | #64 smoothing primitives | Moth acct3 | #82 | MERGED |
 | #66 compressor | Lyra | #85, #87 MERGED (dea4eb3, approved by Wren) | DONE (issue closed) |
