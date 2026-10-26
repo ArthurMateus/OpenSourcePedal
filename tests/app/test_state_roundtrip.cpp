@@ -54,6 +54,25 @@ TEST_CASE("App: state round-trips byte for byte and restores the audio", "[app][
     REQUIRE(render(restored) == render(source));
 }
 
+TEST_CASE("App: the full output.levelDb range round-trips, including below the old -24 dB floor", "[app][state]")
+{
+    const juce::ScopedJuceInitialiser_GUI juce;
+
+    // parameters.md §3.6: -60...+12 dB. -48 dB was clamped to -24 dB by the earlier NormalisableRange.
+    for (const float db : {-60.0f, -48.0f, 12.0f}) {
+        CAPTURE(db);
+        osp::app::PluginProcessor source;
+        setLevel(source, db);
+        REQUIRE(source.parameters().getRawParameterValue("output.levelDb")->load() == db);
+        const auto saved = getState(source);
+
+        osp::app::PluginProcessor restored;
+        restored.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
+        CHECK(restored.parameters().getRawParameterValue("output.levelDb")->load() == db);
+        REQUIRE(getState(restored) == saved);
+    }
+}
+
 TEST_CASE("App: an invalid state blob is ignored and the current state kept", "[app][state]")
 {
     const juce::ScopedJuceInitialiser_GUI juce;

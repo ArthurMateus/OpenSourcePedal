@@ -23,8 +23,10 @@ PluginProcessor::PluginProcessor()
 juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
+    // Range = parameters.md §3.6 (-60...+12 dB). Restore clamps through convertTo0to1(), so a narrower range here
+    // would silently change any valid blob outside it.
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{kGainId, 1}, "Output Level",
-                                                           juce::NormalisableRange<float>{-24.0f, 12.0f, 0.1f}, 0.0f,
+                                                           juce::NormalisableRange<float>{-60.0f, 12.0f, 0.1f}, 0.0f,
                                                            juce::AudioParameterFloatAttributes{}.withLabel("dB")));
     return layout;
 }

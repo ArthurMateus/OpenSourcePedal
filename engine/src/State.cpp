@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <exception>
 
 namespace osp::engine {
 
@@ -78,12 +79,15 @@ std::optional<PluginState> readState(std::string_view json) noexcept
         state.presetId = preset.at("id").get<std::string>();
         state.presetName = preset.at("name").get<std::string>();
         state.dirty = blob.at("source").value("dirty", false);
+        // No "output" block (or no levelDb) means the default 0 dB, as in a preset that omits a block (v1).
         for (const auto& block : preset.at("blocks"))
             if (block.value("id", "") == "output")
                 state.outputLevelDb = block.at("params").value("levelDb", 0.0);
         return state;
     } catch (const nlohmann::json::exception&) {
         return std::nullopt; // missing field or wrong type
+    } catch (const std::exception&) {
+        return std::nullopt; // std::bad_alloc while parsing: noexcept must not turn it into std::terminate
     }
 }
 
