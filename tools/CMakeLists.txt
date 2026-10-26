@@ -12,3 +12,7 @@ target_compile_definitions(osp_dr_wav PRIVATE _CRT_SECURE_NO_WARNINGS)
 add_executable(osp-render render/osp_render.cpp)
 target_link_libraries(osp-render PRIVATE osp_engine osp_ebur128 osp_dr_wav)
 osp_apply_settings(osp-render)
+
+# Prints the HIIR halfband coefficients committed in dsp-core/src/oversampling/Oversampler.cpp (ADR-0005 D1, D3).
+add_executable(osp-hiir-design design/hiir_coefs.cpp "${hiir_SOURCE_DIR}/hiir/PolyphaseIir2Designer.cpp")
+target_include_directories(osp-hiir-design SYSTEM PRIVATE "${hiir_SOURCE_DIR}")
