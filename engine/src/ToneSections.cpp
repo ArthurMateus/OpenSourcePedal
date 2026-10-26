@@ -12,6 +12,9 @@ namespace {
 
 constexpr double kPartImbalanceDb = 12.0;  // one side this much louder ...
 constexpr double kPartImbalanceShare = 0.2; // ... in this share of the windows: a guitar playing alone on that side
+// A second part has to really play: active (against the louder channel's loudest window) in this share of the
+// windows where anything plays, so a hard-panned guitar's bleed on the other side is not "guitar 2" (#121 review).
+constexpr double kMinPartShare = 0.2;
 // Tones last for a section, playing changes inside one are short: a mode filter over this many consecutive active
 // windows absorbs runs of <= 2 windows (4 s at the default hop). The synthetic songs in tools/tonematch/matrix.py
 // split a constant tone at a strum -> arpeggio -> ring-out change without it.
@@ -47,7 +50,9 @@ Bands smoothed(const Bands& x) noexcept
     return out;
 }
 
-std::vector<Window> windows(const std::vector<float>& x, double fs, const SectionOptions& o)
+// Windows over x, gated against `loudestDb` (the loudest window of x itself when it is not finite).
+std::vector<Window>
+windows(const std::vector<float>& x, double fs, const SectionOptions& o, double loudestDb = -HUGE_VAL)
 {
     const auto len = static_cast<std::size_t>(o.windowSeconds * fs);
     const auto hop = std::max<std::size_t>(1, static_cast<std::size_t>(o.hopSeconds * fs));
@@ -60,10 +65,12 @@ std::vector<Window> windows(const std::vector<float>& x, double fs, const Sectio
         if (w.back().end < x.size()) // the tail, as a full-length window ending at the last sample
             w.push_back({x.size() - len, x.size()});
     }
-    double loudest = -HUGE_VAL;
+    double loudest = loudestDb;
+    const bool own = !std::isfinite(loudestDb);
     for (auto& v : w) {
         v.rmsDb = rmsDb(x, v.start, v.end);
-        loudest = std::max(loudest, v.rmsDb);
+        if (own)
+            loudest = std::max(loudest, v.rmsDb);
     }
     AnalysisOptions a = o.analysis;
     a.maxSeconds = o.windowSeconds + 1.0;
@@ -165,10 +172,17 @@ std::vector<int> cluster(const std::vector<Window>& w, const SectionOptions& o, 
             std::vector<int> count(groups.size(), 0);
             for (std::size_t j = i > half ? i - half : 0; j <= std::min(m - 1, i + half); ++j)
                 ++count[static_cast<std::size_t>(label[j])];
+            const int most = *std::max_element(count.begin(), count.end());
+            // Ties: the window's own label, else the previous window's (continuity), else the lowest index.
             int best = label[i];
-            for (std::size_t g = 0; g < count.size(); ++g)
-                if (count[g] > count[static_cast<std::size_t>(best)])
-                    best = static_cast<int>(g);
+            if (count[static_cast<std::size_t>(best)] != most) {
+                best = -1;
+                if (i > 0 && count[static_cast<std::size_t>(next[i - 1])] == most)
+                    best = next[i - 1];
+                for (std::size_t g = 0; best < 0 && g < count.size(); ++g)
+                    if (count[g] == most)
+                        best = static_cast<int>(g);
+            }
             next[i] = best;
         }
         label = next;
@@ -198,24 +212,37 @@ SectionResult findSections(const float* left, const float* right, std::size_t n,
         bool split = false;
         if (o.splitParts) {
             const auto l = source(left, right, n, fs, Source::left), r = source(left, right, n, fs, Source::right);
-            const auto wl = windows(l, fs, o), wr = windows(r, fs, o);
+            // Both sides are gated against the louder channel's loudest window, so a quiet side is only "active"
+            // where it really plays (#121 review: per-side gates turned -40 dB bleed into a second guitar).
+            double loudest = -HUGE_VAL;
+            for (const auto* x : {&l, &r})
+                for (const auto& v : windows(*x, fs, [&] {
+                         SectionOptions q = o;
+                         q.silenceDb = HUGE_VAL; // RMS only: no window passes this gate, so none is analysed
+                         return q;
+                     }()))
+                    loudest = std::max(loudest, v.rmsDb);
+            const auto wl = windows(l, fs, o, loudest), wr = windows(r, fs, o, loudest);
             std::vector<double> dist;
-            int imbalanced = 0, active = 0;
+            int imbalanced = 0, active = 0, activeL = 0, activeR = 0;
             for (std::size_t i = 0; i < wl.size(); ++i) {
                 if (!wl[i].active && !wr[i].active)
                     continue;
                 ++active;
+                activeL += wl[i].active ? 1 : 0;
+                activeR += wr[i].active ? 1 : 0;
                 if (std::abs(wl[i].rmsDb - wr[i].rmsDb) > kPartImbalanceDb)
                     ++imbalanced;
                 else if (wl[i].active && wr[i].active)
                     dist.push_back(toneDistance(wl[i].profile, wr[i].profile));
             }
+            const bool bothPlay = active > 0 && std::min(activeL, activeR) >= kMinPartShare * active;
             double median = 0.0;
             if (!dist.empty()) {
                 std::nth_element(dist.begin(), dist.begin() + static_cast<std::ptrdiff_t>(dist.size() / 2), dist.end());
                 median = dist[dist.size() / 2];
             }
-            split = (active > 0 && imbalanced >= kPartImbalanceShare * active) || median > kSplitPartsDistance;
+            split = bothPlay && (imbalanced >= kPartImbalanceShare * active || median > kSplitPartsDistance);
         }
         if (split) {
             result.parts.push_back({Source::left, "left"});
@@ -231,8 +258,14 @@ SectionResult findSections(const float* left, const float* right, std::size_t n,
         const auto x = source(left, right, n, fs, result.parts[p].source);
         const auto w = windows(x, fs, o);
         const auto id = cluster(w, o, o.hopSeconds);
-        // Each window owns its central hop of time (the first and last reach the ends), so ranges tile without overlap.
+        // Each window owns its central hop of time, the first from 0 and the last to the end; every core starts where
+        // the previous one ends, so the ranges tile without overlap even when the tail window is off the hop grid.
         const double half = 0.5 * (o.windowSeconds - o.hopSeconds);
+        std::vector<double> coreEnd(w.size());
+        for (std::size_t i = 0; i < w.size(); ++i)
+            coreEnd[i] = i + 1 == w.size() ? static_cast<double>(n) / fs
+                                           : std::min(static_cast<double>(n) / fs,
+                                                      static_cast<double>(w[i].start) / fs + half + o.hopSeconds);
         std::vector<int> order; // groups in order of first appearance
         for (int g : id)
             if (g >= 0 && std::find(order.begin(), order.end(), g) == order.end())
@@ -244,11 +277,9 @@ SectionResult findSections(const float* left, const float* right, std::size_t n,
             for (std::size_t i = 0; i < w.size(); ++i) {
                 if (id[i] != order[t])
                     continue;
-                double a = static_cast<double>(w[i].start) / fs + half, b = a + o.hopSeconds;
-                if (i == 0)
-                    a = 0.0;
-                if (i + 1 == w.size())
-                    b = static_cast<double>(n) / fs;
+                const double a = i == 0 ? 0.0 : coreEnd[i - 1], b = coreEnd[i];
+                if (b <= a)
+                    continue;
                 if (!sec.ranges.empty() && a <= sec.ranges.back().endSeconds + 1e-9)
                     sec.ranges.back().endSeconds = std::max(sec.ranges.back().endSeconds, b);
                 else
@@ -261,8 +292,38 @@ SectionResult findSections(const float* left, const float* right, std::size_t n,
     }
     if (result.sections.empty())
         throw std::invalid_argument("tonematch: no guitar loud enough to analyse");
+    // A part with no section (silent after the gates) is dropped, and the parts are renumbered.
+    std::vector<int> remap(result.parts.size(), -1);
+    std::vector<GuitarPart> kept;
+    for (std::size_t p = 0; p < result.parts.size(); ++p)
+        for (const auto& sec : result.sections)
+            if (sec.part == static_cast<int>(p)) {
+                remap[p] = static_cast<int>(kept.size());
+                kept.push_back(result.parts[p]);
+                break;
+            }
+    result.parts = std::move(kept);
     for (auto& sec : result.sections)
-        sec.profile = analyse(sectionAudio(left, right, n, fs, result, sec), fs, o.analysis);
+        sec.part = remap[static_cast<std::size_t>(sec.part)];
+    // analyse() reads at most maxSeconds: a long section is profiled from window-length chunks spread evenly over
+    // all of it, not from its first maxSeconds (#121 review).
+    for (auto& sec : result.sections) {
+        auto audio = sectionAudio(left, right, n, fs, result, sec);
+        const auto cap = static_cast<std::size_t>(o.analysis.maxSeconds * fs);
+        const auto chunk = static_cast<std::size_t>(o.windowSeconds * fs);
+        if (audio.size() > cap && chunk > 0 && cap >= chunk) {
+            const std::size_t k = cap / chunk;
+            std::vector<float> even;
+            even.reserve(k * chunk);
+            for (std::size_t c = 0; c < k; ++c) {
+                const std::size_t at = (audio.size() - chunk) * c / std::max<std::size_t>(1, k - 1);
+                even.insert(even.end(), audio.begin() + static_cast<std::ptrdiff_t>(at),
+                            audio.begin() + static_cast<std::ptrdiff_t>(at + chunk));
+            }
+            audio = std::move(even);
+        }
+        sec.profile = analyse(audio, fs, o.analysis);
+    }
     return result;
 }
 

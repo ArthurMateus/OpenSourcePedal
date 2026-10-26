@@ -406,6 +406,8 @@ Matcher& Matcher::operator=(Matcher&&) noexcept = default;
 
 MatchResult Matcher::match(const Profile& ref) const
 {
+    if (!s_)
+        throw std::logic_error("tonematch: Matcher used after being moved from");
     const State& st = *s_;
     const auto& di = st.di;
     const double fs = st.fs;
@@ -507,6 +509,8 @@ MatchResult Matcher::match(const Profile& ref) const
 MatchResult match(
     const Profile& ref, const std::vector<float>& di, double fs, const std::vector<CabIr>& cabs, const MatchOptions& o)
 {
+    if (ref.sampleRate > 0.0 && ref.sampleRate != fs) // before the expensive renders (#121 review)
+        throw std::invalid_argument("tonematch: reference profiled at a different rate than the DI; resample it");
     return Matcher(di, fs, cabs, o).match(ref);
 }
 

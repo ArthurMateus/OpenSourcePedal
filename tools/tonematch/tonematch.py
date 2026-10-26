@@ -119,15 +119,17 @@ def wav_for_demucs(ref: Path, work: Path, key: str) -> Path:
         import soundfile as sf
 
         data, rate = sf.read(str(ref), always_2d=True)
-        sf.write(str(out), data, rate, subtype="FLOAT")
+        tmp = out.with_suffix(".part.wav")  # renamed when complete: an interrupted run never caches a truncated file
+        sf.write(str(tmp), data, rate, subtype="FLOAT")
+        tmp.replace(out)
         return out
     except Exception:  # not installed, or a format libsndfile cannot read
-        return to_wav(ref, work) if ref.suffix.lower() != ".mp3" else ffmpeg_wav(ref, out)
+        return ffmpeg_wav(ref, out)
 
 
 def ffmpeg_wav(ref: Path, out: Path) -> Path:
     if shutil.which("ffmpeg") is None:
-        fail("--stem on an MP3 needs soundfile (pip install soundfile) or ffmpeg on PATH")
+        fail(f"--stem on a {ref.suffix} file needs soundfile (pip install soundfile) or ffmpeg on PATH")
     if subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(ref), str(out)]).returncode != 0:
         fail(f"ffmpeg could not convert {ref}")
     return out

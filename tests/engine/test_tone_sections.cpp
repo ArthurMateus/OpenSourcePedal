@@ -10,7 +10,9 @@
 
 #include <dr_wav.h>
 
+#include <algorithm>
 #include <cmath>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -165,4 +167,66 @@ TEST_CASE("tonematch: a double-tracked guitar stays one part", "[tonematch]")
     const auto res = tmatch::findSections(l.data(), r.data(), std::min(l.size(), r.size()), fs);
     CHECK(res.parts.size() == 1);
     CHECK(res.sections.size() == 1);
+}
+
+TEST_CASE("tonematch: a hard-panned guitar with bleed, or a silent side, is one part", "[tonematch]")
+{
+    unsigned rate = 0;
+    const auto di = readMono(std::string(OSP_ASSET_DIR) + "/di/strum-arp-01.wav", rate);
+    const double fs = rate;
+    const auto c = cabs(fs);
+    tmatch::Setting crunch;
+    crunch.drive = tmatch::DriveKind::mid;
+    crunch.driveKnob = 5.0f;
+    const auto l = part(di, fs, 0.0, 9.0, crunch, c);
+    const float bleed = std::pow(10.0f, -40.0f / 20.0f); // #121 review: per-side gates made this "guitar 2"
+    std::vector<float> r(l.size());
+    for (std::size_t i = 0; i < l.size(); ++i)
+        r[i] = bleed * l[i];
+    const auto withBleed = tmatch::findSections(l.data(), r.data(), l.size(), fs);
+    CHECK(withBleed.parts.size() == 1);
+    std::fill(r.begin(), r.end(), 0.0f);
+    const auto silentSide = tmatch::findSections(l.data(), r.data(), l.size(), fs);
+    CHECK(silentSide.parts.size() == 1);
+    for (const auto& s : silentSide.sections)
+        CHECK(s.part == 0);
+}
+
+TEST_CASE("tonematch: findSections edge cases: mono, silence, short and off-grid input", "[tonematch]")
+{
+    unsigned rate = 0;
+    const auto di = readMono(std::string(OSP_ASSET_DIR) + "/di/strum-arp-01.wav", rate);
+    const double fs = rate;
+
+    // Mono: one part, labelled mono.
+    const auto mono = tmatch::findSections(di.data(), nullptr, di.size(), fs);
+    REQUIRE(mono.parts.size() == 1);
+    CHECK(mono.parts[0].source == tmatch::Source::mono);
+
+    // Silence throws, as documented.
+    const std::vector<float> silent(static_cast<std::size_t>(5.0 * fs), 0.0f);
+    CHECK_THROWS_AS(tmatch::findSections(silent.data(), nullptr, silent.size(), fs), std::invalid_argument);
+
+    // Shorter than one window: one window, one tone over the whole input.
+    const auto shortRes = tmatch::findSections(di.data(), nullptr, static_cast<std::size_t>(3.0 * fs), fs);
+    REQUIRE(shortRes.sections.size() == 1);
+    CHECK(std::abs(shortRes.sections[0].seconds - 3.0) < 1e-6);
+
+    // Off the hop grid (10.75 s with 4 s windows, 2 s hop) and no cap: the ranges of all tones tile the input once,
+    // with no overlap, and sectionAudio returns exactly the ranges' length.
+    tmatch::SectionOptions noCap;
+    noCap.maxTones = 0;
+    const auto off = tmatch::findSections(di.data(), nullptr, di.size(), fs, noCap);
+    std::vector<tmatch::TimeRange> all;
+    double total = 0.0;
+    for (const auto& s : off.sections) {
+        all.insert(all.end(), s.ranges.begin(), s.ranges.end());
+        total += s.seconds;
+        const auto audio = tmatch::sectionAudio(di.data(), nullptr, di.size(), fs, off, s);
+        CHECK(std::abs(static_cast<double>(audio.size()) / fs - s.seconds) < 2.0 / fs * s.ranges.size());
+    }
+    std::sort(all.begin(), all.end(), [](const auto& a, const auto& b) { return a.startSeconds < b.startSeconds; });
+    for (std::size_t i = 1; i < all.size(); ++i)
+        CHECK(all[i].startSeconds >= all[i - 1].endSeconds - 1e-9);
+    CHECK(total <= static_cast<double>(di.size()) / fs + 1e-6);
 }

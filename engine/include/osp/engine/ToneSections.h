@@ -5,9 +5,11 @@
 // parts and, per part, into the tones it uses over time, so each can be matched to its own preset:
 // "guitar 1, tone 1", "guitar 1, tone 2", "guitar 2, tone 1", ...
 //
-// - Parts: two parts (left, right) when the two channels carry clearly different tones (toneDistance >
-//   kSplitPartsDistance) and both play; otherwise one part from pickSource(automatic), as for a double-tracked
-//   guitar whose two takes share a tone.
+// - Parts: two parts (left, right) when both channels play (each active, against the louder channel, in >= 20 % of
+//   the windows where anything plays) and either one plays alone often (>= 12 dB louder in >= 20 % of them) or they
+//   carry clearly different tones (median toneDistance > kSplitPartsDistance). Otherwise one part from
+//   pickSource(automatic), as for a double-tracked guitar whose takes share a tone, or a hard-panned one with bleed.
+//   A part that ends up with no section is dropped.
 // - Tones: each part is cut into windows (windowSeconds, hop hopSeconds); windows where that part is silent are
 //   skipped; the rest are profiled and grouped by average-linkage clustering on toneDistance until the closest two
 //   groups are further apart than toneThreshold. Groups shorter than minToneSeconds (transitions, fills) join the

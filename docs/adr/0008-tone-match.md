@@ -87,11 +87,13 @@ tone 2") with its time ranges and, with `--render`, the matched render plus the 
 
 The CLI run takes about 40 s for a 10 s DI with 7 IRs (49 drive renders with HPSS); unverified on other CPUs.
 
-**Synthetic matrix** (`tools/tonematch/matrix.py`): 54 single-tone runs. The references come from numpy rigs that
-share no code with dsp-core: 6 clipper stagings × 3 post-cab EQs × all 7 IRs, on guitar A (bundled strummed DI) and
-guitar B (Karplus-Strong single notes, 48 kHz). Each match is scored against the oracle (the DI through the hidden
-rig) by an independent LTAS, energy-weighted flatness and envelope spread. Good = tone ≤ 1.5 dB, flatness ≤ 1 dB,
-spread ≤ 1.5 dB; fair = 3 / 2 / 3.
+**Synthetic matrix** (`tools/tonematch/matrix.py`, which computes every figure below): 54 single-tone runs = 36
+same-guitar (6 clipper stagings × 3 post-cab EQs × guitars A and B) + 12 cross-guitar + 6 full-mix. Each run uses
+one of the 7 bundled IRs, cycled over the runs; the references come from numpy rigs that share no code with dsp-core.
+Guitar A is the bundled strummed DI, guitar B Karplus-Strong single notes at 48 kHz. Each match is scored against the
+oracle (the DI through the hidden rig) by an independent LTAS, energy-weighted flatness and envelope spread. Good =
+tone ≤ 1.5 dB, flatness ≤ 1 dB, spread ≤ 1.5 dB; fair = 3 / 2 / 3. "Before" = the run-1 renders from the binaries
+without the #118/#119 envelope-spread fix, re-scored with the same grading; "After" = run 3 at this commit.
 
 | Group | Before envelope spread + weighted flatness | After |
 |---|---|---|
@@ -103,9 +105,12 @@ spread ≤ 1.5 dB; fair = 3 / 2 / 3.
 Run 1 also showed why: the bundled IRs' long lossy tails raised unweighted flatness by up to 7 dB on sparse playing,
 and on single notes clipping lowers flatness (−3 dB) instead of raising it.
 
-**Parts and tones** (synthetic, `--tones`): two guitars in a full mix: 2/2 parts, 2 + 1 tones, boundaries within
-1 s; one double-tracked guitar edge → metal → edge: 1 part, 2 tones, within 1 s; two guitars as a clean stem: 2/2
-parts, but guitar 1's clean tone split at a strum → arpeggio change (3 tones for 2).
+**Parts and tones** (synthetic, `--tones`; the CLI prints whole seconds, so 1 s is the resolution): two guitars in a
+full mix: 2/2 parts, 2 + 1 tones, worst boundary error 1 s; one double-tracked guitar edge → metal → edge: 1 part,
+2 tones, 1 s; two guitars as a clean stem: 2/2 parts, but guitar 1's clean tone split at a strum → arpeggio change
+(3 tones for 2). Found and true sections agree spectrally (tone 0.15–1.9 dB on the stem and double-track songs, but
+3.5–10 dB in the full mix), while the envelope spread of the driven sections is often 5–7 dB off: on excerpts the gain
+estimate is the weakest part.
 
 **Real songs** (three commercial recordings supplied by the owner, analysed locally and never committed; the bundled
 DI stood in for the player's guitar):

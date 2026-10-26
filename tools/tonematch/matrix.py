@@ -17,8 +17,10 @@ filters), so the matcher has to approximate tones it cannot reproduce exactly, a
                    1gtr-double  one double-tracked guitar, edge -> metal -> edge
 
 The score compares the matched render with the oracle: the player's own DI through the hidden rig, the best any
-match could do. Both are measured here with an independent LTAS / whitened-flatness implementation (no HPSS, since
-both are solo guitar).
+match could do. Both are measured here with an independent implementation (no HPSS, since both are solo guitar): the
+weighted 1/4-octave LTAS residual (tone), energy-weighted whitened flatness and envelope spread. Grades: good = tone
+<= 1.5 dB, flatness <= 1 dB, spread <= 1.5 dB; fair = 3 / 2 / 3; else BREAKS. Each run uses one IR, cycled over
+the 7 bundled ones; 54 single-tone runs = 36 same-guitar + 12 cross-guitar + 6 mix, plus 3 --tones songs.
 
   python tools/tonematch/matrix.py --exe build/release/tools/osp-tonematch.exe --di-b <ks_di_48000.wav> --out <dir>
 """
@@ -206,21 +208,34 @@ def residual(a, b):
     return float(np.sqrt(np.sum(WEIGHT * d * d) / WEIGHT.sum()))
 
 
-def flatness(x, fs):
+def gain_features(x, fs):
+    """Energy-weighted whitened flatness per octave (500 Hz-8 kHz) and envelope spread (P90 - P20 of band frame
+    energy, 250 Hz-8 kHz): the same definitions as ToneProfile.cpp, implemented independently here."""
     n = 4096 if fs < 66000 else 8192
     f, _, z = signal.stft(x, fs, nperseg=n, noverlap=3 * n // 4, boundary=None, padded=False)
     p = np.abs(z) ** 2
     e = p.sum(0)
     keep = e > np.percentile(e, 95) * 10 ** -4.5
-    p = p[:, keep]
+    p, e = p[:, keep], e[keep]
     ltas = p.mean(1, keepdims=True)
     r = np.maximum(p / np.maximum(ltas, 1e-30), 1e-12)
-    out = []
+    flat, spread = [], []
     for lo in (500, 1000, 2000, 4000):
         sel = (f >= lo) & (f <= 2 * lo)
         q = r[sel]
-        out.append(np.mean(10 * np.log10(np.exp(np.log(q).mean(0)) / q.mean(0))))
-    return np.array(out)
+        flat.append(np.average(10 * np.log10(np.exp(np.log(q).mean(0)) / q.mean(0)), weights=e))
+    for lo in (250, 500, 1000, 2000, 4000):
+        sel = (f >= lo) & (f < 2 * lo)
+        be = 10 * np.log10(p[sel].sum(0) + 1e-30)
+        spread.append(np.percentile(be, 90) - np.percentile(be, 20))
+    return np.array(flat), np.array(spread)
+
+
+def gain_diffs(got, oracle, fs):
+    """RMS dB differences of flatness and envelope spread between a render and its oracle."""
+    fa, sa = gain_features(got, fs)
+    fb, sb = gain_features(oracle, fs)
+    return float(np.sqrt(np.mean((fa - fb) ** 2))), float(np.sqrt(np.mean((sa - sb) ** 2)))
 
 
 # --- Runs ------------------------------------------------------------------------------------------------------------
@@ -278,9 +293,7 @@ def execute(run: Run, guitars, exe: Path, work: Path) -> Run:
     r["cab_hidden"] = CABS[run.cab].stem
     r["tone_residual"] = residual(bands_db(got, di_fs), bands_db(oracle, di_fs))
     r["unmatched_residual"] = residual(bands_db(di_x, di_fs), bands_db(oracle, di_fs))
-    r["flatness_diff"] = float(np.sqrt(np.mean((flatness(got, di_fs) - flatness(oracle, di_fs)) ** 2)))
-    r["flatness_oracle"] = [round(v, 2) for v in flatness(oracle, di_fs)]
-    r["flatness_got"] = [round(v, 2) for v in flatness(got, di_fs)]
+    r["flatness_diff"], r["spread_diff"] = gain_diffs(got, oracle, di_fs)
     run.result = r
     return run
 
@@ -354,6 +367,7 @@ def execute_sections(run, guitars, exe, work):
                       "setting": m.group(4).strip(), "cli_residual": float(m.group(3))})
     # Score each found tone against the truth section it overlaps most, with the oracle = the DI through that rig.
     for f in found:
+        f["truth"] = None
         best, overlap = None, 0.0
         for tp, secs in truth:
             if len(truth) > 1 and tp != f["part"]:  # parts are left, right in both lists
@@ -363,25 +377,36 @@ def execute_sections(run, guitars, exe, work):
                 if o > overlap:
                     best, overlap = (tp, r, c), o
         f["truth"] = best
+        if best is None:  # a found tone that overlaps no truth section of its part
+            continue
         got, _ = read(d / f"r-g{f['part'] + 1}-t{f['tone'] + 1}.wav")
         oracle = rig(a, fs, best[1], best[2], "flat")
         f["tone_residual"] = residual(bands_db(mono(got), fs), bands_db(oracle, fs))
-        f["flatness_diff"] = float(np.sqrt(np.mean((flatness(mono(got), fs) - flatness(oracle, fs)) ** 2)))
+        f["flatness_diff"], f["spread_diff"] = gain_diffs(mono(got), oracle, fs)
+    # Boundary error: every true tone change inside a part against the nearest found range edge of that part. The CLI
+    # prints whole seconds, so 1 s is also the resolution of this check.
+    boundary = []
+    for tp, secs in truth:
+        edges = [e for f in found if f["part"] == tp or len(truth) == 1 for rng in f["ranges"] for e in rng]
+        for (r0, _, _, t1), (r1, _, _, _) in zip(secs, secs[1:]):
+            if r0 != r1 and edges:
+                boundary.append(min(abs(e - t1) for e in edges))
     want_tones = {tp: len({r for r, _, _, _ in secs}) for tp, secs in truth}
     got_tones = {}
     for f in found:
         got_tones[f["part"]] = got_tones.get(f["part"], 0) + 1
     run.result = {"parts_found": int(parts.group(1)) if parts else 0, "parts_true": len(truth),
-                  "tones_found": got_tones, "tones_true": want_tones, "found": found}
+                  "tones_found": got_tones, "tones_true": want_tones, "found": found,
+                  "max_boundary_error": max(boundary) if boundary else None}
     return run
 
 
 def grade(r: dict) -> str:
     if "error" in r:
         return "ERROR"
-    if r["tone_residual"] <= 1.5 and r["flatness_diff"] <= 1.0:
+    if r["tone_residual"] <= 1.5 and r["flatness_diff"] <= 1.0 and r["spread_diff"] <= 1.5:
         return "good"
-    if r["tone_residual"] <= 3.0 and r["flatness_diff"] <= 2.0:
+    if r["tone_residual"] <= 3.0 and r["flatness_diff"] <= 2.0 and r["spread_diff"] <= 3.0:
         return "fair"
     return "BREAKS"
 
@@ -429,7 +454,7 @@ def main() -> int:
     for r in done:
         rows.append({"name": r.name, "mode": r.mode, "rig": r.rig, "eq": r.eq, "grade": grade(r.result), **r.result})
     (work / "results.json").write_text(json.dumps(rows, indent=1), encoding="utf-8")
-    print(f"{'run':28} {'grade':6} {'tone':>5} {'unm':>5} {'flat':>5}  cab hidden/found      drive")
+    print(f"{'run':28} {'grade':6} {'tone':>5} {'unm':>5} {'flat':>5} {'sprd':>5}  cab hidden/found      drive")
     for row in rows:
         if row["mode"] == "sections":
             continue
@@ -438,7 +463,8 @@ def main() -> int:
             continue
         hit = "=" if row["cab_hidden"] == row["cab_found"] else "x"
         print(f"{row['name']:28} {row['grade']:6} {row['tone_residual']:5.2f} {row['unmatched_residual']:5.2f} "
-              f"{row['flatness_diff']:5.2f}  {row['cab_hidden']:>6} {hit} {row['cab_found']:<8} {row['drive']}")
+              f"{row['flatness_diff']:5.2f} {row['spread_diff']:5.2f}  {row['cab_hidden']:>6} {hit} "
+              f"{row['cab_found']:<8} {row['drive']}")
     for row in rows:
         if row["mode"] != "sections":
             continue
@@ -446,13 +472,18 @@ def main() -> int:
         if "error" in row:
             print("ERROR", row["error"])
             continue
+        be = row["max_boundary_error"]
         print(f"parts {row['parts_found']}/{row['parts_true']} found, tones per part found {row['tones_found']} "
-              f"(true {row['tones_true']})")
+              f"(true {row['tones_true']}), worst boundary error " + (f"{be:.0f} s" if be is not None else "n/a"))
         for f in row["found"]:
             rg = ", ".join(f"{a_}-{b}s" for a_, b in f["ranges"])
             tr = f["truth"]
+            if tr is None:
+                print(f"  guitar {f['part'] + 1} tone {f['tone'] + 1}: {rg:24} overlaps no truth section")
+                continue
             print(f"  guitar {f['part'] + 1} tone {f['tone'] + 1}: {rg:24} truth part {tr[0] + 1} {tr[1]:7} -> "
-                  f"{f['setting']:30} tone {f['tone_residual']:5.2f} dB, flat {f['flatness_diff']:4.2f} dB")
+                  f"{f['setting']:30} tone {f['tone_residual']:5.2f} dB, flat {f['flatness_diff']:4.2f} dB, "
+                  f"spread {f['spread_diff']:4.2f} dB")
     return 0
 
 

@@ -248,6 +248,8 @@ int main(int argc, char** argv)
     }
     if (refPath.empty() || diPath.empty() || outPath.empty())
         return usage();
+    if (!tones && maxTones != tmatch::SectionOptions{}.maxTones)
+        std::fprintf(stderr, "osp-tonematch: --max-tones only applies with --tones; ignored\n");
 
     try {
         Audio ref, di;
@@ -277,8 +279,12 @@ int main(int argc, char** argv)
         const auto left = channel(ref, 0, from, to);
         const auto right = channel(ref, 1, from, to);
         tmatch::Source used = tmatch::Source::mono;
-        const auto refMono =
-            pickSource(left.data(), ref.channels > 1 ? right.data() : nullptr, left.size(), ref.rate, source, &used);
+        // Stereo --tones with --source auto works on both channels; only the other paths need one mixed-down source
+        // (#121 review: it was computed and resampled for the whole song, then not used).
+        const bool stereoTones = tones && ref.channels > 1 && source == tmatch::Source::automatic;
+        const auto refMono = stereoTones ? std::vector<float>{}
+                                         : pickSource(left.data(), ref.channels > 1 ? right.data() : nullptr,
+                                                      left.size(), ref.rate, source, &used);
         // The DI is taken as mono (channel 0) at its own rate; the reference and the IRs are resampled to it, since
         // the profile is not rate-exact between 44.1 and 48 kHz (ToneProfile.h, #120 review).
         const auto diMono = channel(di, 0, 0, di.frames());
@@ -327,14 +333,18 @@ int main(int argc, char** argv)
             so.analysis = opt.analysis;
             so.maxTones = maxTones;
             // An explicit --source gives one part from that channel; auto lets the left/right split decide.
-            const bool stereo = ref.channels > 1 && source == tmatch::Source::automatic;
+            const bool stereo = stereoTones;
             const auto l = stereo ? atDi(left) : refAtDi;
             const auto rr = stereo ? atDi(right) : std::vector<float>{};
             const float* rp = stereo ? rr.data() : nullptr;
             std::printf("reference: %s (%u ch, %u Hz), %.1f-%.1f s, finding guitar parts and tones ...\n",
                         refPath.c_str(), ref.channels, ref.rate, static_cast<double>(from) / ref.rate,
                         static_cast<double>(to) / ref.rate);
-            const auto sec = tmatch::findSections(l.data(), rp, l.size(), fsDi, so);
+            auto sec = tmatch::findSections(l.data(), rp, l.size(), fsDi, so);
+            if (!stereo && ref.channels > 1) { // an explicit --source: name the channel it came from, not "mono"
+                sec.parts[0].source = used;
+                sec.parts[0].label = tmatch::toString(used);
+            }
             std::printf("%zu guitar part(s):", sec.parts.size());
             for (std::size_t i = 0; i < sec.parts.size(); ++i)
                 std::printf(" guitar %zu = %s%s", i + 1, sec.parts[i].label.c_str(),
@@ -368,9 +378,12 @@ int main(int argc, char** argv)
                 if (!renderPath.empty()) {
                     const std::string render = withSuffix(renderPath, tag),
                                       refWav = withSuffix(renderPath, tag + "-ref");
-                    if (!writeWav(render, tmatch::render(diMono, fsDi, st, cabs), di.rate) ||
-                        !writeWav(refWav, tmatch::sectionAudio(l.data(), rp, l.size(), fsDi, sec, t), di.rate)) {
+                    if (!writeWav(render, tmatch::render(diMono, fsDi, st, cabs), di.rate)) {
                         std::fprintf(stderr, "osp-tonematch: cannot write %s\n", render.c_str());
+                        return 1;
+                    }
+                    if (!writeWav(refWav, tmatch::sectionAudio(l.data(), rp, l.size(), fsDi, sec, t), di.rate)) {
+                        std::fprintf(stderr, "osp-tonematch: cannot write %s\n", refWav.c_str());
                         return 1;
                     }
                 }
