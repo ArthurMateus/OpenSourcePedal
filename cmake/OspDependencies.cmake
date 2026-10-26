@@ -5,9 +5,11 @@ include(FetchContent)
 
 # HIIR 1.50 (WTFPL-2.0), header-only, used by dsp-core's IIR oversampler (ADR-0005 D1, ADR-0006 D2). There is no
 # repository, only this archive, so it is pinned by SHA-256 (checked against ADR-0006 on 2026-10-26). The archive has
-# no CMakeLists.txt: SOURCE_SUBDIR keeps FetchContent to a download.
+# no CMakeLists.txt: SOURCE_SUBDIR keeps FetchContent to a download. The second URL is a byte-identical mirror on this
+# repo's `deps-hiir-1.50` pre-release (#99). CMake tries the URLs in order, and the hash is checked whichever one serves.
 FetchContent_Declare(hiir
     URL      http://ldesoras.fr/src/hiir-1.50.zip
+             https://github.com/ArthurMateus/OpenSourcePedal/releases/download/deps-hiir-1.50/hiir-1.50.zip
     URL_HASH SHA256=8a13724e8d698a40f53687d40466443879f6250abd2229097f3990b76e6855a6
     DOWNLOAD_EXTRACT_TIMESTAMP ON
     SOURCE_SUBDIR osp-no-build)
