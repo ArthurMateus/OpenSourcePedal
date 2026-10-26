@@ -59,6 +59,13 @@
       "baseline": "#66, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 5 runs (R 0.186-0.196, 0.209-0.218 %); earlier runs read R 0.145-0.21",
       "headroom": "about 2.9x the measured 0.21 %: defaults (opto) with the tone tilt on; all three mode detectors run every sample"
     },
+    "oversampler_fir_8x": {
+      "kind": "block",
+      "r0": 0.463274,
+      "maxCpuPercent": 2.0,
+      "baseline": "#63 part 3, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (0.47-0.49 %), T_ref 10.4-10.5 ms",
+      "headroom": "about 4x the measured 0.48 %: FIR halfband up + down at 8x (HQ), 58/32/34 even-phase taps per stage, identity processing; one HQ region"
+    },
     "passthrough_chain": {
       "kind": "full_chain",
       "r0": 0.000486,
