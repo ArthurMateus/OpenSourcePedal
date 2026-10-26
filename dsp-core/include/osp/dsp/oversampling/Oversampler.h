@@ -6,7 +6,8 @@
 // IIR (Live): HIIR 1.50 two-path polyphase allpass halfbands (L. de Soras, http://ldesoras.fr/prod.html#src_hiir,
 // WTFPL-2.0), after Valenzuela & Constantinides, "Digital Signal Processing Schemes for Efficient Interpolation and
 // Decimation", IEE Proceedings G 130(6), 1983. Coefficients per ADR-0005 D3 (JUCE's max-quality specs): stage 0 (the
-// fs <-> 2fs stage) 90 dB / 0.05 up and 75 dB / 0.06 down, later stages +10 dB per stage with twice the transition.
+// fs <-> 2fs stage) 90 dB / 0.05 up and 75 dB / 0.01 down (Amendment A1), later stages +10 dB per stage with
+// transitions 0.10 up and 0.12 down.
 // They come from HIIR's designer (tools/design/hiir_coefs.cpp) and are committed in src/oversampling/Oversampler.cpp.
 // The FIR (HQ) kind is #63 part 3.
 //
