@@ -147,11 +147,12 @@ int main(int argc, char** argv)
     pole.prepare(kSampleRate, 0.020);
     pole.reset(1.0f);
     blockCount = 0;
-    results.push_back({"smoother_onepole", measure(bench, "smoother_onepole", input, [&](const float* in, float* out, int n) {
-                           pole.setTarget((blockCount++ / 75) % 2 == 0 ? 0.5f : 1.0f);
-                           for (int i = 0; i < n; ++i)
-                               out[i] = in[i] * pole.next();
-                       })});
+    results.push_back(
+        {"smoother_onepole", measure(bench, "smoother_onepole", input, [&](const float* in, float* out, int n) {
+             pole.setTarget((blockCount++ / 75) % 2 == 0 ? 0.5f : 1.0f);
+             for (int i = 0; i < n; ++i)
+                 out[i] = in[i] * pole.next();
+         })});
 
     // Block-enable crossfade between dry and a 64-sample latency-padded copy, toggled every 75 blocks.
     osp::dsp::Crossfader xf;
@@ -161,11 +162,12 @@ int main(int argc, char** argv)
     pad.setDelay(kBlock);
     std::vector<float> padded(kBlock);
     blockCount = 0;
-    results.push_back({"crossfade_delay", measure(bench, "crossfade_delay", input, [&](const float* in, float* out, int n) {
-                           xf.setTarget((blockCount++ / 75) % 2 == 0);
-                           pad.process(in, padded.data(), n);
-                           xf.process(in, padded.data(), out, n);
-                       })});
+    results.push_back(
+        {"crossfade_delay", measure(bench, "crossfade_delay", input, [&](const float* in, float* out, int n) {
+             xf.setTarget((blockCount++ / 75) % 2 == 0);
+             pad.process(in, padded.data(), n);
+             xf.process(in, padded.data(), out, n);
+         })});
 
     // Pass-through chain (the full engine chain as it stands), at 0 dB.
     osp::engine::Chain chain;

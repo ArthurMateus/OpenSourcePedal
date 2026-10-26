@@ -49,8 +49,7 @@ struct HarmonicReport {
 
 // Analyses exactly the last `fftSize` samples of `output` (the warm-up before them is ignored). Bin sets as
 // oversampling.md §3.3 step 3: H = {m·k : m ≥ 2, m·k < N/2}, A = [1, N/2) \ ({k} ∪ H). DC and Nyquist excluded.
-HarmonicReport analyseCoherent(std::span<const float> output, std::size_t bin,
-                               std::size_t fftSize = kCoherentFftSize);
+HarmonicReport analyseCoherent(std::span<const float> output, std::size_t bin, std::size_t fftSize = kCoherentFftSize);
 
 // --- Latency-aligned null, REQ-TEST-004 / REQ-TEST-005 tier 1 -----------------------------------------------------
 
