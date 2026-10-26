@@ -16,3 +16,14 @@ Hard rules:
 - Back technical claims with a source, a measurement or a test.
 
 By contributing, you agree that your contribution is licensed under AGPL-3.0-or-later.
+
+## Formatting
+
+C++ is formatted with clang-format **19.1.5** and `.clang-format` (CI job `format` runs
+`clang-format --dry-run --Werror`). The VS 2022 Build Tools ship the same version:
+
+```powershell
+git ls-files '*.h' '*.hpp' '*.cpp' | % { & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\Llvm\bin\clang-format.exe" -i $_ }
+```
+
+Or `pip install clang-format==19.1.5` and run `clang-format -i` on the changed files.
