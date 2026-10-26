@@ -37,8 +37,8 @@ TEST_CASE("Measure: real FFT scaling, DC and Nyquist", "[measure]")
     constexpr std::size_t n = 1024;
     std::vector<double> x(n);
     for (std::size_t i = 0; i < n; ++i)
-        x[i] = 0.25 + 0.5 * std::sin(2.0 * 3.141592653589793 * 37.0 * static_cast<double>(i) / n)
-               + 0.125 * (i % 2 == 0 ? 1.0 : -1.0);
+        x[i] = 0.25 + 0.5 * std::sin(2.0 * 3.141592653589793 * 37.0 * static_cast<double>(i) / n) +
+               0.125 * (i % 2 == 0 ? 1.0 : -1.0);
     const auto X = realFft(x);
     REQUIRE(X.size() == n / 2 + 1);
     CHECK(std::abs(X[0]) == Approx(0.25 * n));
