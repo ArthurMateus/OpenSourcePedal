@@ -38,6 +38,13 @@
       "baseline": "#63 part 2 (#96, HIIR FPU classes after review), 2026-10-26, local VS 2022 Release build (windows-msvc-ci), T_ref 10.50 ms",
       "headroom": "about 10x the measured 0.098 %: HIIR FPU up + down at 4x (stages 0-1, 7/6 + 6/5 coefficients), identity processing; one OS region"
     },
+    "drive_stage_4x": {
+      "kind": "block",
+      "r0": 0.622607,
+      "maxCpuPercent": 2.5,
+      "baseline": "#67 part 1, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (0.67-0.75 %), T_ref 10.8-11.0 ms",
+      "headroom": "about 3.7x the measured 0.68 %: one drive slot (mid, defaults; ADAA2 in double, 3 SVFs, 3 one-poles per sample) at 192 kHz plus the 4x IIR up/down. OS-1 with both slots is about 1.4 %"
+    },
     "passthrough_chain": {
       "kind": "full_chain",
       "r0": 0.000486,
