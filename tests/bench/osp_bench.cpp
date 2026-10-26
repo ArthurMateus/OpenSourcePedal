@@ -6,6 +6,7 @@
 // prints a table and writes them as JSON (--out). tools/bench/check_budget.py compares that JSON with
 // tests/bench/budget.json.
 
+#include "osp/dsp/Drive.h"
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/oversampling/Oversampler.h"
 #include "osp/dsp/util/Crossfader.h"
@@ -176,6 +177,16 @@ int main(int argc, char** argv)
     results.push_back(
         {"oversampler_iir_4x", measure(bench, "oversampler_iir_4x", input, [&](const float* in, float* out, int n) {
              os4.process(in, out, n, [](float*, int) {});
+         })});
+
+    // One drive slot (mid, defaults) inside a 4x IIR region: OS-1 at 48 kHz with one drive enabled (ADR-0005 D2).
+    osp::dsp::Oversampler osDrive;
+    osDrive.prepare(kSampleRate, kBlock, 4);
+    osp::dsp::DriveStage drive;
+    drive.prepare(kSampleRate * 4, kBlock * 4);
+    results.push_back(
+        {"drive_stage_4x", measure(bench, "drive_stage_4x", input, [&](const float* in, float* out, int n) {
+             osDrive.process(in, out, n, [&](float* x, int osN) { drive.process(x, osN); });
          })});
 
     // Pass-through chain (the full engine chain as it stands), at 0 dB.
