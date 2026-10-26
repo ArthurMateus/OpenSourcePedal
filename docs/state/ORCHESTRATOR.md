@@ -57,21 +57,22 @@
 |---|---|---|---|
 | #62 measurement harness | Sable | #80, #84 | MERGED (Signalsmith dsp FFT, ADR-0006 A1) |
 | #63 oversampler + ADAA | Sable | #86, #96 MERGED. #109 part 3 FIR HQ + ADR-0005 A2 APPROVED acct2 (conditional: Status → Accepted) | Sable merges → closes #63 |
-| #67 drive | Sable | #102 re-review CHANGES-REQ (Wren: ADAA2 reset blip -36.7 dBFS; fix = Adaa2::reset(x) + silence-after-reset test). #104 APPROVED (Moth), stacked | Sable fixing first |
+| #67 drive | Sable | #102 fix 6a9f552 (Adaa2::reset(x) prime + silence-after-reset test) | re-review: Wren. #104 APPROVED, stacked |
 | #98 ADR-0005 A1 | Sable | #101 MERGED (9fe6dbc) | DONE |
 | #99 HIIR release-asset mirror | Wren | #108 APPROVED acct2 (mirror SHA-256 verified independently) | Wren merges |
 | #64 smoothing primitives | Moth acct3 | #82 | MERGED |
 | #66 compressor | Lyra | #85, #87 MERGED (dea4eb3, approved by Wren) | DONE (issue closed) |
 | #65 gate | Moth | #88 MERGED (c1d1a45) | DONE (issue closed) |
-| #72 reverb (3 parts) | Moth | #103 fixed (re-review: Lyra). #105 APPROVED (Sable), conditional: REQ-TEST-003 mix residual test. #111 plate, stacked (review: Sable) | Moth adding the #105 test |
+| #72 reverb (3 parts) | Moth | #103 APPROVED (Lyra); orchestrator resyncs 8942a0e, 18b65aa (conflict-only) → auto-merge on green. #105 (base main now) APPROVED conditional on a mix residual test. #111 plate (review: Sable) | |
 | #73 shimmer + spring | Moth | | next, after the #92 review |
-| #68 EQ | Lyra | #90, #91 MERGED. #92 APPROVED (Wren @233743c) | orchestrator auto-merge on green → closes #68 |
-| #69 cab IR (4 parts) | Lyra | #93, #100 MERGED. #107 part 3 APPROVED acct2 @88730b2 (cached LFS pull in both jobs). #114 part 4 (tests/fuzz/bench, +402; stacked on #107) review: Moth | Lyra: retarget #114 → merge #107 |
+| #68 EQ | Lyra | #90, #91, #92 MERGED (8373ef2) | DONE (issue closed) |
+| #69 cab IR (4 parts) | Lyra | #93, #100, #107 MERGED (eabb516). #114 part 4 retargeted to main, synced 212570b | review: Moth |
 | #71 delay | Lyra | | starting (after the #103 re-review) |
 | #94 third-party notices in Credits/installer (Signalsmith, HIIR, nlohmann, JUCE, VST3, ASIO) | — | | filed by Lyra; HIIR added |
 | #95 engine v1 signal graph (Phase 5) | unassigned (architect) | | filed. +Moth: report round(sum D) not sum round(D), and add an end-to-end REQ-301 Live test |
 | #89 compressor THD probe (82/110 Hz) | — (Lyra preferred) | | unblocked (#87 merged) |
 | #70 mod, #74 doubler/io, #75 tuner | — | | queued |
+| #115 split shared source/bench/budget registries per block | Wren (after #83 part 2) | | filed: 6 conflict-only resyncs on 2026-10-26 |
 Spec amendment merged: #81 (REQ-TEST-003 = residual vs the per-sample smoothing-law reference, starting at the delivery block,
 normalised to the larger settled RMS; parameters.md has no 16-sample coefficient updates).
 
