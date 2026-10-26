@@ -1,6 +1,6 @@
 # ADR-0005: Oversampling and anti-aliasing strategy
 
-- Status: **Proposed** (2026-10-25). It becomes Accepted when the PR merges.
+- Status: **Accepted** (2026-10-25; cross-account review approved and merged in Phase 2).
 - Deciders: architect (acct1/Sable). Issue #27.
 - Rests on: [`docs/research/oversampling.md`](../research/oversampling.md) (#10, cited as OS §x),
   [`docs/research/nam-runtime.md`](../research/nam-runtime.md) (NR §x), ADR-0001 (no JUCE in `dsp-core`),

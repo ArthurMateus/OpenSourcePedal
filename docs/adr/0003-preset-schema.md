@@ -1,6 +1,6 @@
 # ADR-0003: Preset format, versioning and plugin state
 
-- Status: **Proposed** (2026-10-25). Becomes Accepted when the cross-account review approves it.
+- Status: **Accepted** (2026-10-25; cross-account review approved and merged in Phase 2).
 - Deciders: architect (acct1/Lyra). Issue #24.
 - Rests on: `docs/research/reference-plugins.md` (§2.4 UX patterns, Rec. 7), `docs/research/nam-runtime.md` (§2.3
   `.nam` metadata, Rec. "Calibration"), `docs/research/tone-targets-a.md` / `tone-targets-b.md` (§3.3 targets),
