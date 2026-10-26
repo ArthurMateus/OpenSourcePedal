@@ -75,14 +75,18 @@ TEST_CASE("ADAA: antiderivatives are consistent (F1' = f, F2' = F1)", "[dsp][ada
     for (double x : {-30.0, -2.5, -1.0, -0.999, -0.3, 0.0, 0.4, 1.0, 1.001, 3.0, 30.0}) {
         CAPTURE(x);
         CHECK((TanhShape::F1(x + h) - TanhShape::F1(x - h)) / (2 * h) == Approx(TanhShape::f(x)).margin(1e-6));
-        CHECK((HardClipShape::F1(x + h) - HardClipShape::F1(x - h)) / (2 * h) == Approx(HardClipShape::f(x)).margin(1e-6));
-        CHECK((HardClipShape::F2(x + h) - HardClipShape::F2(x - h)) / (2 * h) == Approx(HardClipShape::F1(x)).margin(1e-6));
+        CHECK((HardClipShape::F1(x + h) - HardClipShape::F1(x - h)) / (2 * h) ==
+              Approx(HardClipShape::f(x)).margin(1e-6));
+        CHECK((HardClipShape::F2(x + h) - HardClipShape::F2(x - h)) / (2 * h) ==
+              Approx(HardClipShape::F1(x)).margin(1e-6));
     }
     CHECK(std::isfinite(TanhShape::F1(1e6)));
     CHECK(TanhShape::F1(1e6) == Approx(1e6 - std::log(2.0)));
 }
 
-TEMPLATE_TEST_CASE("ADAA: finite and close to f for a slowly varying input (REQ-OS-004)", "[dsp][adaa]", TanhShape,
+TEMPLATE_TEST_CASE("ADAA: finite and close to f for a slowly varying input (REQ-OS-004)",
+                   "[dsp][adaa]",
+                   TanhShape,
                    HardClipShape)
 {
     // Δx = 5e-8 per sample: every step takes the ill-conditioning fallback.

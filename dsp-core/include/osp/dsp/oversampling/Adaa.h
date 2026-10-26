@@ -107,9 +107,8 @@ public:
         } else {
             const double mid = 0.5 * (x0 + x2_);
             const double dm = x1_ - mid;
-            y = std::abs(dm) < kAdaaTolerance
-                    ? Shape::f((x0 + x1_ + x2_) / 3.0)
-                    : 2.0 * (divided(x1_, mid, f2x1_, Shape::F2(mid)) - Shape::F1(mid)) / dm;
+            y = std::abs(dm) < kAdaaTolerance ? Shape::f((x0 + x1_ + x2_) / 3.0)
+                                              : 2.0 * (divided(x1_, mid, f2x1_, Shape::F2(mid)) - Shape::F1(mid)) / dm;
         }
         x2_ = x1_;
         x1_ = x0;
