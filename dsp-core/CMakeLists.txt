@@ -1,4 +1,5 @@
 add_library(osp_dsp_core STATIC
+    src/Compressor.cpp
     src/Gain.cpp
     src/Gate.cpp
     src/util/DelayLine.cpp
