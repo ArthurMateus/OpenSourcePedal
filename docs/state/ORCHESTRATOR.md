@@ -57,18 +57,18 @@
 |---|---|---|---|
 | #62 measurement harness | Sable | #80, #84 | MERGED (Signalsmith dsp FFT, ADR-0006 A1) |
 | #63 oversampler + ADAA | Sable | #86, #96 MERGED (ddfaf20). Issue reopened for part 3 (FIR HQ) | part 3: Sable, when free |
-| #67 drive | Sable | #102 part 1 (base main) review: Wren. #104 part 2 DriveRegion/OS-1 (stacked on #102; Live residual +0.47 vs ±0.5) review: Moth | in review |
-| #98 ADR-0005 A1 (stage-0 decimator 75 dB / 0.01) + D3 wording | Sable | #101 (base main) APPROVED acct2, conditional: Status → Accepted | merge after #96; retarget #102 first |
+| #67 drive | Sable | #102 part 1 (base main) review: Wren. #104 part 2 APPROVED (Moth @a944a7e; stacked on #102) | merge #104 after #102 (retarget, then merge main; NO rebase) |
+| #98 ADR-0005 A1 + D3 wording | Sable | #101 head 2d773f8 (rebased; range-diff = ca5d2dc + status flip), APPROVED acct2 | Sable merges on green |
 | #99 HIIR release-asset mirror | release-devops (Wren after #43) | | filed |
 | #64 smoothing primitives | Moth acct3 | #82 | MERGED |
 | #66 compressor | Lyra | #85, #87 MERGED (dea4eb3, approved by Wren) | DONE (issue closed) |
 | #65 gate | Moth | #88 MERGED (c1d1a45) | DONE (issue closed) |
-| #72 reverb (3 parts) | Moth | #103 part 1 FDN room/hall (+597) | review: Lyra. Part 2 (Reverb block wrapper) in progress |
+| #72 reverb (3 parts) | Moth | #103 part 1 (review: Lyra). #105 part 2 block wrapper, stacked on #103 (review: Sable) | part 3 Dattorro plate in progress |
 | #68 EQ | Lyra | #90 MERGED (3bf87fc), #91 MERGED (11939e1, Moth re-approved), #92 base main | review: Wren |
 | #69 cab IR (4 parts) | Lyra | #93, #100 MERGED (62be52c) | part 3 after the #103 review |
 | #71 delay | Lyra (after #69 part 3) | | queued |
 | #94 third-party notices in Credits/installer (Signalsmith, HIIR, nlohmann, JUCE, VST3, ASIO) | — | | filed by Lyra; HIIR added |
-| #95 engine v1 signal graph (Phase 5) | unassigned (architect) | | filed 2026-10-26 from Moth's #88 note |
+| #95 engine v1 signal graph (Phase 5) | unassigned (architect) | | filed. +Moth: report round(sum D) not sum round(D), and add an end-to-end REQ-301 Live test |
 | #89 compressor THD probe (82/110 Hz) | — (Lyra preferred) | | unblocked (#87 merged) |
 | #70 mod, #71 delay, #73 shimmer/spring, #74 doubler/io, #75 tuner | — | | queued |
 Spec amendment merged: #81 (REQ-TEST-003 = residual vs the per-sample smoothing-law reference, starting at the delivery block,
@@ -80,6 +80,7 @@ normalised to the larger settled RMS; parameters.md has no 16-sample coefficient
 - After every merge-from-main, run clang-format 19.1.5 (pip clang-format==19.1.5; exe in site-packages/clang_format/data/bin) before pushing. Use set -e scripts: a conflicted merge must abort the push (lesson from #86).
 - forbidden_names.txt conflicts: resolve with a union merge (merge origin/main into the PR branch in a helper worktree, take `git show :2:F` + `:3:F`, dedupe with `awk '!seen[$0]++'`). To merge: poll check-runs for the head SHA until guard completes, then `gh pr merge --squash`.
 
+- **No rebase + force-push on PR branches** (rule 4): sync by merge, so that approved SHAs stay valid (Sable rebased #101 on 2026-10-26; verified with `git range-diff`).
 - **Stacked PRs:** retarget the child to `main` BEFORE `gh pr merge <parent> --delete-branch`. Deleting the base branch auto-CLOSES the child, and a closed PR cannot be retargeted (#91 on 2026-10-26). To recover: recreate the base ref at the parent's head SHA (`gh api -X POST repos/{owner}/{repo}/git/refs`), `gh pr reopen`, `gh pr edit --base main`, then delete the ref again.
 
 ## Waiting on
