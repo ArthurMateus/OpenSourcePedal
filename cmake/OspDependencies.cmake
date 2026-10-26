@@ -3,6 +3,35 @@
 include_guard(GLOBAL)
 include(FetchContent)
 
+# HIIR 1.50 (WTFPL-2.0), header-only, used by dsp-core's IIR oversampler (ADR-0005 D1, ADR-0006 D2). There is no
+# repository, only this archive, so it is pinned by SHA-256 (checked against ADR-0006 on 2026-10-26). The archive has
+# no CMakeLists.txt: SOURCE_SUBDIR keeps FetchContent to a download.
+FetchContent_Declare(hiir
+    URL      http://ldesoras.fr/src/hiir-1.50.zip
+    URL_HASH SHA256=8a13724e8d698a40f53687d40466443879f6250abd2229097f3990b76e6855a6
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
+    SOURCE_SUBDIR osp-no-build)
+FetchContent_MakeAvailable(hiir)
+
+# Signalsmith dsp v1.7.3 (MIT), header-only. Its FFT backs the cab convolution in dsp-core (#69) and tests/measure
+# (ADR-0006 Amendment A1, #62). Tag → commit checked 2026-10-25.
+FetchContent_Declare(signalsmith_dsp
+    GIT_REPOSITORY https://github.com/Signalsmith-Audio/dsp.git
+    GIT_TAG        ca390d28c41ea5108a528e2e81faa4088f2f8ac8 # v1.7.3
+    GIT_SHALLOW    OFF
+    SYSTEM)
+FetchContent_MakeAvailable(signalsmith_dsp)
+
+if(OSP_BUILD_APP)
+    # JUCE 9.0.4 (AGPLv3 option of the dual licence). Bundles the VST3 SDK (MIT) and ASIO headers (GPL-3.0). ADR-0006 D2.
+    FetchContent_Declare(JUCE
+        GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+        GIT_TAG        3fb5cbc0340758596dac39f7c8de47d562b4896e # 9.0.4
+        GIT_SHALLOW    OFF
+        SYSTEM)
+    FetchContent_MakeAvailable(JUCE)
+endif()
+
 if(OSP_BUILD_TESTS)
     # Catch2 v3.16.1 (BSL-1.0). Tag object 5010924c… dereferences to this commit (checked 2026-10-25).
     FetchContent_Declare(Catch2
@@ -13,14 +42,6 @@ if(OSP_BUILD_TESTS)
     FetchContent_MakeAvailable(Catch2)
     list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras") # for include(Catch)
 
-    # Signalsmith dsp v1.7.3 (MIT), header-only; its FFT backs tests/measure (ADR-0006 D2 amendment, #62).
-    # Tag → commit checked 2026-10-25. It moves out of this block when the cab IR convolution first uses it.
-    FetchContent_Declare(signalsmith_dsp
-        GIT_REPOSITORY https://github.com/Signalsmith-Audio/dsp.git
-        GIT_TAG        ca390d28c41ea5108a528e2e81faa4088f2f8ac8 # v1.7.3
-        GIT_SHALLOW    OFF
-        SYSTEM)
-    FetchContent_MakeAvailable(signalsmith_dsp)
 endif()
 
 # Header-only or C sources that we compile ourselves (tests/bench, tools/CMakeLists.txt). SOURCE_SUBDIR points at a

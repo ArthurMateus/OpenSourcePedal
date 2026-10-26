@@ -38,6 +38,27 @@
       "baseline": "#68, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 5 runs (R 0.156-0.161, 0.162-0.170 %)",
       "headroom": "about 3x the measured 0.167 %: graphic9 with all bands at +-6 dB and both cuts on, mono (linked stereo is about 2x)"
     },
+    "oversampler_iir_4x": {
+      "kind": "block",
+      "r0": 0.093383,
+      "maxCpuPercent": 1.0,
+      "baseline": "#63 part 2 (#96, HIIR FPU classes after review), 2026-10-26, local VS 2022 Release build (windows-msvc-ci), T_ref 10.50 ms",
+      "headroom": "about 10x the measured 0.098 %: HIIR FPU up + down at 4x (stages 0-1, 7/6 + 6/5 coefficients), identity processing; one OS region"
+    },
+    "gate": {
+      "kind": "block",
+      "r0": 0.013424,
+      "maxCpuPercent": 0.7,
+      "baseline": "#65, 2026-10-25, local VS 2022 Release build (windows-msvc-ci), median of 6 quiet runs, T_ref about 10.3 ms",
+      "headroom": "about 50x the measured 0.014 %: enabled gate, peak detector + hysteresis/hold state machine + per-sample gain on -12 dBFS noise"
+    },
+    "comp": {
+      "kind": "block",
+      "r0": 0.1931,
+      "maxCpuPercent": 0.6,
+      "baseline": "#66, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 5 runs (R 0.186-0.196, 0.209-0.218 %); earlier runs read R 0.145-0.21",
+      "headroom": "about 2.9x the measured 0.21 %: defaults (opto) with the tone tilt on; all three mode detectors run every sample"
+    },
     "passthrough_chain": {
       "kind": "full_chain",
       "r0": 0.000486,
