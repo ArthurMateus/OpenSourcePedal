@@ -61,7 +61,7 @@
 | #65 gate | Moth | #88 CHANGES-REQ (Lyra 01:27Z) | Moth fixing |
 | #72 reverb part 1 | Moth | dsp/72-reverb (WIP push) | after #88 + reviews |
 | #68 EQ | Lyra | #90 SVF, #91 EQ, #92 tests (stacked, green) | review: Moth #90/#91, Wren #92 |
-| #69 cab IR | Lyra | | started 05:35Z |
+| #69 cab IR | Lyra | #93 part 1 convolver (CI running; review: Moth after #90/#91) | part 2 Cab block in progress |
 | #89 compressor THD probe (82/110 Hz) | — | | after #87 |
 | #67 drive (needs #63 part 2), #70 mod, #71 delay, #73 shimmer/spring, #74 doubler/io, #75 tuner | — | | queued |
 Spec amendment merged: #81 (REQ-TEST-003 = residual vs the per-sample smoothing-law reference, starting at the delivery block,
