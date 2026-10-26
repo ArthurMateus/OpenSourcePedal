@@ -1,4 +1,5 @@
 add_library(osp_dsp_core STATIC
+    src/Cab.cpp
     src/Compressor.cpp
     src/conv/PartitionedConvolver.cpp
     src/Gain.cpp
