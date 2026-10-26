@@ -7,6 +7,7 @@
 // tests/bench/budget.json.
 
 #include "osp/dsp/Gain.h"
+#include "osp/dsp/oversampling/Oversampler.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
 #include "osp/dsp/util/Smoothers.h"
@@ -167,6 +168,14 @@ int main(int argc, char** argv)
              xf.setTarget((blockCount++ / 75) % 2 == 0);
              pad.process(in, padded.data(), n);
              xf.process(in, padded.data(), out, n);
+         })});
+
+    // IIR oversampler, Live factor at 48 kHz (4x, ADR-0005 D2), identity processing: the up/down cost of one region.
+    osp::dsp::Oversampler os4;
+    os4.prepare(kSampleRate, kBlock, 4);
+    results.push_back(
+        {"oversampler_iir_4x", measure(bench, "oversampler_iir_4x", input, [&](const float* in, float* out, int n) {
+             os4.process(in, out, n, [](float*, int) {});
          })});
 
     // Pass-through chain (the full engine chain as it stands), at 0 dB.

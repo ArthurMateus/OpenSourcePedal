@@ -31,6 +31,13 @@
       "baseline": "#64/#82, 2026-10-25, local VS 2022 Release build (windows-msvc-ci), median of 3 runs, T_ref 10.1-10.4 ms",
       "headroom": "about 50x the measured 0.0052 %: 10 ms block-enable crossfade toggled every 100 ms plus a 64-sample latency-padding delay line"
     },
+    "oversampler_iir_4x": {
+      "kind": "block",
+      "r0": 0.054035,
+      "maxCpuPercent": 1.0,
+      "baseline": "#63 part 2, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), T_ref 10.76 ms",
+      "headroom": "about 17x the measured 0.058 %: HIIR SSE up + down at 4x (stages 0-1, 7/6 + 6/5 coefficients), identity processing; one OS region"
+    },
     "passthrough_chain": {
       "kind": "full_chain",
       "r0": 0.000486,
