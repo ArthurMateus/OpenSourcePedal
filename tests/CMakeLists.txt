@@ -20,6 +20,7 @@ add_executable(osp_tests
     dsp/test_compressor.cpp
     dsp/test_convolver.cpp
     dsp/test_eq.cpp
+    dsp/test_fractional_delay.cpp
     dsp/test_eq_dynamics.cpp
     dsp/test_svf.cpp
     dsp/test_gain.cpp
