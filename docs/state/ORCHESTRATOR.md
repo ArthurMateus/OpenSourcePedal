@@ -26,7 +26,7 @@
 |---|---|---|---|---|---|
 | Orchestrator | default = acct2 | orchestrator + fill-in reviewer | heartbeat; reviewing #61 | | acct1, acct3 when short |
 | Corvid | Antigravity (gemini) | reviewer | IDLE (quota until ~2026-10-30 16:00) | | everyone |
-| Lyra | Claude acct1 | dsp-engineer | #69 cab IR | answer reviews on #87, #90-#92 | acct3 |
+| Lyra | Claude acct1 | dsp-engineer | #69 part 2 Cab block; sync #93 | #89 | acct3 |
 | Sable | Claude acct1 | dsp-engineer | #63 part 2 (HIIR Oversampler, new branch dsp/63-oversampler-hiir) | #67 drive | acct3 |
 | Wren | Claude acct3 | audio-io + devops + reviewer | merge #58; re-review #87; retarget/fix #61; review #92 | #43, #44 | acct1 |
 | Moth | Claude acct3 | dsp-engineer + reviewer | push WIP #72; fix #88; review #90, #91 | #72 reverb | acct1 |
@@ -59,10 +59,11 @@
 | #67 drive | Sable | stacked on #96 | started (critical path) |
 | #64 smoothing primitives | Moth acct3 | #82 | MERGED |
 | #66 compressor | Lyra | #85, #87 MERGED (dea4eb3, approved by Wren) | DONE (issue closed) |
-| #65 gate | Moth | #88 fixed in 8d6f9bc (25 ms close debounce) | re-review: Lyra |
+| #65 gate | Moth | #88 APPROVED (Lyra acct1 @8d6f9bc); orchestrator main-merge bf0a47c (conflict-only, bench union) | auto-merge when CI green |
 | #72 reverb part 1 | Moth | dsp/72-reverb (WIP 421f581) | after the #93 review |
-| #68 EQ | Lyra | #90 MERGED (3bf87fc). #91 CHANGES-REQ (Moth: pK.shape reversal mid-fade, ~-5 dBFS click), now base main, DIRTY. #92 base dsp/68-eq | Lyra fixing #91; Wren reviews #92 |
-| #69 cab IR | Lyra | #93 part 1 convolver | review: Moth (next); part 2 paused until #88/#91 done |
+| #68 EQ | Lyra | #90 MERGED (3bf87fc). #91 fixed at 8734173 (base main), #92 synced 861be8e | Moth re-reviews #91, then retargets #92 to main and merges #91; Wren reviews #92 |
+| #69 cab IR | Lyra | #93 part 1 convolver (DIRTY: Lyra syncing); part 2 WIP 1cb9ea5 on dsp/69-cab-block | review: Moth after #91 |
+| #94 third-party MIT notices in Credits/installer | — | | filed by Lyra |
 | #95 engine v1 signal graph (Phase 5) | unassigned (architect) | | filed 2026-10-26 from Moth's #88 note |
 | #89 compressor THD probe (82/110 Hz) | — (Lyra preferred) | | unblocked (#87 merged) |
 | #70 mod, #71 delay, #73 shimmer/spring, #74 doubler/io, #75 tuner | — | | queued |
@@ -78,7 +79,7 @@ normalised to the larger settled RMS; parameters.md has no 16-sample coefficient
 - **Stacked PRs:** retarget the child to `main` BEFORE `gh pr merge <parent> --delete-branch`. Deleting the base branch auto-CLOSES the child, and a closed PR cannot be retargeted (#91 on 2026-10-26). To recover: recreate the base ref at the parent's head SHA (`gh api -X POST repos/{owner}/{repo}/git/refs`), `gh pr reopen`, `gh pr edit --base main`, then delete the ref again.
 
 ## Waiting on
-- Wren: #58 CI, then #61 fix and #43. Lyra: #88 re-review, #91 fix, #93 main sync (DIRTY). Moth: review #93, then #96. Sable: #67.
+- Wren: #58 CI, then #61 fix, #92 review and #43. Lyra: #93 sync, #69 part 2. Moth: #91 re-review (+ merge in stack order), #93, #96, then #72. Sable: #67.
 
 ## Next actions
 1. Merge #87, #88 and #90→#91→#92 (merge each in stack order, and retarget the next PR to main) once approved and green.
