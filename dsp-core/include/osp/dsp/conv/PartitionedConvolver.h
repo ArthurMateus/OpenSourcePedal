@@ -53,6 +53,8 @@ public:
     bool isPrepared() const noexcept { return prepared_; }
     int irLength() const noexcept { return irLength_; }
     int numStages() const noexcept { return static_cast<int>(stages_.size()); }
+    // Position inside the current frame of the largest stage (-1 without stages): for the Cab phase tests.
+    int framePosition() const noexcept;
 
 private:
     struct Stage;

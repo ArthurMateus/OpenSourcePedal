@@ -120,6 +120,11 @@ void PartitionedConvolver::reset() noexcept
     setStartPhase(startPhase_);
 }
 
+int PartitionedConvolver::framePosition() const noexcept
+{
+    return stages_.empty() ? -1 : stages_.back()->pos;
+}
+
 void PartitionedConvolver::setStartPhase(int samples) noexcept
 {
     startPhase_ = samples > 0 ? samples % kMaxPartition : 0;
