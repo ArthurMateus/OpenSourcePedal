@@ -6,11 +6,19 @@
 // prints a table and writes them as JSON (--out). tools/bench/check_budget.py compares that JSON with
 // tests/bench/budget.json.
 
+#include "osp/dsp/ChorusFlanger.h"
 #include "osp/dsp/Compressor.h"
+#include "osp/dsp/Doubler.h"
 #include "osp/dsp/Eq.h"
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/Gate.h"
+#include "osp/dsp/InputStage.h"
+#include "osp/dsp/Modulation.h"
+#include "osp/dsp/OutputStage.h"
+#include "osp/dsp/Phaser.h"
+#include "osp/dsp/Tremolo.h"
 #include "osp/dsp/oversampling/Oversampler.h"
+#include "osp/dsp/tuner/TunerTap.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
 #include "osp/dsp/util/Smoothers.h"
@@ -29,7 +37,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -88,10 +95,9 @@ struct Result {
 };
 
 // Runs `perBlock(in, out, n)` over 1 s of audio in 64-sample blocks, kEpochs times, and returns the median time.
-double measure(ankerl::nanobench::Bench& bench,
-               const char* name,
-               const std::vector<float>& input,
-               const std::function<void(const float*, float*, int)>& perBlock)
+// A template rather than std::function, so the per-block call can inline and costs nothing in the measurement (#83).
+template <typename PerBlock>
+double measure(ankerl::nanobench::Bench& bench, const char* name, const std::vector<float>& input, PerBlock&& perBlock)
 {
     std::vector<float> out(input.size());
     bench.run(name, [&] {
@@ -203,6 +209,99 @@ int main(int argc, char** argv)
     results.push_back(
         {"gate", measure(bench, "gate", input, [&](const float* in, float* out, int n) { gate.process(in, out, n); })});
 
+    // Tuner tap (#75) while the tuner is open: 4th-order low pass + decimation + ring hand-off on the input, and the
+    // output mute pass (unmuted, so it returns at once). The YIN detector runs on a worker and is not in this budget.
+    osp::dsp::TunerTap tuner;
+    tuner.prepare(kSampleRate, kBlock);
+    results.push_back({"tuner_tap", measure(bench, "tuner_tap", input, [&](const float* in, float* out, int n) {
+                           tuner.push(in, n);
+                           std::copy(in, in + n, out);
+                           tuner.applyMute(out, n);
+                       })});
+
+    // Input block (#74) at +6 dB trim: constant-gain trim + one-pole/one-zero DC blocker per sample.
+    osp::dsp::InputStage inputStage;
+    inputStage.prepare(kSampleRate, kBlock);
+    inputStage.setGainDb(6.0f);
+    inputStage.reset();
+    results.push_back({"input_stage", measure(bench, "input_stage", input, [&](const float* in, float* out, int n) {
+                           inputStage.process(in, out, n);
+                       })});
+
+    // Output block (#74), stereo, limiter on and engaged (+12 dB level into the -0.3 dBTP ceiling): NaN guard, level,
+    // 4x interpolated true-peak detector (3 phases x 12 taps x 2 channels), gain and meters per sample.
+    osp::dsp::OutputStage outputStage;
+    outputStage.prepare(kSampleRate, kBlock);
+    outputStage.setLevelDb(12.0f);
+    outputStage.reset();
+    std::vector<float> outRight(static_cast<std::size_t>(kBlock));
+    results.push_back({"output_stage", measure(bench, "output_stage", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, outRight.begin());
+                           outputStage.process(out, outRight.data(), n);
+                       })});
+
+    // Doubler (#74) at its defaults (50 %, width 100 %, 18 ms, 8 cents), stereo: two ring writes, two LFO-modulated
+    // Catmull-Rom reads and the pan/mix per sample.
+    osp::dsp::Doubler doubler;
+    doubler.prepare(kSampleRate, kBlock);
+    std::vector<float> dblRight(static_cast<std::size_t>(kBlock));
+    results.push_back({"doubler", measure(bench, "doubler", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, dblRight.begin());
+                           doubler.process(out, dblRight.data(), n);
+                       })});
+
+    // Modulation, chorusWide at its defaults (0.8 Hz, depth 50 %, mix 50 %, width 100 %), stereo (#70): two ring
+    // writes, four LFO-modulated Catmull-Rom reads, three sin() and the mix per sample.
+    osp::dsp::ChorusFlanger chorus;
+    chorus.prepare(kSampleRate, kBlock);
+    std::vector<float> chorusRight(static_cast<std::size_t>(kBlock));
+    results.push_back({"mod_chorus", measure(bench, "mod_chorus", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, chorusRight.begin());
+                           chorus.process(out, chorusRight.data(), n);
+                       })});
+
+    // Modulation, vibe (the costliest allpass type: four tan() per side) at the defaults, stereo (#70 part 2): two
+    // LFO sines, the photocell one-pole, 2 x 4 TPT allpass stages and their coefficients per sample.
+    osp::dsp::Phaser vibe;
+    vibe.setVoicing(osp::dsp::Phaser::Voicing::vibe);
+    vibe.prepare(kSampleRate, kBlock);
+    std::vector<float> vibeRight(static_cast<std::size_t>(kBlock));
+    results.push_back({"mod_vibe", measure(bench, "mod_vibe", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, vibeRight.begin());
+                           vibe.process(out, vibeRight.data(), n);
+                       })});
+
+    // Modulation, harmonic tremolo at the defaults, stereo (#70 part 3): two cascaded one-poles, two band gains and
+    // one LFO sine per side per sample.
+    osp::dsp::Tremolo tremolo;
+    tremolo.prepare(kSampleRate, kBlock);
+    std::vector<float> tremoloRight(static_cast<std::size_t>(kBlock));
+    results.push_back({"mod_tremolo", measure(bench, "mod_tremolo", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, tremoloRight.begin());
+                           tremolo.process(out, tremoloRight.data(), n);
+                       })});
+
+    // The `mod` block (#70 part 4), post position (stereo), type toggled chorusWide <-> phaser every 75 blocks
+    // (100 ms), so a third of the time both slots run inside the 30 ms type crossfade.
+    osp::dsp::Modulation modBlock;
+    modBlock.prepare(kSampleRate, kBlock);
+    std::vector<float> modRight(static_cast<std::size_t>(kBlock));
+    int modBlocks = 0;
+    results.push_back({"mod_block", measure(bench, "mod_block", input, [&](const float* in, float* out, int n) {
+                           if (++modBlocks % 75 == 0)
+                               modBlock.setType(modBlock.type() == osp::dsp::Modulation::Type::phaser
+                                                    ? osp::dsp::Modulation::Type::chorusWide
+                                                    : osp::dsp::Modulation::Type::phaser);
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, modRight.begin());
+                           modBlock.processStereo(out, modRight.data(), n);
+                       })});
+
     // Compressor at its defaults (opto, -20 dB, 4:1, all three detectors run) with the tone tilt active (knob 7).
     osp::dsp::Compressor comp;
     comp.setTone(7.0f);
@@ -211,6 +310,14 @@ int main(int argc, char** argv)
                            comp.setThresholdDb(-20.0f);
                            comp.process(in, out, n);
                        })});
+
+    // FIR (HQ) oversampler at 8x, identity processing: the up/down cost of one HQ region (ADR-0005 D2, A2).
+    osp::dsp::Oversampler os8fir;
+    os8fir.prepare(kSampleRate, kBlock, 8, osp::dsp::OversamplingFilter::fir);
+    results.push_back(
+        {"oversampler_fir_8x", measure(bench, "oversampler_fir_8x", input, [&](const float* in, float* out, int n) {
+             os8fir.process(in, out, n, [](float*, int) {});
+         })});
 
     // Pass-through chain (the full engine chain as it stands), at 0 dB.
     osp::engine::Chain chain;
