@@ -46,6 +46,7 @@ add_executable(osp_tests
     dsp/test_util.cpp
     engine/test_chain.cpp
     engine/test_engine.cpp
+    engine/test_tone_profile.cpp
     engine/test_version.cpp
     measure/test_measure.cpp
     measure/test_spectral.cpp
