@@ -9,8 +9,8 @@
 //   "2x the Live factor" wording). Live runs the IIR filters, HQ the FIR ones (ADR-0005 D1/D3).
 // Latency (ADR-0005 D4): D = the oversampler's measured 1 kHz delay + (2 slots x DriveStage::kDelaySamples + pad) /
 // factor, reported as round(D). Each slot is an exact 1-sample delay at the oversampled rate, so D needs no extra
-// measurement. With the FIR kind the oversampler delay is an integer (57/72/80 at 2x/4x/8x), and the pad (6 samples
-// at 8x, Amendment A2) rounds the slots up to a whole base sample: HQ is then an exact pure delay of 81 samples.
+// measurement. With the FIR kind the oversampler delay is an integer (101/116/124 at 2x/4x/8x, Amendment A3), and the pad (6 samples
+// at 8x, Amendment A2) rounds the slots up to a whole base sample: HQ is then an exact pure delay of 125 samples.
 // A quality switch re-prepares (ADR-0005 D6) and fades the new chain in over kSwitchFadeMs, so its output rises from
 // silence without a step (silent for the new latency, then a linear ramp); fading the old chain out before the
 // re-prepare is the caller's job.

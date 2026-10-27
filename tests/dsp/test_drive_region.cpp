@@ -138,12 +138,12 @@ TEST_CASE("DriveRegion: latency = round(1 kHz delay), constant across voicings a
     if (quality == OversamplingQuality::live && fs == 48000.0)
         CHECK(region.getLatencySamples() <= 8); // half of the 16-sample Live budget (REQ-302): OS-1 + OS-2
     if (quality == OversamplingQuality::hq) {
-        // FIR + 6-sample pad: an exact integer, 80 (oversampler) + (2 slots + 6) / 8 (ADR-0005 D4, Amendment A2).
+        // FIR + 6-sample pad: an exact integer, 124 (oversampler) + (2 slots + 6) / 8 (ADR-0005 D4, A2, A3).
         CHECK(region.getFilter() == OversamplingFilter::fir);
         CHECK(region.getPadSamples() == 6);
-        CHECK(std::abs(region.getMeasuredDelaySamples() - 81.0) < 1e-6);
-        CHECK(region.getLatencySamples() == 81);
-        CHECK(std::abs(d - 81.0) < 1e-3);
+        CHECK(std::abs(region.getMeasuredDelaySamples() - 125.0) < 1e-6);
+        CHECK(region.getLatencySamples() == 125);
+        CHECK(std::abs(d - 125.0) < 1e-3);
     } else {
         CHECK(region.getFilter() == OversamplingFilter::iir);
         CHECK(region.getPadSamples() == 0);
@@ -307,7 +307,7 @@ TEST_CASE("DriveRegion: HQ (FIR 8x) aliases no more than the IIR 8x path or Live
     std::printf("OS-1 mid -> dist(10) %4.0f Hz %+.0f dBFS @ %5.0f Hz: ASR HQ %.1f, IIR 8x %.1f, Live %.1f dB "
                 "(HQ target %d, warn only)\n",
                 f0, levelDbfs, fs, hq, iir8Asr, live, f0 <= 2500.0 ? -80 : -60);
-    CHECK(hq <= iir8Asr + 0.5);
+    CHECK(hq <= iir8Asr);
     CHECK(hq <= live);
 }
 
