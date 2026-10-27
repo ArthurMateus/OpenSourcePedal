@@ -78,7 +78,7 @@ std::vector<float> keyed(double fs, std::size_t n, std::size_t n0)
 
 } // namespace
 
-TEST_CASE("Graph: gate.postAmp gain edge lands exactly K_gate samples after the key (±0)", "[engine][graph][gate]")
+TEST_CASE("Graph: gate.postAmp gain edge lands exactly K_gate samples after the key (+-0)", "[engine][graph][gate]")
 {
     const double fs = GENERATE(44100.0, 48000.0, 88200.0, 96000.0);
     const double slot = GENERATE(0.0, 2.37);
