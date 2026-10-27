@@ -2,7 +2,9 @@ add_library(osp_dsp_core STATIC
     src/Cab.cpp
     src/ChorusFlanger.cpp
     src/Compressor.cpp
+    src/Delay.cpp
     src/delay/DelayVoice.cpp
+    src/delay/LoopSaturator.cpp
     src/conv/IrLoader.cpp
     src/conv/PartitionedConvolver.cpp
     src/Drive.cpp
@@ -13,6 +15,8 @@ add_library(osp_dsp_core STATIC
     src/Gate.cpp
     src/Reverb.cpp
     src/reverb/DattorroTank.cpp
+    src/reverb/ShimmerTank.cpp
+    src/reverb/SpringTank.cpp
     src/reverb/FdnTank.cpp
     src/InputStage.cpp
     src/OutputStage.cpp

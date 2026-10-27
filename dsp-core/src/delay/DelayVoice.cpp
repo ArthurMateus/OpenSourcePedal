@@ -14,6 +14,10 @@ float finiteOrZero(float v) noexcept
 {
     return std::isfinite(v) ? v : 0.0f;
 }
+constexpr double kTwoPi = 6.28318530717958647692;
+constexpr double kBbdLfoHz = 0.7, kWowHz = 0.8, kFlutterHz = 6.5;
+constexpr float kFlutterMs = 0.03f;
+
 float limit(float v) noexcept
 {
     return std::clamp(v, -DelayVoice::kLoopLimit, DelayVoice::kLoopLimit);
@@ -34,20 +38,27 @@ DelayVoice::DelayVoice() noexcept
 {
     lowCut_.reset(80.0f);
     highCut_.reset(5000.0f);
+    saturation_.reset(0.2f);
 }
 
 void DelayVoice::prepare(double sampleRate, int /*maxBlockSize*/)
 {
     sampleRate_ = sampleRate;
     const double longest = kMaxMs * kWideRatio * 1e-3 * sampleRate;
-    lineL_.prepare(static_cast<int>(std::ceil(longest)) + kChunk + 4);
-    lineR_.prepare(static_cast<int>(std::ceil(longest)) + kChunk + 4);
+    const int size = static_cast<int>(std::ceil(longest + 1.5 * kMaxModMs * 1e-3 * sampleRate)) + kChunk + 4;
+    lineL_.prepare(size);
+    lineR_.prepare(size);
+    satL_.prepare(sampleRate, kChunk);
+    satR_.prepare(sampleRate, kChunk);
+    bump_ = svfDesign(SvfType::bell, sampleRate, 80.0, 1.2, 3.0);
     time_.prepare(sampleRate, 0.080);
     lowCut_.prepare(sampleRate, 0.020);
     highCut_.prepare(sampleRate, 0.020);
     feedback_.prepare(sampleRate, 0.020);
     mix_.prepare(sampleRate, 0.020);
     enabled_.prepare(sampleRate, 0.010);
+    modDepth_.prepare(sampleRate, 0.020);
+    saturation_.prepare(sampleRate, 0.020);
     setTimeMs(timeMs_);
     reset();
 }
@@ -57,6 +68,13 @@ void DelayVoice::reset() noexcept
     lineL_.reset();
     lineR_.reset();
     lowL_ = lowR_ = highL_ = highR_ = OnePole{};
+    satL_.reset();
+    satR_.reset();
+    colourL_ = colourR_ = bumpL_ = bumpR_ = SvfState{};
+    colourHz_ = colourDelay_ = 0.0f;
+    lfoPhase_ = flutterPhase_ = 0.0;
+    modDepth_.reset(modDepth_.target());
+    saturation_.reset(saturation_.target());
     time_.reset(time_.target());
     lowCut_.reset(lowCut_.target());
     highCut_.reset(highCut_.target());
@@ -65,6 +83,44 @@ void DelayVoice::reset() noexcept
     enabled_.reset(enabled_.target());
     lowG_ = cutCoeff(lowCut_.current());
     setHighG(cutCoeff(highCut_.current()));
+}
+
+void DelayVoice::copyStateFrom(const DelayVoice& o) noexcept
+{
+    if (o.sampleRate_ != sampleRate_ || o.lineL_.getMaxDelay() != lineL_.getMaxDelay())
+        return; // not prepared alike: copying the lines would allocate
+    voicing_ = o.voicing_;
+    stereo_ = o.stereo_;
+    bypassed_ = o.bypassed_;
+    timeMs_ = o.timeMs_;
+    time_ = o.time_;
+    lowCut_ = o.lowCut_;
+    highCut_ = o.highCut_;
+    modDepth_ = o.modDepth_;
+    saturation_ = o.saturation_;
+    feedback_ = o.feedback_;
+    mix_ = o.mix_;
+    enabled_ = o.enabled_;
+    lowG_ = o.lowG_;
+    highG_ = o.highG_;
+    highDelay_ = o.highDelay_;
+    lineL_ = o.lineL_; // equal sizes: std::vector copy-assignment reuses the storage
+    lineR_ = o.lineR_;
+    lowL_ = o.lowL_;
+    lowR_ = o.lowR_;
+    highL_ = o.highL_;
+    highR_ = o.highR_;
+    satL_.reset();
+    satR_.reset();
+    colourL_ = o.colourL_;
+    colourR_ = o.colourR_;
+    bumpL_ = o.bumpL_;
+    bumpR_ = o.bumpR_;
+    colour_ = o.colour_;
+    colourHz_ = o.colourHz_;
+    colourDelay_ = o.colourDelay_;
+    lfoPhase_ = o.lfoPhase_;
+    flutterPhase_ = o.flutterPhase_;
 }
 
 void DelayVoice::setTimeMs(float ms) noexcept
@@ -79,6 +135,14 @@ void DelayVoice::setFeedbackPct(float pct) noexcept
 void DelayVoice::setMixPct(float pct) noexcept
 {
     mix_.setTarget(clampOrMin(pct, 0.0f, 100.0f) / 100.0f);
+}
+void DelayVoice::setModDepthPct(float pct) noexcept
+{
+    modDepth_.setTarget(clampOrMin(pct, 0.0f, 100.0f) / 100.0f);
+}
+void DelayVoice::setSaturationPct(float pct) noexcept
+{
+    saturation_.setTarget(clampOrMin(pct, 0.0f, 100.0f) / 100.0f);
 }
 void DelayVoice::setLowCutHz(float hz) noexcept
 {
@@ -107,10 +171,35 @@ void DelayVoice::setHighG(float G) noexcept
     highDelay_ = G > 0.0f ? (1.0f - G) / (2.0f * G) : 0.0f;
 }
 
+// Read-pointer modulation in samples for the base delay d: the BBD clock's triangle, or tape wow + flutter.
+float DelayVoice::modOffset(float d) noexcept
+{
+    const double fs = sampleRate_;
+    lfoPhase_ += (voicing_ == Voicing::tape ? kWowHz : kBbdLfoHz) / fs;
+    lfoPhase_ -= std::floor(lfoPhase_);
+    flutterPhase_ += kFlutterHz / fs;
+    flutterPhase_ -= std::floor(flutterPhase_);
+    const float depth = modDepth_.next();
+    if (voicing_ == Voicing::analog) {
+        const float tri = static_cast<float>(4.0 * std::abs(lfoPhase_ - 0.5) - 1.0);
+        return depth * std::min(0.005f * d, static_cast<float>(1.5e-3 * fs)) * tri;
+    }
+    if (voicing_ == Voicing::tape) {
+        const float wow = std::min(0.004f * d, static_cast<float>(kMaxModMs * 1e-3 * fs));
+        return depth * (wow * static_cast<float>(std::sin(kTwoPi * lfoPhase_)) +
+                        static_cast<float>(kFlutterMs * 1e-3 * fs * std::sin(kTwoPi * flutterPhase_)));
+    }
+    return 0.0f;
+}
+
 void DelayVoice::runChunk(const float* inL, const float* inR, float* wetL, float* wetR, int n) noexcept
 {
-    float tapL[kChunk], tapR[kChunk], lowG[kChunk], highG[kChunk];
+    float tapL[kChunk], tapR[kChunk], lowG[kChunk], highG[kChunk], drive[kChunk];
+    SvfCoeffs colour[kChunk];
+    const bool coloured = voicing_ != Voicing::digital, two = stereo_ != Stereo::mono;
     const float rightRatio = stereo_ == Stereo::wide ? kWideRatio : 1.0f;
+    // The saturator's up/down delay is taken off the read too (signal-flow §3: L_dly stays 0).
+    const float loopDelay = coloured ? static_cast<float>(satL_.delaySamples()) : 0.0f;
     // k samples of this chunk are not pushed yet when tap k is read, so read(d − k) is x[n0 + k − d]. The high cut's
     // DC group delay is taken off the read, so the centre of each repeat lands on the set time.
     for (int k = 0; k < n; ++k) {
@@ -120,20 +209,52 @@ void DelayVoice::runChunk(const float* inL, const float* inR, float* wetL, float
             setHighG(cutCoeff(highCut_.next()));
         lowG[k] = lowG_;
         highG[k] = highG_;
-        const float d = time_.next() - highDelay_;
+        const float t = time_.next();
+        const float s = saturation_.next();
+        drive[k] = 0.05f + 3.95f * s * s;
+        if (coloured) {
+            const float hz = voicing_ == Voicing::tape
+                                 ? kTapeLowPassHz
+                                 : std::clamp(0.45f * kBbdStages * static_cast<float>(sampleRate_) / (2.0f * t),
+                                              kBbdMinHz, kBbdMaxHz);
+            if (hz != colourHz_) {
+                colourHz_ = hz;
+                colour_ = svfDesign(SvfType::lowPass, sampleRate_, hz, 0.70710678, 0.0);
+                // The 2nd-order Butterworth group delay at 1 kHz (ADR-0005 D4's reference frequency), bilinear-mapped:
+                // τ = √2/(2g) · (1 + r²)/(1 + r⁴) samples, g = tan(π fc/fs), r = tan(π 1000/fs)/g.
+                const double g = std::tan(3.14159265358979 * hz / sampleRate_);
+                const double r = std::tan(3.14159265358979 * 1000.0 / sampleRate_) / g;
+                colourDelay_ = static_cast<float>(1.41421356 / (2.0 * g) * (1.0 + r * r) / (1.0 + r * r * r * r));
+            }
+            colour[k] = colour_;
+        }
+        const float d = t + modOffset(t) - highDelay_ - (coloured ? loopDelay + colourDelay_ : 0.0f);
         const float fk = static_cast<float>(k);
         tapL[k] = lineL_.read(d - fk);
         tapR[k] = lineR_.read(d * rightRatio - fk);
     }
+    if (coloured) {
+        const float bias = voicing_ == Voicing::analog ? kBbdBias : 0.0f;
+        for (int k = 0; k < n; ++k)
+            tapL[k] = colourL_.tick(colour[k], tapL[k]);
+        satL_.process(tapL, drive, bias, n);
+        if (two) {
+            for (int k = 0; k < n; ++k)
+                tapR[k] = colourR_.tick(colour[k], tapR[k]);
+            satR_.process(tapR, drive, bias, n);
+        }
+    }
+    const bool tape = voicing_ == Voicing::tape;
     for (int k = 0; k < n; ++k) {
         const float g = kMaxLoopGain * feedback_.next();
         const float l = finiteOrZero(inL[k]), r = finiteOrZero(inR[k]);
         const float yL = highL_.lp(tapL[k] - lowL_.lp(tapL[k], lowG[k]), highG[k]);
-        if (stereo_ == Stereo::mono) {
+        const float outL = tape ? bumpL_.tick(bump_, yL) : yL; // the head bump colours the wet, not the loop
+        if (!two) {
             const float push = 0.5f * (l + r) + g * limit(yL);
             lineL_.push(push);
             lineR_.push(push); // keeps both histories aligned for the block's voice copy on a stereo change
-            wetL[k] = wetR[k] = yL;
+            wetL[k] = wetR[k] = outL;
             continue;
         }
         const float yR = highR_.lp(tapR[k] - lowR_.lp(tapR[k], lowG[k]), highG[k]);
@@ -144,8 +265,8 @@ void DelayVoice::runChunk(const float* inL, const float* inR, float* wetL, float
             lineL_.push(l + g * limit(yL));
             lineR_.push(r + g * limit(yR));
         }
-        wetL[k] = yL;
-        wetR[k] = yR;
+        wetL[k] = outL;
+        wetR[k] = tape ? bumpR_.tick(bump_, yR) : yR;
     }
 }
 

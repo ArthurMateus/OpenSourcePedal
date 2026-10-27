@@ -20,6 +20,14 @@
 //         two knees compound, so inside the knee the curve differs slightly from a single-stage R (outside it is
 //         exactly R).
 //
+// Low-note distortion (#89, a decision, not a defect): the detector is a peak detector on the GR, so with a short
+// release it sags between the peaks of a low note and re-attacks on each one, modulating the gain at 2 f0 and adding
+// odd harmonics. Release sets it (at 0.1 ms attack THD drops 7, 9, 10 dB per step 20 -> 50 -> 150 -> 500 ms); a slower
+// attack helps less. Measured at 82.8 Hz, -12 dBFS, defaults otherwise (about 6 dB of GR), modes within 1.3 dB: -30.5
+// dB (3 %) at 0.1 / 20 ms, -50.1 dB (0.3 %) at the 10 / 150 ms defaults. Kept: a hold or RMS floor would stretch the
+// release past its 63 % time constant (parameters.md §1.4) and read a sine below its peak, and a fast release that
+// growls on low notes is what that corner of the range is for. test_compressor.cpp gates the grid at measured + 3 dB.
+//
 // Auto makeup = the static gain reduction at the DI nominal peak level kAutoMakeupRefDb (tone-targets-a §3.4), so
 // a DI at nominal level leaves at the same peak. It adds to the manual makeup. Makeup applies to the wet path.
 //
