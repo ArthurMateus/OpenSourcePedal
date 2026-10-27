@@ -111,7 +111,7 @@ TEST_CASE("Graph: hard-bypassed graph nulls against the input delayed by L_total
     CHECK(null.rmsDbfs <= -120.0);
 }
 
-TEST_CASE("Graph: reported latency = round(Σ D) and equals the measured 1 kHz delay within ±0.5 (REQ-301)",
+TEST_CASE("Graph: reported latency = round(sum D) and equals the measured 1 kHz delay within +-0.5 (REQ-301)",
           "[engine][graph][latency]")
 {
     const double fs = GENERATE(44100.0, 48000.0, 88200.0, 96000.0);
