@@ -122,6 +122,13 @@
       "baseline": "#72 part 1, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 7 quiet runs (R 0.602-0.659), T_ref 10.6-11.1 ms",
       "headroom": "about 4.4x the measured 0.68 %: 8-line FDN, 4 diffuser stages (32 delay taps + 4 Hadamard), 8 modulated linear-interpolated reads with std::sin LFOs, stereo; reverb is one of the heavier non-amp blocks, so the ceiling leaves room for the block wrapper (pre-delay, filters, mix) in part 2"
     },
+    "reverb_block": {
+      "kind": "block",
+      "r0": 0.670447,
+      "maxCpuPercent": 3.0,
+      "baseline": "#72 part 2, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 7 quiet runs (R 0.641-0.686), T_ref about 10.5 ms",
+      "headroom": "about 4.3x the measured 0.70 %: the hall FdnTank (fdn_hall) plus fractional pre-delay, two TPT one-poles per channel, mix and enable ramps, stereo; the same 3 % ceiling as the tank, since the wrapper adds about 4 %"
+    },
     "cab_2x1s": {
       "kind": "block",
       "r0": 0.7194,
