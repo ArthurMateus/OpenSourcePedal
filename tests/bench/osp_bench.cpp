@@ -23,6 +23,7 @@
 #include "osp/dsp/oversampling/Oversampler.h"
 #include "osp/dsp/reverb/DattorroTank.h"
 #include "osp/dsp/reverb/FdnTank.h"
+#include "osp/dsp/reverb/SpringTank.h"
 #include "osp/dsp/tuner/TunerTap.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
@@ -377,6 +378,17 @@ int main(int argc, char** argv)
     std::vector<float> plateRight(kBlock);
     results.push_back({"plate_tank", measure(bench, "plate_tank", input, [&](const float* in, float* out, int n) {
                            plate.process(in, in, out, plateRight.data(), n);
+                       })});
+
+    // Spring tank at 2.5 s, 20 % modulation: two springs (stereo out), the mono input on both sides.
+    osp::dsp::SpringTank spring;
+    spring.prepare(kSampleRate);
+    spring.setDecaySeconds(2.5f);
+    spring.setModulation(0.2f);
+    spring.reset();
+    std::vector<float> springRight(kBlock);
+    results.push_back({"spring_tank", measure(bench, "spring_tank", input, [&](const float* in, float* out, int n) {
+                           spring.process(in, in, out, springRight.data(), n);
                        })});
 
     // Reverb block at its defaults (hall, 2.5 s, 20 ms pre-delay, 100 Hz / 6 kHz cuts, 20 % mix): stereo in/out.
