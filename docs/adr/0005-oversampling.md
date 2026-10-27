@@ -52,8 +52,8 @@ Oversampled regions follow `docs/spec/signal-flow.md` (#52):
     the oversampled rate).
   - **OS-2** is the classic amp's own region. It stays separate from OS-1 because NAM channels sit in the same amp slot
     and must not be forced into OS-2 (signal-flow §OS regions).
-  - The clean DI blend (`amp.cleanBlendPct`, signal-flow #52) is delayed by the integer `L_slot + L_cab`, so the
-    total latency is unchanged. Against an IIR amp path, the residual fraction (≤ 0.5 sample, D4) remains between the
+  - The clean DI blend (`amp.cleanBlendPct`, signal-flow #52) is delayed by the integer `K_clean` (ADR-0009 D4;
+    `L_slot + L_cab` when the delays are integers), so the total latency is unchanged. Against an IIR amp path, the residual fraction (≤ 0.5 sample, D4) remains between the
     blended signals. This is accepted, because the amp path is nonlinear and no null applies.
   - The cost is that soft-clip voicings in OS-1 run at 4× rather than the 2× the research suggests (OS §3.1). The
     extra CPU is accepted for one pair and constant latency.
@@ -88,8 +88,9 @@ designed to.
   padded with a preallocated delay. Enabling, bypassing or swapping a block never changes the reported total, and
   crossfades are time-aligned. The amp slot uses ADR-0002 D4's `L_slot`, which includes the classic amp's oversampler
   latency from this ADR (`L_classic`).
-- The engine sums the slot latencies and reports the total through `setLatencySamples`, from the control thread, only
-  in `prepare()` (a Live/HQ change or SR/block change).
+- The engine reports the total through `setLatencySamples`, from the control thread, only in `prepare()` (a Live/HQ
+  change or SR/block change). *Amended by ADR-0009 D4 (#95):* it rounds once, `round(Σ D)` over the measured
+  fractional delays, instead of summing the per-block `round(D)`; parallel paths use the same rounded sums.
 - Expected magnitude (*unverified*, OS §3.4): IIR 2×/4× ≈ 1–5 samples, FIR 2×/4× ≈ 10–40 samples per block. Live mode
   must stay at **≤ 16 samples total** for the full chain at 48 kHz (REQ-302, confirmed here), excluding the
   NAM resampler, which is 0 at 48 kHz (REQ-OS-005).

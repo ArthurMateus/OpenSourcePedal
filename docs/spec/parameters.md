@@ -176,7 +176,7 @@ Block-level parameters:
   readability.
 - `cleanBlendPct` is the v1 clean DI blend (REQ-424; tone-targets-a T1, open Q3 answered: a path on the amp block).
   It is a parallel path tapped at the amp input (after `drive2` and the pre-amp modulation position) that skips amp,
-  cab and EQ. It is delayed by `L_slot + L_cab` and mixed linearly after the EQ, before post-cab modulation
+  cab and EQ. It is delayed by `K_clean` (signal-flow §4, ADR-0009 D4) and mixed linearly after the EQ, before post-cab modulation
   (signal-flow §1/§4). 0 % = wet only. 100 % = the delayed amp input only (null ≤ −120 dBFS, REQ-424). The blend value
   never changes `L_total`.
 
