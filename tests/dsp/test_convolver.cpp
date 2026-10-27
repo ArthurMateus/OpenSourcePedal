@@ -169,3 +169,22 @@ TEST_CASE("PartitionedConvolver: before prepare() and with an empty IR it output
     const auto empty = render(conv, x, 33);
     CHECK(std::all_of(empty.begin(), empty.end(), [](float v) { return v == 0.0f; }));
 }
+
+TEST_CASE("PartitionedConvolver: a start phase changes when frames complete, not the output", "[dsp][cab][conv]")
+{
+    const int phase = GENERATE(1, 64, 256, 512, 777, 1023, 2048);
+    const int blockSize = GENERATE(1, 64, 127);
+    CAPTURE(phase, blockSize);
+    const auto h = makeIr(5000, 17u);
+    const auto x = makeNoise(9000, 19u, 0.5f);
+    const auto ref = directConvolution(x, h, 7);
+    PartitionedConvolver conv;
+    conv.prepare(h.data(), static_cast<int>(h.size()));
+    conv.setStartPhase(phase);
+    const auto first = render(conv, x, blockSize);
+    const double residualDb = peakResidualDb(first, ref);
+    CAPTURE(residualDb);
+    CHECK(residualDb <= -100.0);
+    conv.reset(); // keeps the phase
+    REQUIRE(render(conv, x, blockSize) == first);
+}
