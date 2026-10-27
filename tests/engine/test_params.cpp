@@ -26,7 +26,7 @@ const osp::engine::ParamInfo& info(std::string_view id)
 
 } // namespace
 
-TEST_CASE("Params: 226 host-visible ids, unique, defaults in range (parameters.md §5)", "[engine][params]")
+TEST_CASE("Params: 226 host-visible ids, unique, defaults in range (parameters.md section 5)", "[engine][params]")
 {
     CHECK(osp::engine::hostParamCount() == 226);
     std::set<std::string> ids;
