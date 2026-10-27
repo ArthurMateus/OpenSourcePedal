@@ -25,6 +25,7 @@ add_executable(osp_tests
     dsp/test_svf.cpp
     dsp/test_gain.cpp
     dsp/test_gate.cpp
+    dsp/test_input_stage.cpp
     dsp/test_ir_loader.cpp
     dsp/test_modulation.cpp
     dsp/test_oversampler.cpp

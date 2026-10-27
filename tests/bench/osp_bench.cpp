@@ -11,6 +11,7 @@
 #include "osp/dsp/Eq.h"
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/Gate.h"
+#include "osp/dsp/InputStage.h"
 #include "osp/dsp/Modulation.h"
 #include "osp/dsp/Phaser.h"
 #include "osp/dsp/Tremolo.h"
@@ -204,6 +205,15 @@ int main(int argc, char** argv)
     gate.reset();
     results.push_back(
         {"gate", measure(bench, "gate", input, [&](const float* in, float* out, int n) { gate.process(in, out, n); })});
+
+    // Input block (#74) at +6 dB trim: constant-gain trim + one-pole/one-zero DC blocker per sample.
+    osp::dsp::InputStage inputStage;
+    inputStage.prepare(kSampleRate, kBlock);
+    inputStage.setGainDb(6.0f);
+    inputStage.reset();
+    results.push_back({"input_stage", measure(bench, "input_stage", input, [&](const float* in, float* out, int n) {
+                           inputStage.process(in, out, n);
+                       })});
 
     // Modulation, chorusWide at its defaults (0.8 Hz, depth 50 %, mix 50 %, width 100 %), stereo (#70): two ring
     // writes, four LFO-modulated Catmull-Rom reads, three sin() and the mix per sample.
