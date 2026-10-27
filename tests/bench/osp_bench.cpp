@@ -21,6 +21,7 @@
 #include "osp/dsp/Phaser.h"
 #include "osp/dsp/Reverb.h"
 #include "osp/dsp/Tremolo.h"
+#include "osp/dsp/delay/DelayVoice.h"
 #include "osp/dsp/oversampling/Oversampler.h"
 #include "osp/dsp/reverb/DattorroTank.h"
 #include "osp/dsp/reverb/FdnTank.h"
@@ -366,6 +367,18 @@ int main(int argc, char** argv)
     results.push_back({"comp", measure(bench, "comp", input, [&](const float* in, float* out, int n) {
                            comp.setThresholdDb(-20.0f);
                            comp.process(in, out, n);
+                       })});
+
+    // Delay voice, digital, ping-pong at the defaults (400 ms, feedback 30 %, mix 25 %, cuts 80 Hz / 5 kHz), stereo
+    // (#71): two Catmull-Rom reads, four TPT one-poles, two ring writes and the mix per sample.
+    osp::dsp::DelayVoice delayDigital;
+    delayDigital.setStereo(osp::dsp::DelayVoice::Stereo::pingpong);
+    delayDigital.prepare(kSampleRate, kBlock);
+    std::vector<float> delayRight(static_cast<std::size_t>(kBlock));
+    results.push_back({"delay_digital", measure(bench, "delay_digital", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, delayRight.begin());
+                           delayDigital.process(out, delayRight.data(), n);
                        })});
 
     // FDN reverb tank, hall voicing at its defaults (2.5 s, 20 % modulation): stereo, the mono input on both sides.
