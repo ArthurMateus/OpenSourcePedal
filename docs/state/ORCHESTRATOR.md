@@ -14,6 +14,12 @@
 > Last updated: 2026-10-27 ~00:55Z by acct2/orchestrator (canvas name "Orchestrator", Maestro).
 > To take over: paste `docs/MASTER_PROMPT.md` (from main) into a fresh agent with **RESUME** appended.
 
+> **2026-10-27 22:45Z, READ FIRST:** the owner stopped all Maestri workers (Wren, Moth, Sable, Lyra) at ~01:00Z on 10-27, and
+> they are still stopped. The owner's own session is driving the work now: it merged #102-#137, #61, #142-#148 without
+> cross-account review (owner decision) and opened #139/#140 (#112, label `handoff`) and #149-#157 (#95 engine v1, #115).
+> `main/docs/state/HANDOFF/owner-session.md` overrides this file. The roster and queues below are STALE (as of 00:50Z on 10-27).
+> The Maestri orchestrator is holding: no dispatches and no merges until the owner says "resume".
+
 ## Phase
 - Phase 0 (Bootstrap): **DONE** (PR #2). Projects board blocked (B-001).
 - Phase 1 (Research): **GATE PASSED** 2026-10-25. 11 notes.
