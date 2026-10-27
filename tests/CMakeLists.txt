@@ -33,6 +33,7 @@ add_executable(osp_tests
     dsp/test_shimmer_tank.cpp
     dsp/test_spring_tank.cpp
     dsp/test_reverb.cpp
+    dsp/test_setter_idempotence.cpp
     dsp/test_fractional_delay.cpp
     dsp/test_eq_dynamics.cpp
     dsp/test_fdn_tank.cpp
