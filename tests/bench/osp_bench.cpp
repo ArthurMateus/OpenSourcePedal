@@ -414,6 +414,22 @@ int main(int argc, char** argv)
                            reverb.setParameters({});
                            reverb.process(in, in, out, reverbRight.data(), n);
                        })});
+
+    // Reverb block in shimmer mode (40 % shimmer, octUp), otherwise at its defaults: the heaviest mode.
+    osp::dsp::Reverb reverbShimmer;
+    reverbShimmer.prepare(kSampleRate, kBlock);
+    reverbShimmer.setEnabled(true);
+    osp::dsp::Reverb::Params shimmerParams;
+    shimmerParams.mode = osp::dsp::Reverb::Mode::Shimmer;
+    shimmerParams.shimmerPct = 40.0f;
+    reverbShimmer.setParameters(shimmerParams);
+    reverbShimmer.reset();
+    std::vector<float> reverbShimmerRight(kBlock);
+    results.push_back(
+        {"reverb_shimmer_block", measure(bench, "reverb_shimmer_block", input, [&](const float* in, float* out, int n) {
+             reverbShimmer.setParameters(shimmerParams);
+             reverbShimmer.process(in, in, out, reverbShimmerRight.data(), n);
+         })});
     // Cab (#69): both slots on with 1 s IRs (the cap and the budget case), staggered 1024 frames. The mean row is the
     // steady state; the peak row is the costliest callback (see peakCallback).
     std::vector<std::vector<float>> cabIrs(2, std::vector<float>(static_cast<std::size_t>(kSampleRate)));

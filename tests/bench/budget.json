@@ -157,6 +157,13 @@
       "baseline": "#72 part 2, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 7 quiet runs (R 0.641-0.686), T_ref about 10.5 ms",
       "headroom": "about 4.3x the measured 0.70 %: the hall FdnTank (fdn_hall) plus fractional pre-delay, two TPT one-poles per channel, mix and enable ramps, stereo; the same 3 % ceiling as the tank, since the wrapper adds about 4 %"
     },
+    "reverb_shimmer_block": {
+      "kind": "block",
+      "r0": 1.119,
+      "maxCpuPercent": 4.0,
+      "baseline": "#73 part 3, 2026-10-27, local VS 2022 Release build (windows-msvc-ci) on a heavily loaded machine: r0 = shimmer_tank r0 (1.082) + the block wrapper (reverb_block r0 - fdn_hall r0 = 0.037); the 2 quietest of 7 runs gave 1.07-1.13 against fdn_hall's r0",
+      "headroom": "the shimmer tank's 4 % ceiling: the wrapper adds about 3 % to the tank, as for reverb_block; shimmer is the heaviest mode (only the active engine runs, plus the outgoing one during a 50 ms fade)"
+    },
     "cab_2x1s": {
       "kind": "block",
       "r0": 0.7194,
