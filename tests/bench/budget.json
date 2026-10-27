@@ -59,6 +59,13 @@
       "baseline": "#67 part 2, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (1.15-1.20 %), T_ref 10.7-10.8 ms",
       "headroom": "about 3.4x the measured 1.19 %: OS-1 Live at 48 kHz (4x IIR up/down) with both slots enabled, mid into dist; the drive section of a stacked preset"
     },
+    "drive_region_hq": {
+      "kind": "block",
+      "r0": 2.883197,
+      "maxCpuPercent": 12.0,
+      "baseline": "#112 part 2, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), 3 runs on a loaded machine (T_ref 25-30 ms, raw R 3.52-5.91, drive_region_live R 1.53-2.26 against its r0 1.10), so r0 = drive_region_live r0 x the median HQ/Live time ratio 2.62 (2.31-2.62); re-baseline on an idle machine",
+      "headroom": "about 2.4x the estimated 5.0 % on the CI runner (drive_region_live 1.83-2.04 % there x 2.62) and 3.9x the estimated 3.1 % on an idle local machine: OS-1 HQ at 48 kHz (8x FIR, ADR-0005 A3, + 6-sample pad) with both slots enabled, mid into dist"
+    },
     "gate": {
       "kind": "block",
       "r0": 0.013424,
