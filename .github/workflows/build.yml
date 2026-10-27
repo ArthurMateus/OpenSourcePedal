@@ -50,6 +50,13 @@ jobs:
         run: cmake --build --preset ci
       - name: Test
         run: ctest --preset ci --output-junit test-results.xml
+      # ADR-0008: osp-tonematch presets (factory IRs and --ir-dir with sha256) validate against preset.v1.
+      - name: Tone match preset schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          pip install jsonschema==4.23.0
+          python tools/tonematch/check_preset.py build/release/tools/osp-tonematch.exe
       # REQ-TEST-007. 5 runs, gated on the per-benchmark median (tools/bench/median.py), so one noisy run cannot fail
       # the job. The R regression gate stays off until budget.json holds r0 values from this runner (#83).
       - name: Benchmarks (CPU ceilings)
