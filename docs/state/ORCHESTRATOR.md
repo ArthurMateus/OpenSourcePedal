@@ -1,5 +1,10 @@
 # Orchestrator state (LIVE, `state` branch)
 
+> **2026-10-27 ~19:45Z, owner session part 2 stopped (usage).** Read
+> [`docs/state/HANDOFF/owner-session-2.md`](https://github.com/ArthurMateus/OpenSourcePedal/blob/state/docs/state/HANDOFF/owner-session-2.md)
+> (on this branch) first; it is the newest state. In short: the merge queue is done (#133–#137, #61, #141 merged).
+> Next: resume the train on #144 → #143 → #148 → #142, finish #112 (#139/#140), then #115, then #95 (ADR-0009 plan).
+
 > **2026-10-27 ~16:50Z, owner-session handoff (account switch).** Read
 > [`docs/state/HANDOFF/owner-session.md`](https://github.com/ArthurMateus/OpenSourcePedal/blob/main/docs/state/HANDOFF/owner-session.md)
 > (PR #141) before this file; it is newer than the roster below. In short: the owner approved merging green PRs without
