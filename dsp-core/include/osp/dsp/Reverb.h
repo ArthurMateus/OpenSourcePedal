@@ -1,8 +1,7 @@
 #pragma once
 
-// Reverb block (issue #72, part 2 of 3): room and hall on FdnTank (part 1); plate uses the hall engine until part 3
-// adds the Dattorro tank. Stereo in/out, zero latency (the dry path is never delayed). Parameters per parameters.md
-// §3.5.
+// Reverb block (issue #72): room and hall on FdnTank (part 1), plate on DattorroTank (part 3). Stereo in/out, zero
+// latency (the dry path is never delayed). Parameters per parameters.md §3.5.
 //
 // Signal path: in → pre-delay (fractional, 80 ms glide) → low cut / high cut (TPT one-pole HP/LP on the reverb
 // input, cutoff smoothed 20 ms, coefficients per sample while moving) → tank (mode engine, 50 ms crossfade on a mode
@@ -16,6 +15,7 @@
 // Denormals: the cut filters' and tanks' decaying states rely on FTZ/DAZ at callback entry (realtime-rules RT-8),
 // with no per-state snap.
 
+#include "osp/dsp/reverb/DattorroTank.h"
 #include "osp/dsp/reverb/FdnTank.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/Smoothers.h"
@@ -58,11 +58,15 @@ private:
     };
 
     void startPendingModeFade() noexcept;
+    void resetEngine(int engine) noexcept;
+    void processEngine(int engine, const float* inL, const float* inR, float* outL, float* outR, int n) noexcept;
     void processChunk(const float* inL, const float* inR, float* outL, float* outR, int n) noexcept;
 
     double sampleRate_ = 0.0;
     Params params_;
-    std::array<FdnTank, 2> engines_; // 0 = room, 1 = hall (plate → hall in part 1)
+    static constexpr int kNumEngines = 3;
+    std::array<FdnTank, 2> engines_; // 0 = room, 1 = hall
+    DattorroTank plate_;             // 2 = plate
     int active_ = 1, previous_ = 1, pending_ = 1;
     LinearRamp modeFade_;
     std::array<std::vector<float>, 2> pre_; // pre-delay rings

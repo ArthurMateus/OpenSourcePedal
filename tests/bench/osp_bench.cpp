@@ -10,6 +10,7 @@
 #include "osp/dsp/ChorusFlanger.h"
 #include "osp/dsp/Compressor.h"
 #include "osp/dsp/Doubler.h"
+#include "osp/dsp/Drive.h"
 #include "osp/dsp/Eq.h"
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/Gate.h"
@@ -20,6 +21,7 @@
 #include "osp/dsp/Reverb.h"
 #include "osp/dsp/Tremolo.h"
 #include "osp/dsp/oversampling/Oversampler.h"
+#include "osp/dsp/reverb/DattorroTank.h"
 #include "osp/dsp/reverb/FdnTank.h"
 #include "osp/dsp/tuner/TunerTap.h"
 #include "osp/dsp/util/Crossfader.h"
@@ -235,6 +237,16 @@ int main(int argc, char** argv)
              os4.process(in, out, n, [](float*, int) {});
          })});
 
+    // One drive slot (mid, defaults) inside a 4x IIR region: OS-1 at 48 kHz with one drive enabled (ADR-0005 D2).
+    osp::dsp::Oversampler osDrive;
+    osDrive.prepare(kSampleRate, kBlock, 4);
+    osp::dsp::DriveStage drive;
+    drive.prepare(kSampleRate * 4, kBlock * 4);
+    results.push_back(
+        {"drive_stage_4x", measure(bench, "drive_stage_4x", input, [&](const float* in, float* out, int n) {
+             osDrive.process(in, out, n, [&](float* x, int osN) { drive.process(x, osN); });
+         })});
+
     // Noise gate (enabled, defaults) on the noise input: peak detector + state machine + gain per sample.
     osp::dsp::Gate gate;
     gate.prepare(kSampleRate, kBlock);
@@ -354,6 +366,17 @@ int main(int argc, char** argv)
     std::vector<float> fdnRight(kBlock);
     results.push_back({"fdn_hall", measure(bench, "fdn_hall", input, [&](const float* in, float* out, int n) {
                            fdn.process(in, in, out, fdnRight.data(), n);
+                       })});
+
+    // Dattorro plate tank at 2.5 s, 20 % modulation: stereo out, the mono input on both sides.
+    osp::dsp::DattorroTank plate;
+    plate.prepare(kSampleRate);
+    plate.setDecaySeconds(2.5f);
+    plate.setModulation(0.2f);
+    plate.reset();
+    std::vector<float> plateRight(kBlock);
+    results.push_back({"plate_tank", measure(bench, "plate_tank", input, [&](const float* in, float* out, int n) {
+                           plate.process(in, in, out, plateRight.data(), n);
                        })});
 
     // Reverb block at its defaults (hall, 2.5 s, 20 ms pre-delay, 100 Hz / 6 kHz cuts, 20 % mix): stereo in/out.
