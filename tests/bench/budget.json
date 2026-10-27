@@ -122,6 +122,13 @@
       "baseline": "#72 part 1, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 7 quiet runs (R 0.602-0.659), T_ref 10.6-11.1 ms",
       "headroom": "about 4.4x the measured 0.68 %: 8-line FDN, 4 diffuser stages (32 delay taps + 4 Hadamard), 8 modulated linear-interpolated reads with std::sin LFOs, stereo; reverb is one of the heavier non-amp blocks, so the ceiling leaves room for the block wrapper (pre-delay, filters, mix) in part 2"
     },
+    "plate_tank": {
+      "kind": "block",
+      "r0": 0.136758,
+      "maxCpuPercent": 1.0,
+      "baseline": "#72 part 3, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 7 runs (R 0.135-0.143) on a lightly loaded machine, T_ref about 11 ms",
+      "headroom": "about 6.5x the measured 0.155 %: Dattorro figure-eight tank, 4 input allpasses + 2 modulated allpasses + 2 allpasses + 4 delays, 14 output taps, one sin/cos LFO pair per sample; one plate per Reverb block"
+    },
     "reverb_block": {
       "kind": "block",
       "r0": 0.670447,

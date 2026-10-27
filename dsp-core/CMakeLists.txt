@@ -9,6 +9,7 @@ add_library(osp_dsp_core STATIC
     src/Gain.cpp
     src/Gate.cpp
     src/Reverb.cpp
+    src/reverb/DattorroTank.cpp
     src/reverb/FdnTank.cpp
     src/InputStage.cpp
     src/OutputStage.cpp
