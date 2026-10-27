@@ -213,6 +213,8 @@ int main(int argc, char** argv)
     inputStage.reset();
     results.push_back({"input_stage", measure(bench, "input_stage", input, [&](const float* in, float* out, int n) {
                            inputStage.process(in, out, n);
+                       })});
+
     // Modulation, chorusWide at its defaults (0.8 Hz, depth 50 %, mix 50 %, width 100 %), stereo (#70): two ring
     // writes, four LFO-modulated Catmull-Rom reads, three sin() and the mix per sample.
     osp::dsp::ChorusFlanger chorus;
