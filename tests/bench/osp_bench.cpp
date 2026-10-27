@@ -11,6 +11,7 @@
 #include "osp/dsp/Eq.h"
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/Gate.h"
+#include "osp/dsp/Phaser.h"
 #include "osp/dsp/oversampling/Oversampler.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
@@ -211,6 +212,18 @@ int main(int argc, char** argv)
                            std::copy(in, in + n, out);
                            std::copy(in, in + n, chorusRight.begin());
                            chorus.process(out, chorusRight.data(), n);
+                       })});
+
+    // Modulation, vibe (the costliest allpass type: four tan() per side) at the defaults, stereo (#70 part 2): two
+    // LFO sines, the photocell one-pole, 2 x 4 TPT allpass stages and their coefficients per sample.
+    osp::dsp::Phaser vibe;
+    vibe.setVoicing(osp::dsp::Phaser::Voicing::vibe);
+    vibe.prepare(kSampleRate, kBlock);
+    std::vector<float> vibeRight(static_cast<std::size_t>(kBlock));
+    results.push_back({"mod_vibe", measure(bench, "mod_vibe", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, vibeRight.begin());
+                           vibe.process(out, vibeRight.data(), n);
                        })});
 
     // Compressor at its defaults (opto, -20 dB, 4:1, all three detectors run) with the tone tilt active (knob 7).
