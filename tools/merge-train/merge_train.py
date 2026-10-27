@@ -84,7 +84,7 @@ def resolve_keep_both(path):
 
 # Stacked PR -> the PR it sits on. main only has the parent as a squash commit, so first merge the parent's
 # final head (shared history: only registry conflicts), then main.
-PARENT = {133: 132, 134: 133, 136: 135, 137: 136}
+PARENT = {133: 132, 134: 133, 136: 135, 137: 136, 140: 139}
 
 
 def merge_ref(head, ref, label):

@@ -36,7 +36,8 @@ Merge these in this order. **#133 already has its main-sync commit pushed and it
 | 4 | #135 spring tank | reverb part 2, base `main` | green |
 | 5 | #136 shimmer | on #135 | open |
 | 6 | #137 spring + shimmer modes in the Reverb block | on #136 | open |
-| 7 | #112's PR (HQ drive) | base `main` | see `docs/state/HANDOFF/112.md` on its branch |
+| 7 | #139 full-band FIR stage-0 decimator | HQ drive (#112), base `main` | draft (WIP): finish, mark ready, then merge |
+| 8 | #140 DriveRegion HQ on the FIR kind | on #139 | draft (WIP); see `docs/state/HANDOFF/112.md` on its branch |
 
 Run the queue with `tools/merge-train/merge_train.py` (added with this note) from a **clean** checkout, in the
 background:
