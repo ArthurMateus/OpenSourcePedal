@@ -52,6 +52,62 @@
       "baseline": "#65, 2026-10-25, local VS 2022 Release build (windows-msvc-ci), median of 6 quiet runs, T_ref about 10.3 ms",
       "headroom": "about 50x the measured 0.014 %: enabled gate, peak detector + hysteresis/hold state machine + per-sample gain on -12 dBFS noise"
     },
+    "tuner_tap": {
+      "kind": "block",
+      "r0": 0.0299,
+      "maxCpuPercent": 1.5,
+      "baseline": "#75, 2026-10-26, local VS 2022 Release build, median of 3 runs (r 0.0292-0.0327), T_ref about 16.7 ms on this machine",
+      "headroom": "about 30x the measured 0.050 %: 4th-order SVF low pass + decimation + atomic ring store per sample, and the unmuted mute pass (an early return); the YIN detector runs on a worker"
+    },
+    "input_stage": {
+      "kind": "block",
+      "r0": 0.0238,
+      "maxCpuPercent": 1.0,
+      "baseline": "#74, 2026-10-26, local VS 2022 Release build, median of 3 runs (r 0.0234-0.0259), T_ref about 16 ms on this machine",
+      "headroom": "about 25x the measured 0.039 %: constant-gain trim (vectorised) + one-pole/one-zero DC blocker per sample"
+    },
+    "output_stage": {
+      "kind": "block",
+      "r0": 0.1309,
+      "maxCpuPercent": 4.0,
+      "baseline": "#74, 2026-10-26, local VS 2022 Release build, median of 3 runs (r 0.1266-0.1466), T_ref about 16 ms on this machine",
+      "headroom": "about 19x the measured 0.21 %: stereo, limiter engaged; NaN guard, level, 4x interpolated true-peak detector (3 phases x 12 taps x 2 channels), gain and meters per sample"
+    },
+    "doubler": {
+      "kind": "block",
+      "r0": 0.1757,
+      "maxCpuPercent": 5.0,
+      "baseline": "#74, 2026-10-26, local VS 2022 Release build, median of 3 runs (r 0.1638-0.1824), T_ref about 16 ms on this machine",
+      "headroom": "about 15x the measured 0.33 %: stereo, two ring writes, two sin() LFOs, two Catmull-Rom reads and the pan/mix per sample; the sin() calls dominate and could move to a phasor if needed"
+    },
+    "mod_chorus": {
+      "kind": "block",
+      "r0": 0.3397,
+      "maxCpuPercent": 8.0,
+      "baseline": "#70, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.3337-0.3399), T_ref about 14.7 ms on this machine",
+      "headroom": "about 16x the measured 0.50 %: chorusWide (the costliest modulation type), stereo, two ring writes, four Catmull-Rom reads and three sin() per sample"
+    },
+    "mod_vibe": {
+      "kind": "block",
+      "r0": 0.4868,
+      "maxCpuPercent": 12.0,
+      "baseline": "#70 part 2, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.4708-0.5948, a busy machine), T_ref about 19 ms on this machine",
+      "headroom": "about 13x the measured 0.93 %: vibe (the costliest allpass type), stereo, 2 x 4 TPT allpass stages with a tan() each, two pow() and the LFO sines per sample; the tan() calls dominate and could become a polynomial if needed"
+    },
+    "mod_tremolo": {
+      "kind": "block",
+      "r0": 0.0961,
+      "maxCpuPercent": 3.0,
+      "baseline": "#70 part 3, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.0897-0.0978), T_ref about 17 ms on this machine",
+      "headroom": "about 18x the measured 0.16 %: harmonic tremolo, stereo, two cascaded TPT one-poles, two band gains and one LFO sine per side per sample"
+    },
+    "mod_block": {
+      "kind": "block",
+      "r0": 0.5378,
+      "maxCpuPercent": 12.0,
+      "baseline": "#70 part 4, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.5163-0.5659), T_ref about 16 ms on this machine",
+      "headroom": "about 14x the measured 0.87 %: the mod block, stereo, toggling chorusWide <-> phaser every 100 ms, so 30 % of the time both slots and the 30 ms type crossfade run"
+    },
     "comp": {
       "kind": "block",
       "r0": 0.1931,
@@ -65,6 +121,27 @@
       "maxCpuPercent": 3.0,
       "baseline": "#72 part 1, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 7 quiet runs (R 0.602-0.659), T_ref 10.6-11.1 ms",
       "headroom": "about 4.4x the measured 0.68 %: 8-line FDN, 4 diffuser stages (32 delay taps + 4 Hadamard), 8 modulated linear-interpolated reads with std::sin LFOs, stereo; reverb is one of the heavier non-amp blocks, so the ceiling leaves room for the block wrapper (pre-delay, filters, mix) in part 2"
+    },
+    "cab_2x1s": {
+      "kind": "block",
+      "r0": 0.7194,
+      "maxCpuPercent": 2.4,
+      "baseline": "#69 part 4, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 3 runs (R 0.710-0.733, 0.797-0.841 %)",
+      "headroom": "about 3x the measured 0.81 %: both slots on with 1 s IRs (the IrLoader cap, the #69 budget case), mono in, stereo out, align and pan per sample; zero-latency partitioned convolution (64-tap head + 64/256/1024 FFT stages)"
+    },
+    "cab_2x1s_peak": {
+      "kind": "block",
+      "r0": 3.3805,
+      "maxCpuPercent": 12.0,
+      "baseline": "#69 part 4, 2026-10-26, same build, median of 3 runs (R 3.365-3.457, 3.78-3.97 %): the costliest 64-sample callback (median over 200 cycles of the worst of 16 block phases), about 51 us",
+      "headroom": "about 3x the measured 3.8 %: CPU % here is that callback's share of the 1.33 ms block deadline. It is set by one slot's 1024-stage frame (2048-point FFT pair + 46-partition sum); the slots are staggered so their frames never share a callback (#100)"
+    },
+    "oversampler_fir_8x": {
+      "kind": "block",
+      "r0": 0.463274,
+      "maxCpuPercent": 2.0,
+      "baseline": "#63 part 3, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (0.47-0.49 %), T_ref 10.4-10.5 ms",
+      "headroom": "about 4x the measured 0.48 %: FIR halfband up + down at 8x (HQ), 58/32/34 even-phase taps per stage, identity processing; one HQ region"
     },
     "passthrough_chain": {
       "kind": "full_chain",

@@ -50,11 +50,14 @@ jobs:
         run: cmake --build --preset ci
       - name: Test
         run: ctest --preset ci --output-junit test-results.xml
-      # REQ-TEST-007. The R regression gate stays off until baselines come from the CI runner: sub-0.01 % blocks
-      # move R by up to ~30 % between local runs (timer noise), see #46.
+      # REQ-TEST-007. 5 runs, gated on the per-benchmark median (tools/bench/median.py), so one noisy run cannot fail
+      # the job. The R regression gate stays off until budget.json holds r0 values from this runner (#83).
       - name: Benchmarks (CPU ceilings)
+        shell: bash
         run: |
-          ./build/release/tests/osp-bench.exe --out build/bench.json
+          set -euo pipefail
+          for i in 1 2 3 4 5; do ./build/release/tests/osp-bench.exe --out "build/bench-$i.json" > /dev/null; done
+          python tools/bench/median.py build/bench.json build/bench-[1-5].json
           python tools/bench/check_budget.py build/bench.json --no-regression
       - name: Upload test reports
         if: ${{ !cancelled() }}
@@ -64,7 +67,7 @@ jobs:
           path: |
             build/release/test-results.xml
             build/release/Testing/Temporary/LastTest*.log
-            build/bench.json
+            build/bench*.json
           if-no-files-found: warn
           retention-days: 14
       # Paths per AGENTS.md section 3. The .vst3 is a bundle directory; upload-artifact keeps its layout. On a PR the

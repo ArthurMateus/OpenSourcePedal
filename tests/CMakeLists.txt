@@ -17,16 +17,27 @@ osp_apply_settings(osp_measure)
 add_executable(osp_tests
     dsp/test_adaa.cpp
     dsp/test_cab.cpp
+    dsp/test_cab_req.cpp
+    dsp/test_chorus_flanger.cpp
     dsp/test_compressor.cpp
     dsp/test_convolver.cpp
+    dsp/test_doubler.cpp
     dsp/test_eq.cpp
+    dsp/test_fractional_delay.cpp
     dsp/test_eq_dynamics.cpp
     dsp/test_fdn_tank.cpp
     dsp/test_svf.cpp
+    dsp/test_tuner.cpp
+    dsp/test_tuner_tap.cpp
     dsp/test_gain.cpp
     dsp/test_gate.cpp
+    dsp/test_input_stage.cpp
     dsp/test_ir_loader.cpp
+    dsp/test_modulation.cpp
     dsp/test_oversampler.cpp
+    dsp/test_output_stage.cpp
+    dsp/test_phaser.cpp
+    dsp/test_tremolo.cpp
     dsp/test_util.cpp
     engine/test_chain.cpp
     engine/test_engine.cpp
