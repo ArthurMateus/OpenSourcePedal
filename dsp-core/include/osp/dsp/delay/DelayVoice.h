@@ -69,6 +69,10 @@ public:
     void prepare(double sampleRate, int maxBlockSize);
     // RT-safe. Clears the lines and filters and jumps every smoother to its target.
     void reset() noexcept;
+    // RT-safe (no allocation: both voices are prepared alike). Takes over `other`'s lines, filters, smoothers and
+    // parameters, so the block can start a crossfade to a new mode or stereo setting with the repeats intact. The loop
+    // oversamplers restart from silence (they cannot be copied); the crossfade covers that.
+    void copyStateFrom(const DelayVoice& other) noexcept;
 
     // RT-safe. Clamped to the parameters.md ranges; NaN gives the range minimum. A stereo change is a jump here: the
     // block crossfades two voices instead (xf 30).
