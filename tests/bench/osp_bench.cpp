@@ -225,6 +225,19 @@ int main(int argc, char** argv)
                            delayDigital.process(out, delayRight.data(), n);
                        })});
 
+    // Delay voice, tape, ping-pong at the defaults plus modulation 50 % (#71 part 3): the digital loop plus, per side,
+    // a 4.5 kHz SVF, the 2x IIR oversampler with ADAA1 tanh inside the loop, wow/flutter and the head bump.
+    osp::dsp::DelayVoice delayTape;
+    delayTape.setVoicing(osp::dsp::DelayVoice::Voicing::tape);
+    delayTape.setStereo(osp::dsp::DelayVoice::Stereo::pingpong);
+    delayTape.setModDepthPct(50.0f);
+    delayTape.prepare(kSampleRate, kBlock);
+    results.push_back({"delay_tape", measure(bench, "delay_tape", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, delayRight.begin());
+                           delayTape.process(out, delayRight.data(), n);
+                       })});
+
     // Pass-through chain (the full engine chain as it stands), at 0 dB.
     osp::engine::Chain chain;
     chain.prepare(kSampleRate, kBlock);
