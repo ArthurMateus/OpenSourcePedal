@@ -85,6 +85,44 @@ void DelayVoice::reset() noexcept
     setHighG(cutCoeff(highCut_.current()));
 }
 
+void DelayVoice::copyStateFrom(const DelayVoice& o) noexcept
+{
+    if (o.sampleRate_ != sampleRate_ || o.lineL_.getMaxDelay() != lineL_.getMaxDelay())
+        return; // not prepared alike: copying the lines would allocate
+    voicing_ = o.voicing_;
+    stereo_ = o.stereo_;
+    bypassed_ = o.bypassed_;
+    timeMs_ = o.timeMs_;
+    time_ = o.time_;
+    lowCut_ = o.lowCut_;
+    highCut_ = o.highCut_;
+    modDepth_ = o.modDepth_;
+    saturation_ = o.saturation_;
+    feedback_ = o.feedback_;
+    mix_ = o.mix_;
+    enabled_ = o.enabled_;
+    lowG_ = o.lowG_;
+    highG_ = o.highG_;
+    highDelay_ = o.highDelay_;
+    lineL_ = o.lineL_; // equal sizes: std::vector copy-assignment reuses the storage
+    lineR_ = o.lineR_;
+    lowL_ = o.lowL_;
+    lowR_ = o.lowR_;
+    highL_ = o.highL_;
+    highR_ = o.highR_;
+    satL_.reset();
+    satR_.reset();
+    colourL_ = o.colourL_;
+    colourR_ = o.colourR_;
+    bumpL_ = o.bumpL_;
+    bumpR_ = o.bumpR_;
+    colour_ = o.colour_;
+    colourHz_ = o.colourHz_;
+    colourDelay_ = o.colourDelay_;
+    lfoPhase_ = o.lfoPhase_;
+    flutterPhase_ = o.flutterPhase_;
+}
+
 void DelayVoice::setTimeMs(float ms) noexcept
 {
     timeMs_ = clampOrMin(ms, kMinMs, kMaxMs);

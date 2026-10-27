@@ -143,6 +143,13 @@
       "baseline": "#71 part 3, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.7293-0.7529), T_ref about 41 ms on a loaded machine (3.06 % CPU)",
       "headroom": "about 4x the measured 3.06 %: tape ping-pong, modulation 50 %, stereo; per side a 2x IIR oversampler pair and ADAA1 tanh (double, two transcendentals per oversampled sample) inside the loop. The costliest delay voicing"
     },
+    "delay_block": {
+      "kind": "block",
+      "r0": 0.7708,
+      "maxCpuPercent": 12.0,
+      "baseline": "#71 part 4, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.7650-0.7722), T_ref about 41.5 ms on a loaded machine (3.20 % CPU)",
+      "headroom": "about 4x the measured 3.2 %: ping-pong, ducking 6 dB, toggling digital <-> tape every 100 ms (30 % of the time two voices run in the 30 ms crossfade, and each toggle copies both 3 s delay lines)"
+    },
     "fdn_hall": {
       "kind": "block",
       "r0": 0.633103,
@@ -156,6 +163,13 @@
       "maxCpuPercent": 1.0,
       "baseline": "#72 part 3, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 7 runs (R 0.135-0.143) on a lightly loaded machine, T_ref about 11 ms",
       "headroom": "about 6.5x the measured 0.155 %: Dattorro figure-eight tank, 4 input allpasses + 2 modulated allpasses + 2 allpasses + 4 delays, 14 output taps, one sin/cos LFO pair per sample; one plate per Reverb block"
+    },
+    "spring_tank": {
+      "kind": "block",
+      "r0": 0.694,
+      "maxCpuPercent": 3.0,
+      "baseline": "#73 part 1, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), 7 runs on a heavily loaded machine (fdn_hall read 1.86x its r0): r0 = fdn_hall r0 x the median per-run spring/fdn ratio 1.097 (0.88-1.21); raw R median 1.218",
+      "headroom": "the same 3 % ceiling as fdn_hall, which it costs about the same as: 2 springs x (100 stretched + 40 plain allpasses), 4 interleaved serial chains, 4 modulated linear reads, one 2-pole SVF per spring; interleaving the chains cut it 2.2x (from 2.5x the FDN)"
     },
     "reverb_block": {
       "kind": "block",
