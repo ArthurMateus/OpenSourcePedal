@@ -15,6 +15,14 @@ FetchContent_Declare(hiir
     SOURCE_SUBDIR osp-no-build)
 FetchContent_MakeAvailable(hiir)
 
+# nlohmann/json v3.12.0 (MIT): preset and state JSON in engine/ (PRIVATE, never in a public header). ADR-0006 D2.
+FetchContent_Declare(nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        55f93686c01528224f448c19128836e7df245f72 # v3.12.0
+    GIT_SHALLOW    OFF
+    SYSTEM)
+FetchContent_MakeAvailable(nlohmann_json)
+
 # Signalsmith dsp v1.7.3 (MIT), header-only. Its FFT backs the cab convolution in dsp-core (#69) and tests/measure
 # (ADR-0006 Amendment A1, #62). Tag → commit checked 2026-10-25.
 FetchContent_Declare(signalsmith_dsp
