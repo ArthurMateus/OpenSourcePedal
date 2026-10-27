@@ -3,6 +3,7 @@
 #include "GraphIds.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 
 namespace osp::engine {
@@ -30,7 +31,7 @@ void Graph::prepare(double sampleRate, int maxBlockSize, dsp::OversamplingQualit
     sampleRate_ = sampleRate;
     maxBlock_ = std::max(1, maxBlockSize);
     const auto n = static_cast<std::size_t>(maxBlock_);
-    for (auto* b : {&mono_, &dry_, &dryR_, &stripL_, &stripR_})
+    for (auto* b : {&mono_, &dry_, &dryR_, &stripL_, &stripR_, &cleanBuf_})
         b->assign(n, 0.0f); // pre-touched (realtime-rules RT-12)
 
     input_.prepare(sampleRate, maxBlock_);
@@ -49,10 +50,23 @@ void Graph::prepare(double sampleRate, int maxBlockSize, dsp::OversamplingQualit
     inputOn_.prepare(sampleRate);
     compOn_.prepare(sampleRate);
     stripFade_.prepare(sampleRate, kSwapSeconds);
+    cleanBlend_.prepare(sampleRate, 0.020); // parameters.md §1.4: mix % is a 20 ms linear ramp
 
-    // Latency, rounded once from the measured fractional delays (ADR-0009 D4).
-    latency_ =
-        static_cast<int>(std::lround(drives_.getMeasuredDelaySamples() + strips_[0].amp->getMeasuredDelaySamples()));
+    // ADR-0009 D4: P(x) = the measured delay from the input to tap x; each tap gets R(x) = round(P(x)) and a
+    // parallel path from a to b is delayed by R(b) − R(a), so every path adds up to exactly L_total.
+    const double dOs1 = drives_.getMeasuredDelaySamples();
+    const double dSlot = strips_[0].amp->getMeasuredDelaySamples();
+    for ([[maybe_unused]] const auto& s : strips_)
+        assert(s.amp->getMeasuredDelaySamples() == dSlot); // ADR-0002 D4: one L_slot for every channel
+    const double dCab = strips_[0].cab.getLatencySamples(); // 0: zero-latency convolution (signal-flow §4)
+    const auto R = [](double p) { return static_cast<int>(std::lround(p)); };
+    measuredDelay_ = dOs1 + dSlot + dCab;
+    latency_ = R(measuredDelay_);
+    slotPad_ = R(dOs1 + dSlot) - R(dOs1);
+    const int cleanDelay = latency_ - R(dOs1); // K_clean
+    clean_.prepare(cleanDelay);
+    clean_.setDelay(cleanDelay);
+    setBypassedAll(bypassedAll_); // hands the new pad to the amp slots
     reset();
 }
 
@@ -74,8 +88,24 @@ void Graph::reset() noexcept
     output_.reset();
     inputOn_.reset(inputOn_.target());
     compOn_.reset(compOn_.target());
+    clean_.reset();
+    cleanBlend_.reset(cleanBlend_.target());
     stripFrom_ = stripTo_ = choice(ids_->ampChannel);
     stripFade_.reset(1.0f);
+}
+
+void Graph::setBypassedAll(bool bypassed) noexcept
+{
+    bypassedAll_ = bypassed;
+    input_.setBypassed(bypassed);
+    comp_.setBypassed(bypassed);
+    drives_.setBypassed(bypassed); // an exact delay of round(D_os1) = R(amp in)
+    for (auto& s : strips_) {
+        s.amp->setBypassed(bypassed, slotPad_);
+        s.cab.setBypassed(bypassed);
+        s.eq.setBypassed(bypassed);
+    }
+    output_.setBypassed(bypassed);
 }
 
 void Graph::setCabIr(int channel, int slot, dsp::PartitionedConvolver* ir) noexcept
@@ -152,13 +182,16 @@ void Graph::processChunk(float* io, float* outL, float* outR, int n) noexcept
         inputOn_.process(dry, io, io, n);
     }
     tuner_.push(io, n);
-    gate_.process(io, io, n);
+    if (!bypassedAll_) // the gate has no hard bypass of its own; it is skipped
+        gate_.process(io, io, n);
     if (startEnable(compOn_, compIdle_, comp_)) {
         std::copy_n(io, n, dry);
         comp_.process(io, io, n);
         compOn_.process(dry, io, io, n);
     }
     drives_.process(io, io, n);
+    float* const clean = cleanBuf_.data();
+    clean_.process(io, clean, n); // always runs, so it is warm when the blend comes up
 
     auto& to = strips_[static_cast<std::size_t>(stripTo_)];
     if (stripFade_.isRamping()) {
@@ -171,6 +204,15 @@ void Graph::processChunk(float* io, float* outL, float* outR, int n) noexcept
         }
     } else {
         processStrip(to, io, outL, outR, n);
+    }
+
+    // out = (1 − β)·wet + β·clean (ADR-0009 D7). β = 0 settled leaves the wet untouched; β = 1 is exactly clean.
+    if (cleanBlend_.isRamping() || cleanBlend_.current() != 0.0f) {
+        for (int i = 0; i < n; ++i) {
+            const float b = cleanBlend_.next();
+            outL[i] = (1.0f - b) * outL[i] + b * clean[i];
+            outR[i] = (1.0f - b) * outR[i] + b * clean[i];
+        }
     }
 
     output_.process(outL, outR, n);
