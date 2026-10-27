@@ -193,8 +193,8 @@ TEST_CASE("DriveRegion: HQ with both slots disabled is an exact integer delay, n
     constexpr std::size_t kSkip = 1024;
     const std::vector<float> outTail(out.begin() + kSkip, out.end()), inTail(in.begin() + kSkip, in.end());
     const auto null = m::nullTest(outTail, inTail, static_cast<std::size_t>(region.getLatencySamples()));
-    std::printf("OS-1 HQ (FIR 8x + pad 6) @ %5.0f Hz: latency %d, null %.1f dBFS RMS\n", fs,
-                region.getLatencySamples(), null.rmsDbfs);
+    std::printf("OS-1 HQ (FIR 8x + pad 6) @ %5.0f Hz: latency %d, null %.1f dBFS RMS\n", fs, region.getLatencySamples(),
+                null.rmsDbfs);
     CHECK(null.rmsDbfs <= -120.0);
 }
 
