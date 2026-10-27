@@ -73,6 +73,34 @@
       "baseline": "#74, 2026-10-26, local VS 2022 Release build, median of 3 runs (r 0.1638-0.1824), T_ref about 16 ms on this machine",
       "headroom": "about 15x the measured 0.33 %: stereo, two ring writes, two sin() LFOs, two Catmull-Rom reads and the pan/mix per sample; the sin() calls dominate and could move to a phasor if needed"
     },
+    "mod_chorus": {
+      "kind": "block",
+      "r0": 0.3397,
+      "maxCpuPercent": 8.0,
+      "baseline": "#70, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.3337-0.3399), T_ref about 14.7 ms on this machine",
+      "headroom": "about 16x the measured 0.50 %: chorusWide (the costliest modulation type), stereo, two ring writes, four Catmull-Rom reads and three sin() per sample"
+    },
+    "mod_vibe": {
+      "kind": "block",
+      "r0": 0.4868,
+      "maxCpuPercent": 12.0,
+      "baseline": "#70 part 2, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.4708-0.5948, a busy machine), T_ref about 19 ms on this machine",
+      "headroom": "about 13x the measured 0.93 %: vibe (the costliest allpass type), stereo, 2 x 4 TPT allpass stages with a tan() each, two pow() and the LFO sines per sample; the tan() calls dominate and could become a polynomial if needed"
+    },
+    "mod_tremolo": {
+      "kind": "block",
+      "r0": 0.0961,
+      "maxCpuPercent": 3.0,
+      "baseline": "#70 part 3, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.0897-0.0978), T_ref about 17 ms on this machine",
+      "headroom": "about 18x the measured 0.16 %: harmonic tremolo, stereo, two cascaded TPT one-poles, two band gains and one LFO sine per side per sample"
+    },
+    "mod_block": {
+      "kind": "block",
+      "r0": 0.5378,
+      "maxCpuPercent": 12.0,
+      "baseline": "#70 part 4, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.5163-0.5659), T_ref about 16 ms on this machine",
+      "headroom": "about 14x the measured 0.87 %: the mod block, stereo, toggling chorusWide <-> phaser every 100 ms, so 30 % of the time both slots and the 30 ms type crossfade run"
+    },
     "comp": {
       "kind": "block",
       "r0": 0.1931,
