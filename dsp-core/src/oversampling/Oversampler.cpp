@@ -7,6 +7,8 @@
 #include "hiir/Downsampler2xFpu.h"
 #include "hiir/Upsampler2xFpu.h"
 
+#include "HalfbandFir.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -29,8 +31,9 @@ using HiirDown = hiir::Downsampler2xFpu<NC>;
 // Stage 0 (fs <-> 2fs).
 constexpr double kUp0[] = {0.045728148016233122, 0.16808754571240941, 0.33250111173947311, 0.50448575028293263,
                            0.66320202241939952,  0.80378086791112258, 0.93385580374462795}; // 90 dB, 0.05
-constexpr double kDown0[] = {0.054217525755190787, 0.1967979698143128,  0.38308732729094908,
-                             0.57313641114809133,  0.74872094443642634, 0.91429370968501777}; // 75 dB, 0.06
+constexpr double kDown0[] = {0.062382213942918041, 0.22114687003539313, 0.41544451180784797,
+                             0.5940587278668954,   0.7338077563157468,  0.83342431816010165,
+                             0.90146493032226416,  0.94845339629603631, 0.98392717641386307}; // 75 dB, 0.01 (A1)
 // Stage 1 (2fs <-> 4fs).
 constexpr double kUp1[] = {0.039151597734459989, 0.14737711360104649, 0.3026468483284932,
                            0.48246854276969942,  0.67461591854696368, 0.88300502576937012}; // 100 dB, 0.10
@@ -102,14 +105,16 @@ struct IirCascade {
 
 struct Oversampler::Impl {
     IirCascade iir;
+    fir::FirCascade fir;
     std::vector<float> a, b; // ping-pong buffers, maxBlock * factor each
 };
 
 Oversampler::Oversampler() : impl_(std::make_unique<Impl>()) {}
 Oversampler::~Oversampler() = default;
 
-void Oversampler::prepare(double sampleRate, int maxBlockSize, int factor)
+void Oversampler::prepare(double sampleRate, int maxBlockSize, int factor, OversamplingFilter filter)
 {
+    filter_ = filter;
     factor_ = factor <= 1 ? 1 : factor <= 2 ? 2 : factor <= 4 ? 4 : kMaxFactor;
     maxBlock_ = std::max(maxBlockSize, 1);
     const auto size = static_cast<std::size_t>(maxBlock_) * static_cast<std::size_t>(factor_);
@@ -137,6 +142,7 @@ void Oversampler::prepare(double sampleRate, int maxBlockSize, int factor)
 void Oversampler::reset() noexcept
 {
     impl_->iir.clear();
+    impl_->fir.clear();
     lastN_ = 0;
     os_ = impl_->a.empty() ? nullptr : impl_->a.data();
 }
@@ -155,7 +161,10 @@ float* Oversampler::upsample(const float* in, int numSamples) noexcept
     const float* src = in;
     for (int stage = 0, len = n; (1 << stage) < factor_ && len > 0; ++stage, len *= 2) {
         dst = stage % 2 == 0 ? impl_->a.data() : impl_->b.data();
-        impl_->iir.up(stage, dst, src, len);
+        if (filter_ == OversamplingFilter::fir)
+            impl_->fir.up(stage, dst, src, len);
+        else
+            impl_->iir.up(stage, dst, src, len);
         src = dst;
     }
     return os_ = dst;
@@ -181,7 +190,10 @@ void Oversampler::downsample(float* out, int numSamples) noexcept
     const float* src = os_;
     for (; stage >= 0; --stage) {
         float* dst = stage == 0 ? out : (src == impl_->a.data() ? impl_->b.data() : impl_->a.data());
-        impl_->iir.down(stage, dst, src, static_cast<long>(n) << stage);
+        if (filter_ == OversamplingFilter::fir)
+            impl_->fir.down(stage, dst, src, static_cast<long>(n) << stage);
+        else
+            impl_->iir.down(stage, dst, src, static_cast<long>(n) << stage);
         src = dst;
     }
 }
@@ -196,6 +208,18 @@ void detail::runIirStage(int stage, bool up, const float* in, float* out, int nu
         iir->up(s, out, in, numSamples);
     else
         iir->down(s, out, in, numSamples);
+}
+
+void detail::runFirStage(int stage, bool up, const float* in, float* out, int numSamples)
+{
+    if (numSamples <= 0)
+        return;
+    const auto f = std::make_unique<fir::FirCascade>();
+    const int s = std::clamp(stage, 0, Oversampler::kNumIirStages - 1);
+    if (up)
+        f->up(s, out, in, numSamples);
+    else
+        f->down(s, out, in, numSamples);
 }
 
 } // namespace osp::dsp

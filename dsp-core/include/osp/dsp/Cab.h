@@ -56,7 +56,7 @@ public:
     // RT-safe. Hands every object back (teardown); the slots are silent afterwards.
     void retireAll() noexcept;
 
-    // RT-safe, once per block. Values are clamped to the parameters.md ranges.
+    // RT-safe, once per block. Values are clamped to the parameters.md ranges (NaN maps to the range minimum).
     void setEnabled(bool on) noexcept
     {
         enableL_.setTarget(on);
@@ -96,11 +96,13 @@ private:
     };
 
     void retire(PartitionedConvolver* ir) noexcept;
-    void startSwap(Slot& s, PartitionedConvolver* ir) noexcept;
-    void completeSwap(Slot& s) noexcept;
+    // `ahead`: samples between clock_ and the first sample the new IR will process (PR #100 review: a pending IR
+    // promoted at the end of a chunk starts with the next chunk).
+    void startSwap(Slot& s, PartitionedConvolver* ir, int ahead = 0) noexcept;
+    void completeSwap(Slot& s, int ahead = 0) noexcept;
     void renderSlot(Slot& s, const float* in, float* outL, float* outR, int n) noexcept;
     int slotBase(const Slot& s) const noexcept;
-    int phaseNow(int phase) const noexcept;
+    int phaseNow(int phase, int ahead = 0) const noexcept;
 
     double sampleRate_ = 0.0;
     int maxBlock_ = 0;

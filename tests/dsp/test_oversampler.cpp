@@ -13,14 +13,15 @@
 #include <vector>
 
 using osp::dsp::Oversampler;
+using osp::dsp::OversamplingFilter;
 
 namespace {
 
-// ADR-0005 D3, IIR (Live): {up dB, up transition, down dB, down transition} per stage (0 = fs <-> 2fs).
+// ADR-0005 D3 + Amendment A1, IIR (Live): {up dB, up transition, down dB, down transition} per stage (0 = fs <-> 2fs).
 struct StageSpec {
     double upDb, upTw, downDb, downTw;
 };
-constexpr StageSpec kSpecs[] = {{90, 0.05, 75, 0.06}, {100, 0.10, 85, 0.12}, {110, 0.10, 95, 0.12}};
+constexpr StageSpec kSpecs[] = {{90, 0.05, 75, 0.01}, {100, 0.10, 85, 0.12}, {110, 0.10, 95, 0.12}};
 
 std::vector<float> noise(int n, std::uint32_t seed)
 {
@@ -158,7 +159,7 @@ TEST_CASE("Oversampler: IIR passband, images, aliases and 1 kHz delay per rate a
             image = std::max(image, upDb[b]);
     CHECK(image <= -kSpecs[0].upDb);
 
-    // Down only: oversampled-rate sines that fold into the base band (f/fs in [0.62, factor/2)) at least 75 dB down.
+    // Down only: oversampled-rate sines that fold into the base band (f/fs in [0.52, factor/2)) at least 75 dB down.
     double alias = -400.0;
     for (double f = 0.5 + kSpecs[0].downTw * 2.0; f < factor / 2.0 - 0.002; f += 0.01 * factor) {
         alias = std::max(alias, toneGainDb(f / factor, factor, kLen, [&](const float* in, float* out) {
@@ -178,11 +179,12 @@ TEST_CASE("Oversampler: rate x block-size matrix, reset() and pre-prepare (REQ-T
 {
     const double fs = GENERATE(44100.0, 48000.0, 88200.0, 96000.0);
     const int factor = GENERATE(1, 2, 4, 8);
-    CAPTURE(fs, factor);
+    const auto filter = GENERATE(OversamplingFilter::iir, OversamplingFilter::fir);
+    CAPTURE(fs, factor, filter == OversamplingFilter::fir);
     const auto in = noise(4096, 7u);
 
     Oversampler whole;
-    whole.prepare(fs, 4096, factor);
+    whole.prepare(fs, 4096, factor, filter);
     const auto reference = render(whole, in, 4096);
     whole.reset();
     CHECK(render(whole, in, 4096) == reference); // reset() is bit-identical
@@ -190,7 +192,7 @@ TEST_CASE("Oversampler: rate x block-size matrix, reset() and pre-prepare (REQ-T
     for (int block : {1, 32, 64, 127, 512, 2048}) {
         CAPTURE(block);
         Oversampler chunked;
-        chunked.prepare(fs, block, factor);
+        chunked.prepare(fs, block, factor, filter);
         CHECK(chunked.getLatencySamples() == whole.getLatencySamples());
         CHECK(render(chunked, in, block) == reference);
         // Blocks larger than maxBlockSize are split by process().
@@ -239,10 +241,11 @@ TEST_CASE("Oversampler: subnormal, huge and NaN input; factor changes only in pr
 TEST_CASE("Oversampler: silence after noise decays to exactly 0, no limit cycle", "[dsp][os][rt]")
 {
     const int factor = GENERATE(2, 4, 8);
-    CAPTURE(factor);
+    const auto filter = GENERATE(OversamplingFilter::iir, OversamplingFilter::fir);
+    CAPTURE(factor, filter == OversamplingFilter::fir);
     constexpr int kBlock = 64, kRate = 48000;
     Oversampler os;
-    os.prepare(kRate, kBlock, factor);
+    os.prepare(kRate, kBlock, factor, filter);
     auto in = noise(kRate, 21u);
     for (auto& v : in)
         v *= 2.0f; // full scale
@@ -260,4 +263,83 @@ TEST_CASE("Oversampler: silence after noise decays to exactly 0, no limit cycle"
     OSP_REQUIRE_RT_CLEAN(rt);
     CHECK(upZero);
     CHECK(std::all_of(out.end() - kRate / 2, out.end(), [](float v) { return v == 0.0f; }));
+}
+
+TEST_CASE("Oversampler: each FIR halfband stage meets D3 + A2 (REQ-OS-002)", "[dsp][os][fir]")
+{
+    constexpr double kFirTw[] = {0.03, 0.06, 0.06}; // A2: stage 0 transition 0.03, later stages 0.06
+    const int stage = GENERATE(0, 1, 2);
+    const double tw = kFirTw[stage];
+    CAPTURE(stage);
+    constexpr int kLen = 4096;
+    std::vector<float> impulse(kLen, 0.0f), h(2 * kLen);
+    impulse[0] = 1.0f;
+    osp::dsp::detail::runFirStage(stage, true, impulse.data(), h.data(), kLen);
+    const auto db = magnitudeDb(h);
+    double ripple = 0.0, stop = -400.0;
+    for (std::size_t b = 0; b < db.size(); ++b) {
+        const double f = static_cast<double>(b) / (2.0 * kLen);
+        if (f <= 0.25 - tw)
+            ripple = std::max(ripple, std::abs(db[b]));
+        else if (f >= 0.25 + tw)
+            stop = std::max(stop, db[b]);
+    }
+    double worst = -400.0;
+    for (double f = 0.25 + tw; f < 0.4995; f += 0.0025)
+        worst = std::max(worst, toneGainDb(f, 2, kLen, [&](const float* in, float* out) {
+                             osp::dsp::detail::runFirStage(stage, false, in, out, kLen);
+                         }));
+    std::printf("FIR stage %d: up ripple %.2e dB, up stop %.1f dB, down stop %.1f dB (D3 min 100)\n", stage, ripple,
+                stop, worst);
+    CHECK(ripple <= 0.1);
+    CHECK(stop <= -100.0);
+    CHECK(worst <= -100.0);
+}
+
+TEST_CASE("Oversampler: FIR is an exact integer delay, nulls at -120 dBFS, flat to 20 kHz (REQ-OS-001a)",
+          "[dsp][os][fir]")
+{
+    const double fs = GENERATE(44100.0, 48000.0, 88200.0, 96000.0);
+    const int factor = GENERATE(2, 4, 8);
+    CAPTURE(fs, factor);
+    constexpr int kLen = 16384;
+    Oversampler os;
+    os.prepare(fs, 512, factor, OversamplingFilter::fir);
+    CHECK(std::abs(os.getMeasuredDelaySamples() - os.getLatencySamples()) < 1e-6);
+
+    std::vector<float> h(kLen, 0.0f);
+    h[0] = 1.0f;
+    os.process(h.data(), h.data(), kLen, [](float*, int) {});
+    const auto db = magnitudeDb(h);
+    double ripple = 0.0;
+    for (std::size_t b = 0; static_cast<double>(b) * fs / kLen <= 20000.0; ++b)
+        ripple = std::max(ripple, std::abs(db[b]));
+    CHECK(ripple <= 0.1);
+
+    // Band-limited to 18 kHz: 64 tones at seeded random frequencies and phases, −12 dBFS RMS.
+    std::vector<float> in(kLen);
+    std::uint32_t seed = 99u;
+    auto rnd = [&] {
+        seed = seed * 1664525u + 1013904223u;
+        return static_cast<double>(seed >> 8) / 16777216.0;
+    };
+    std::vector<double> x(kLen, 0.0);
+    for (int k = 0; k < 64; ++k) {
+        const double f = 20.0 + rnd() * (18000.0 - 20.0), ph = 2.0 * std::numbers::pi * rnd();
+        for (int n = 0; n < kLen; ++n)
+            x[static_cast<std::size_t>(n)] += std::sin(2.0 * std::numbers::pi * f / fs * n + ph);
+    }
+    const double scale = std::pow(10.0, -12.0 / 20.0) / std::sqrt(64.0 / 2.0);
+    for (int n = 0; n < kLen; ++n)
+        in[static_cast<std::size_t>(n)] = static_cast<float>(scale * x[static_cast<std::size_t>(n)]);
+    os.reset();
+    std::vector<float> out(kLen);
+    os.process(in.data(), out.data(), kLen, [](float*, int) {});
+    // Skip the start-up transient (one filter length) before comparing.
+    constexpr std::size_t kSkip = 1024;
+    const std::vector<float> outTail(out.begin() + kSkip, out.end()), inTail(in.begin() + kSkip, in.end());
+    const auto null = osp::measure::nullTest(outTail, inTail, static_cast<std::size_t>(os.getLatencySamples()));
+    std::printf("FIR %gx @ %5.0f Hz: latency %d, ripple to 20 kHz %.2e dB, null %.1f dBFS RMS\n",
+                static_cast<double>(factor), fs, os.getLatencySamples(), ripple, null.rmsDbfs);
+    CHECK(null.rmsDbfs <= -120.0);
 }
