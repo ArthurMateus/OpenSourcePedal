@@ -136,6 +136,13 @@
       "baseline": "#71 part 2, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.0974-0.1456), T_ref about 19 ms on this machine",
       "headroom": "about 15x the measured 0.20 %: digital ping-pong at the defaults, stereo; two Catmull-Rom reads, four TPT one-poles and two ring writes per sample. Parts 3-4 add the saturating voicings and the block"
     },
+    "delay_tape": {
+      "kind": "block",
+      "r0": 0.7514,
+      "maxCpuPercent": 12.0,
+      "baseline": "#71 part 3, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.7293-0.7529), T_ref about 41 ms on a loaded machine (3.06 % CPU)",
+      "headroom": "about 4x the measured 3.06 %: tape ping-pong, modulation 50 %, stereo; per side a 2x IIR oversampler pair and ADAA1 tanh (double, two transcendentals per oversampled sample) inside the loop. The costliest delay voicing"
+    },
     "fdn_hall": {
       "kind": "block",
       "r0": 0.633103,

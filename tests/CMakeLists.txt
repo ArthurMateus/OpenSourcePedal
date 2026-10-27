@@ -22,6 +22,7 @@ add_executable(osp_tests
     dsp/test_compressor.cpp
     dsp/test_convolver.cpp
     dsp/test_delay_voice.cpp
+    dsp/test_delay_voicings.cpp
     dsp/test_drive.cpp
     dsp/test_drive_region.cpp
     dsp/test_doubler.cpp

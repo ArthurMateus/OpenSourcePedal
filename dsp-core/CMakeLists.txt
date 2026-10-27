@@ -3,6 +3,7 @@ add_library(osp_dsp_core STATIC
     src/ChorusFlanger.cpp
     src/Compressor.cpp
     src/delay/DelayVoice.cpp
+    src/delay/LoopSaturator.cpp
     src/conv/IrLoader.cpp
     src/conv/PartitionedConvolver.cpp
     src/Drive.cpp
