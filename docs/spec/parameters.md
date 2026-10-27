@@ -234,6 +234,9 @@ values are used for every channel.
 - Mic **position/distance** is not a parameter in v1. Choosing a position means choosing a different IR file from a
   multi-position set (reference-plugins Rec. 3). Room send is deferred.
 - An IR change is preset-only, because loading and partitioning the IR happens on the loader thread.
+- Every IR (factory or user) is normalised at load to 0 dB gain for pink noise over 40 Hz–20 kHz
+  ([ADR-0010](../adr/0010-cab-ir-level.md)), so enabling the cab or changing the IR keeps the level; `irK.levelDb`
+  trims from there.
 
 ### 3.2 `eq`: one block, three voicings
 
