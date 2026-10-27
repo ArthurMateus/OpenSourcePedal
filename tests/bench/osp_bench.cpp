@@ -11,6 +11,7 @@
 #include "osp/dsp/Eq.h"
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/Gate.h"
+#include "osp/dsp/Modulation.h"
 #include "osp/dsp/Phaser.h"
 #include "osp/dsp/Tremolo.h"
 #include "osp/dsp/oversampling/Oversampler.h"
@@ -236,6 +237,22 @@ int main(int argc, char** argv)
                            std::copy(in, in + n, out);
                            std::copy(in, in + n, tremoloRight.begin());
                            tremolo.process(out, tremoloRight.data(), n);
+                       })});
+
+    // The `mod` block (#70 part 4), post position (stereo), type toggled chorusWide <-> phaser every 75 blocks
+    // (100 ms), so a third of the time both slots run inside the 30 ms type crossfade.
+    osp::dsp::Modulation modBlock;
+    modBlock.prepare(kSampleRate, kBlock);
+    std::vector<float> modRight(static_cast<std::size_t>(kBlock));
+    int modBlocks = 0;
+    results.push_back({"mod_block", measure(bench, "mod_block", input, [&](const float* in, float* out, int n) {
+                           if (++modBlocks % 75 == 0)
+                               modBlock.setType(modBlock.type() == osp::dsp::Modulation::Type::phaser
+                                                    ? osp::dsp::Modulation::Type::chorusWide
+                                                    : osp::dsp::Modulation::Type::phaser);
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, modRight.begin());
+                           modBlock.processStereo(out, modRight.data(), n);
                        })});
 
     // Compressor at its defaults (opto, -20 dB, 4:1, all three detectors run) with the tone tilt active (knob 7).

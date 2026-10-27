@@ -73,6 +73,13 @@
       "baseline": "#70 part 3, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.0897-0.0978), T_ref about 17 ms on this machine",
       "headroom": "about 18x the measured 0.16 %: harmonic tremolo, stereo, two cascaded TPT one-poles, two band gains and one LFO sine per side per sample"
     },
+    "mod_block": {
+      "kind": "block",
+      "r0": 0.5378,
+      "maxCpuPercent": 12.0,
+      "baseline": "#70 part 4, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.5163-0.5659), T_ref about 16 ms on this machine",
+      "headroom": "about 14x the measured 0.87 %: the mod block, stereo, toggling chorusWide <-> phaser every 100 ms, so 30 % of the time both slots and the 30 ms type crossfade run"
+    },
     "comp": {
       "kind": "block",
       "r0": 0.1931,
