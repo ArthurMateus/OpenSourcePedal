@@ -47,6 +47,19 @@ python tools/tonematch/tonematch.py --ref song.mp3 --di my-di.wav --start 32 --e
 python tools/tonematch/tonematch.py --ref "https://www.youtube.com/watch?v=..." --di my-di.wav --stem
 ```
 
+Songs with several guitars, or a guitar that changes tone (clean verse, driven chorus), get one preset per guitar and
+tone with `--tones`: it splits guitar 1 (left) from guitar 2 (right) when they differ, groups each guitar's sections by
+tone over the whole song, and writes `<out>-g1-t1.osp.json`, `<out>-g1-t2.osp.json`, ... with the time ranges of each.
+With `--render`, every tone also gets your render and the song's own section (`-ref.wav`) to compare by ear.
+
+Record your DI as WAV straight into an instrument (Hi-Z) input with the guitar's tone knob up: a clean match can only
+pass on the treble your DI has. The tool prints your DI's treble and warns when it is too dark, and it flags any match
+whose EQ hit its ±12 dB limit.
+
+```powershell
+python tools/tonematch/tonematch.py --ref song.mp3 --di my-di.wav --stem --tones --render preview.wav
+```
+
 It prints the matched setting, a band-by-band comparison and the remaining spectral difference. Only download
 recordings you have the right to. The amp block is not in yet, so for now the overdrive slot is the only gain stage.
 

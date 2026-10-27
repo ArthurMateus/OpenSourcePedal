@@ -14,6 +14,7 @@ build/tonematch), which is git-ignored; nothing here is ever committed or bundle
 Examples:
   python tools/tonematch/tonematch.py --ref song.mp3 --di my-di.wav --start 32 --end 58
   python tools/tonematch/tonematch.py --ref "https://www.youtube.com/watch?v=..." --di my-di.wav --stem
+  python tools/tonematch/tonematch.py --ref song.mp3 --di my-di.wav --stem --tones --render preview.wav
 """
 from __future__ import annotations
 
@@ -107,9 +108,37 @@ def demucs_command() -> list[str]:
     raise AssertionError  # unreachable
 
 
+def wav_for_demucs(ref: Path, work: Path, key: str) -> Path:
+    """Demucs decodes anything but WAV with ffmpeg. soundfile (libsndfile >= 1.1 reads MP3) avoids that dependency."""
+    if ref.suffix.lower() == ".wav":
+        return ref
+    out = work / f"in-{key}.wav"
+    if out.exists():
+        return out
+    try:
+        import soundfile as sf
+
+        data, rate = sf.read(str(ref), always_2d=True)
+        tmp = out.with_suffix(".part.wav")  # renamed when complete: an interrupted run never caches a truncated file
+        sf.write(str(tmp), data, rate, subtype="FLOAT")
+        tmp.replace(out)
+        return out
+    except Exception:  # not installed, or a format libsndfile cannot read
+        return ffmpeg_wav(ref, out)
+
+
+def ffmpeg_wav(ref: Path, out: Path) -> Path:
+    if shutil.which("ffmpeg") is None:
+        fail(f"--stem on a {ref.suffix} file needs soundfile (pip install soundfile) or ffmpeg on PATH")
+    if subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(ref), str(out)]).returncode != 0:
+        fail(f"ffmpeg could not convert {ref}")
+    return out
+
+
 def separate_guitar(ref: Path, work: Path) -> Path:
     cmd = demucs_command()
     key = file_key(ref)
+    ref = wav_for_demucs(ref, work, key)
     out_dir = work / "stems" / key
     stem = out_dir / "htdemucs_6s" / ref.stem / "guitar.wav"
     if stem.exists():
@@ -135,6 +164,9 @@ def main() -> int:
     ap.add_argument("--source", default="auto", choices=["auto", "mono", "mid", "side", "left", "right"])
     ap.add_argument("--stem", action="store_true", help="isolate the guitar with Demucs first (recommended)")
     ap.add_argument("--no-hpss", action="store_true", help="keep percussive energy (an already clean guitar stem)")
+    ap.add_argument("--tones", action="store_true",
+                    help="one preset per guitar part and tone over the whole song (guitar 1 tone 1, ...); best with --stem")
+    ap.add_argument("--max-tones", type=int, help="with --tones: at most this many tones per guitar (default 4)")
     ap.add_argument("--ir-dir", help="cab IR folder (default: the bundled assets/cab)")
     ap.add_argument("--work", default=str(ROOT / "build" / "tonematch"), help="download/stem cache folder")
     ap.add_argument("--exe", help="path to osp-tonematch")
@@ -164,6 +196,10 @@ def main() -> int:
         cmd += ["--render", a.render]
     if a.no_hpss:
         cmd += ["--no-hpss"]
+    if a.tones:
+        cmd += ["--tones"]
+    if a.max_tones is not None:
+        cmd += ["--max-tones", str(a.max_tones)]
     return subprocess.run(cmd).returncode
 
 
