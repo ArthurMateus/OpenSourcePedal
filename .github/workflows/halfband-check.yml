@@ -1,0 +1,27 @@
+name: halfband-check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  halfband-check:
+    name: halfband-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/requirements.txt
+      - name: Install Python tool dependencies
+        run: python -m pip install -r tools/requirements.txt
+      - name: Halfband FIR header is up to date
+        run: python -I tools/design/halfband_fir.py --check
