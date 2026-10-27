@@ -124,3 +124,27 @@ TEST_CASE("tonematch: preset writer needs a sha256 for user IRs and sanitises th
         e += "\xc3\xa9"; // 70 two-byte code points
     CHECK(tmatch::sanitiseUtf8(e, 64).size() == 128); // cut by code points, not bytes
 }
+
+TEST_CASE("tonematch: dark-DI and EQ-limit checks", "[tonematch]")
+{
+    // The bundled DI is decoded from a lossy preview and has almost no treble: clean matches through it are dull.
+    unsigned rate = 0;
+    const auto di = readMono(std::string(OSP_ASSET_DIR) + "/di/strum-arp-01.wav", rate);
+    const double dark = tmatch::diTrebleDb(tmatch::analyse(di, rate));
+    WARN("bundled DI treble: " << dark << " dB");
+    CHECK(dark < tmatch::kDarkDiDb);
+
+    // White noise is flat: about 0 dB, far from the warning.
+    std::vector<float> noise(static_cast<std::size_t>(rate) * 4);
+    unsigned seed = 1;
+    for (auto& v : noise) {
+        seed = seed * 1664525u + 1013904223u;
+        v = 0.25f * (static_cast<float>(seed >> 8) / 8388608.0f - 1.0f);
+    }
+    CHECK(tmatch::diTrebleDb(tmatch::analyse(noise, rate, {false})) > tmatch::kDarkDiDb + 10.0);
+
+    tmatch::Setting s;
+    s.eqDb = {0, 0, 0, 0, 0, -12, 12, 11.9f, 12};
+    CHECK(tmatch::eqBandsAtLimit(s) == std::vector<int>{5, 6, 8});
+    CHECK(tmatch::eqBandsAtLimit(tmatch::Setting{}).empty());
+}

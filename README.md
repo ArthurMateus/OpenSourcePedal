@@ -34,6 +34,35 @@ cmake --build --preset release
 ctest --preset release
 ```
 
+## Tone match: a song's guitar tone, on your guitar
+
+Give it a song (WAV, MP3, or a YouTube link) and a short recording of **your own guitar played dry** (a DI, ideally the
+same part). It renders your DI through the real drive, cab and EQ blocks, searches for the setting that sounds closest
+to the guitar in the song, and writes a preset. Design, measurements and limits: [ADR-0008](docs/adr/0008-tone-match.md).
+
+```powershell
+# a local file; --start/--end pick a section where the guitar is prominent
+python tools/tonematch/tonematch.py --ref song.mp3 --di my-di.wav --start 32 --end 58 --render preview.wav
+# a YouTube link (needs yt-dlp + ffmpeg); --stem isolates the guitar first (needs: pip install demucs)
+python tools/tonematch/tonematch.py --ref "https://www.youtube.com/watch?v=..." --di my-di.wav --stem
+```
+
+Songs with several guitars, or a guitar that changes tone (clean verse, driven chorus), get one preset per guitar and
+tone with `--tones`: it splits guitar 1 (left) from guitar 2 (right) when they differ, groups each guitar's sections by
+tone over the whole song, and writes `<out>-g1-t1.osp.json`, `<out>-g1-t2.osp.json`, ... with the time ranges of each.
+With `--render`, every tone also gets your render and the song's own section (`-ref.wav`) to compare by ear.
+
+Record your DI as WAV straight into an instrument (Hi-Z) input with the guitar's tone knob up: a clean match can only
+pass on the treble your DI has. The tool prints your DI's treble and warns when it is too dark, and it flags any match
+whose EQ hit its ±12 dB limit.
+
+```powershell
+python tools/tonematch/tonematch.py --ref song.mp3 --di my-di.wav --stem --tones --render preview.wav
+```
+
+It prints the matched setting, a band-by-band comparison and the remaining spectral difference. Only download
+recordings you have the right to. The amp block is not in yet, so for now the overdrive slot is the only gain stage.
+
 ## License
 
 [AGPL-3.0-or-later](LICENSE). See [ADR-0001](docs/adr/0001-license-and-framework.md) for why, and
