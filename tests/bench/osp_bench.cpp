@@ -12,6 +12,7 @@
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/Gate.h"
 #include "osp/dsp/Phaser.h"
+#include "osp/dsp/Tremolo.h"
 #include "osp/dsp/oversampling/Oversampler.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
@@ -224,6 +225,17 @@ int main(int argc, char** argv)
                            std::copy(in, in + n, out);
                            std::copy(in, in + n, vibeRight.begin());
                            vibe.process(out, vibeRight.data(), n);
+                       })});
+
+    // Modulation, harmonic tremolo at the defaults, stereo (#70 part 3): two cascaded one-poles, two band gains and
+    // one LFO sine per side per sample.
+    osp::dsp::Tremolo tremolo;
+    tremolo.prepare(kSampleRate, kBlock);
+    std::vector<float> tremoloRight(static_cast<std::size_t>(kBlock));
+    results.push_back({"mod_tremolo", measure(bench, "mod_tremolo", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, tremoloRight.begin());
+                           tremolo.process(out, tremoloRight.data(), n);
                        })});
 
     // Compressor at its defaults (opto, -20 dB, 4:1, all three detectors run) with the tone tilt active (knob 7).
