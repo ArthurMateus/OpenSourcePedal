@@ -32,7 +32,7 @@ Merge these in this order. **#133 already has its main-sync commit pushed and it
 |---|---|---|---|
 | 1 | #133 delay voicings (BBD, tape) | delay, base `main` | synced with main, CI running |
 | 2 | #134 delay block | on #133 | green before the sync, needs a sync after #133 |
-| 3 | #61 plugin state round-trip (app) | base `main` | mergeable; only an additive `THIRD_PARTY.md` row conflicts |
+| 3 | #61 plugin state round-trip (app) | base `main` | head `37b3d5f`: CONFLICTING only on an additive `THIRD_PARTY.md` row; no CI on this head yet (it runs after the sync); green locally (`/WX`, 201/201 tests, guard) |
 | 4 | #135 spring tank | reverb part 2, base `main` | green |
 | 5 | #136 shimmer | on #135 | open |
 | 6 | #137 spring + shimmer modes in the Reverb block | on #136 | open |
