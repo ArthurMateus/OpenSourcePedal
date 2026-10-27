@@ -1,6 +1,7 @@
 add_library(osp_engine STATIC
     src/Chain.cpp
     src/Engine.cpp
+    src/Params.cpp
     src/ToneMatch.cpp
     src/ToneProfile.cpp
     src/ToneSections.cpp
