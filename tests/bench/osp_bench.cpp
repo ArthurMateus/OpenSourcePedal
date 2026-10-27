@@ -26,6 +26,7 @@
 #include "osp/dsp/oversampling/Oversampler.h"
 #include "osp/dsp/reverb/DattorroTank.h"
 #include "osp/dsp/reverb/FdnTank.h"
+#include "osp/dsp/reverb/ShimmerTank.h"
 #include "osp/dsp/reverb/SpringTank.h"
 #include "osp/dsp/tuner/TunerTap.h"
 #include "osp/dsp/util/Crossfader.h"
@@ -444,6 +445,18 @@ int main(int argc, char** argv)
     std::vector<float> springRight(kBlock);
     results.push_back({"spring_tank", measure(bench, "spring_tank", input, [&](const float* in, float* out, int n) {
                            spring.process(in, in, out, springRight.data(), n);
+                       })});
+
+    // Shimmer tank at 2.5 s, 20 % modulation, 40 % shimmer an octave up: the hall FDN plus the regeneration loop.
+    osp::dsp::ShimmerTank shimmer;
+    shimmer.prepare(kSampleRate);
+    shimmer.setDecaySeconds(2.5f);
+    shimmer.setModulation(0.2f);
+    shimmer.setShimmer(0.4f);
+    shimmer.reset();
+    std::vector<float> shimmerRight(kBlock);
+    results.push_back({"shimmer_tank", measure(bench, "shimmer_tank", input, [&](const float* in, float* out, int n) {
+                           shimmer.process(in, in, out, shimmerRight.data(), n);
                        })});
 
     // Reverb block at its defaults (hall, 2.5 s, 20 ms pre-delay, 100 Hz / 6 kHz cuts, 20 % mix): stereo in/out.
