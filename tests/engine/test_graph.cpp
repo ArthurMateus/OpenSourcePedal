@@ -111,7 +111,7 @@ TEST_CASE("Graph: every block is reachable and parameter-addressable; disabled a
     struct Case {
         const char* block;
         std::vector<std::pair<std::string, float>> set; // applied at 0.1 s, enabled cleared at 0.4 s
-        bool exactAfterDisable; // false for blocks whose tails ring on (delay, reverb: #95 part 6)
+        bool exactAfterDisable; // false for the blocks whose tails ring on (delay, reverb)
     };
     const std::vector<Case> cases{
         {"input", {{"input.gainDb", 6.0f}}, true},
@@ -122,6 +122,10 @@ TEST_CASE("Graph: every block is reachable and parameter-addressable; disabled a
         {"amp", {{"amp.ch1.levelDb", -6.0f}}, true},
         {"cab", {{"cab.ch1.ir1.levelDb", -6.0f}}, true},
         {"eq", {{"eq.enabled", 1.0f}, {"eq.ch1.g1kDb", 9.0f}}, true},
+        {"mod", {{"mod.enabled", 1.0f}, {"mod.type", 5.0f}, {"mod.depthPct", 100.0f}}, true},
+        {"delay", {{"delay.enabled", 1.0f}, {"delay.timeMs", 50.0f}, {"delay.mixPct", 60.0f}}, false}, // trails ring on
+        {"reverb", {{"reverb.enabled", 1.0f}, {"reverb.mixPct", 60.0f}}, false}, // trails ring on
+        {"doubler", {{"doubler.enabled", 1.0f}, {"doubler.amountPct", 100.0f}}, true},
         {"output", {{"output.levelDb", -6.0f}}, true},
     };
     const double rate = 48000.0;
@@ -178,6 +182,21 @@ TEST_CASE("Graph: amp.channel crossfades the strips over the ADR-0004 time, with
     for (std::size_t i = 18000; i < out.l.size(); ++i)
         peak = std::max(peak, std::abs(static_cast<double>(out.l[i])));
     CHECK(std::abs(20.0 * std::log10(peak / 0.25) + 12.0) < 0.1);
+}
+
+TEST_CASE("Graph: mod.position moves the block without a step", "[engine][graph]")
+{
+    const double rate = 48000.0;
+    Rig rig(rate, 64);
+    rig.set("mod.enabled", 1.0f);
+    rig.set("mod.type", 5.0f); // tremolo
+    const auto in = sine(rate, 997.0, 0.25f, 24000);
+    const int position = osp::engine::findParam("mod.position");
+    const auto out = rig.render(in, 64, [&](int pos) {
+        if (pos == 9600)
+            rig.params.set(position, 1.0f);
+    });
+    CHECK(maxStep(std::vector<float>(out.l.begin() + 4800, out.l.end())) < 0.05);
 }
 
 TEST_CASE("Graph: latency is round(D_os1 + D_slot), with a fractional amp-slot test delay", "[engine][graph]")

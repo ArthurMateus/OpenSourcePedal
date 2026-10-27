@@ -57,6 +57,56 @@ void Graph::applyParameters() noexcept
     for (int s = 0; s < kNumChannels; ++s)
         applyStrip(s);
 
+    const auto& m = id.mod;
+    mod_.setType(static_cast<dsp::Modulation::Type>(choice(m[kModType])));
+    mod_.setRateHz(value(m[kModRate]));
+    const auto& syncNames = table_[static_cast<std::size_t>(m[kModSync])].choices;
+    mod_.setSyncBeats(dsp::Modulation::syncBeats(syncNames[static_cast<std::size_t>(choice(m[kModSync]))]));
+    mod_.setTempoBpm(static_cast<float>(tempoBpm_));
+    mod_.setDepthPct(value(m[kModDepth]));
+    mod_.setMixPct(value(m[kModMix]));
+    mod_.setFeedbackPct(value(m[kModFeedback]));
+    mod_.setWidthPct(value(m[kModWidth]));
+    // mod.enabled and mod.position: applyModPosition().
+
+    const auto& dl = id.delay;
+    delay_.setMode(static_cast<dsp::Delay::Mode>(choice(dl[kDlyMode])));
+    delay_.setTimeMs(value(dl[kDlyTime]));
+    delay_.setSync(static_cast<dsp::SyncDivision>(choice(dl[kDlySync]))); // same order as the table
+    delay_.setTempoBpm(tempoBpm_);
+    delay_.setFeedbackPct(value(dl[kDlyFeedback]));
+    delay_.setMixPct(value(dl[kDlyMix]));
+    delay_.setLowCutHz(value(dl[kDlyLowCut]));
+    delay_.setHighCutHz(value(dl[kDlyHighCut]));
+    delay_.setStereo(static_cast<dsp::Delay::Stereo>(choice(dl[kDlyStereo])));
+    delay_.setModDepthPct(value(dl[kDlyModDepth]));
+    delay_.setSaturationPct(value(dl[kDlySaturation]));
+    delay_.setDuckDb(value(dl[kDlyDuck]));
+    delay_.setSoftBypass(!on(dl[kDlyEnabled])); // delay.enabled = trails: the send mutes, the tail rings out
+
+    const auto& r = id.reverb;
+    dsp::Reverb::Params rp;
+    // spring and shimmer fall back to plate and hall until the #73 modes land (parameters.md §3.5).
+    constexpr dsp::Reverb::Mode kModes[] = {dsp::Reverb::Mode::Room, dsp::Reverb::Mode::Hall, dsp::Reverb::Mode::Plate,
+                                            dsp::Reverb::Mode::Plate, dsp::Reverb::Mode::Hall};
+    rp.mode = kModes[choice(r[kRevMode])];
+    rp.decayS = value(r[kRevDecay]);
+    rp.preDelayMs = value(r[kRevPreDelay]);
+    rp.mixPct = value(r[kRevMix]);
+    rp.lowCutHz = value(r[kRevLowCut]);
+    rp.highCutHz = value(r[kRevHighCut]);
+    rp.modPct = value(r[kRevMod]);
+    rp.freeze = on(r[kRevFreeze]);
+    reverb_.setParameters(rp);
+    reverb_.setEnabled(on(r[kRevEnabled])); // the reverb's enable is its soft bypass: trails (signal-flow §5)
+
+    const auto& d = id.doubler;
+    doubler_.setAmountPct(value(d[kDblAmount]));
+    doubler_.setWidthPct(value(d[kDblWidth]));
+    doubler_.setDelayMs(value(d[kDblDelay]));
+    doubler_.setDetuneCents(value(d[kDblDetune]));
+    doubler_.setEnabled(on(d[kDblEnabled]));
+
     output_.setLevelDb(value(id.output[0]));
     output_.setLimiter(on(id.output[1]));
 }

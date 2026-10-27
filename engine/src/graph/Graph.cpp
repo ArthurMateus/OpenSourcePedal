@@ -39,6 +39,7 @@ void Graph::prepare(double sampleRate, int maxBlockSize, dsp::OversamplingQualit
     gate_.prepare(sampleRate, maxBlock_);
     comp_.prepare(sampleRate, maxBlock_);
     drives_.prepare(sampleRate, maxBlock_, quality);
+    mod_.prepare(sampleRate, maxBlock_);
     for (auto& s : strips_) {
         s.amp->prepare(sampleRate, maxBlock_, quality);
         s.cab.prepare(sampleRate, maxBlock_);
@@ -46,10 +47,14 @@ void Graph::prepare(double sampleRate, int maxBlockSize, dsp::OversamplingQualit
         s.eqOnL.prepare(sampleRate);
         s.eqOnR.prepare(sampleRate);
     }
+    delay_.prepare(sampleRate, maxBlock_);
+    reverb_.prepare(sampleRate, maxBlock_);
+    doubler_.prepare(sampleRate, maxBlock_);
     output_.prepare(sampleRate, maxBlock_);
     inputOn_.prepare(sampleRate);
     compOn_.prepare(sampleRate);
     stripFade_.prepare(sampleRate, kSwapSeconds);
+    modMoveSamples_ = static_cast<int>(std::ceil(dsp::Crossfader::kBlockEnableSeconds * sampleRate)) + 1;
     cleanBlend_.prepare(sampleRate, 0.020); // parameters.md §1.4: mix % is a 20 ms linear ramp
     gateOn_.prepare(sampleRate, dsp::Crossfader::kBlockEnableSeconds);
     gateTap_.prepare(sampleRate, 0.010); // parameters.md §2.2: gate.postAmp, xf 10
@@ -86,6 +91,7 @@ void Graph::reset() noexcept
     gatePost_.reset();
     comp_.reset();
     drives_.reset();
+    mod_.reset();
     for (auto& s : strips_) {
         s.amp->reset();
         s.cab.reset();
@@ -93,10 +99,15 @@ void Graph::reset() noexcept
         s.eqOnL.reset(s.eqOnL.target());
         s.eqOnR.reset(s.eqOnR.target());
     }
+    delay_.reset();
+    reverb_.reset();
+    doubler_.reset();
     output_.reset();
     inputOn_.reset(inputOn_.target());
     compOn_.reset(compOn_.target());
     clean_.reset();
+    modPre_ = choice(ids_->modPosition) == 1;
+    modMoveLeft_ = 0;
     cleanBlend_.reset(cleanBlend_.target());
     stripFrom_ = stripTo_ = choice(ids_->ampChannel);
     stripFade_.reset(1.0f);
@@ -113,6 +124,10 @@ void Graph::setBypassedAll(bool bypassed) noexcept
         s.cab.setBypassed(bypassed);
         s.eq.setBypassed(bypassed);
     }
+    mod_.setBypassed(bypassed);
+    delay_.setBypassed(bypassed);
+    reverb_.setHardBypass(bypassed);
+    doubler_.setBypassed(bypassed);
     output_.setBypassed(bypassed);
 }
 
@@ -145,6 +160,23 @@ void Graph::applyChannelSwitch() noexcept
     s.eq.reset();
     stripFade_.reset(0.0f);
     stripFade_.setTarget(1.0f);
+}
+
+void Graph::applyModPosition(int numSamples) noexcept
+{
+    const bool wantPre = choice(ids_->modPosition) == 1;
+    if (modMoveLeft_ > 0) {
+        modMoveLeft_ -= numSamples;
+        if (modMoveLeft_ <= 0) { // the wet has faded out: move, cold-start, fade back in
+            modMoveLeft_ = 0;
+            modPre_ = wantPre;
+            mod_.reset();
+        }
+    } else if (wantPre != modPre_) {
+        modMoveLeft_ = modMoveSamples_;
+    }
+    mod_.setPosition(modPre_ ? dsp::Modulation::Position::pre : dsp::Modulation::Position::post);
+    mod_.setEnabled(on(ids_->modEnabled) && modMoveLeft_ == 0);
 }
 
 namespace {
@@ -234,6 +266,8 @@ void Graph::processChunk(float* io, float* outL, float* outR, int n) noexcept
         compOn_.process(dry, io, io, n);
     }
     drives_.process(io, io, n);
+    if (modPre_)
+        mod_.processMono(io, n); // pre-amp position: after drive2, before the clean DI tap (signal-flow §1)
     float* const clean = cleanBuf_.data();
     clean_.process(io, clean, n); // always runs, so it is warm when the blend comes up
 
@@ -259,6 +293,11 @@ void Graph::processChunk(float* io, float* outL, float* outR, int n) noexcept
         }
     }
 
+    if (!modPre_)
+        mod_.processStereo(outL, outR, n);
+    delay_.process(outL, outR, n);
+    reverb_.process(outL, outR, outL, outR, n);
+    doubler_.process(outL, outR, n);
     output_.process(outL, outR, n);
     // Tuner mute (REQ-419): one ramp for both channels. Unmuted and idle it leaves the gains at exactly 1.
     float* const gain = dry_.data();
@@ -283,6 +322,7 @@ void Graph::process(const float* in, float* outL, float* outR, int numSamples) n
     for (int pos = 0; pos < numSamples; pos += maxBlock_) { // Engine splits host blocks; this is a safety net
         const int n = std::min(maxBlock_, numSamples - pos);
         applyChannelSwitch();
+        applyModPosition(n);
         std::copy_n(in + pos, n, mono_.data());
         processChunk(mono_.data(), outL + pos, outR + pos, n);
     }
