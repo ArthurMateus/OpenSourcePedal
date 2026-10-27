@@ -59,6 +59,13 @@
       "baseline": "#70, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.3337-0.3399), T_ref about 14.7 ms on this machine",
       "headroom": "about 16x the measured 0.50 %: chorusWide (the costliest modulation type), stereo, two ring writes, four Catmull-Rom reads and three sin() per sample"
     },
+    "mod_vibe": {
+      "kind": "block",
+      "r0": 0.4868,
+      "maxCpuPercent": 12.0,
+      "baseline": "#70 part 2, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.4708-0.5948, a busy machine), T_ref about 19 ms on this machine",
+      "headroom": "about 13x the measured 0.93 %: vibe (the costliest allpass type), stereo, 2 x 4 TPT allpass stages with a tan() each, two pow() and the LFO sines per sample; the tan() calls dominate and could become a polynomial if needed"
+    },
     "comp": {
       "kind": "block",
       "r0": 0.1931,
