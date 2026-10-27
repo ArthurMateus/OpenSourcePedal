@@ -33,10 +33,10 @@ target_compile_definitions(OpenSourcePedal
 
 target_link_libraries(OpenSourcePedal
     PRIVATE
-        osp_engine
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC
+        osp_engine # PluginProcessor.h includes the engine, and tests/app links this target
         juce::juce_recommended_config_flags)
 
 # Our sources get /W4 (+ /WX in CI); JUCE's module sources compiled into this target keep their own level.

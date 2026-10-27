@@ -9,6 +9,7 @@
 #include "osp/dsp/Cab.h"
 #include "osp/dsp/ChorusFlanger.h"
 #include "osp/dsp/Compressor.h"
+#include "osp/dsp/Delay.h"
 #include "osp/dsp/Doubler.h"
 #include "osp/dsp/Drive.h"
 #include "osp/dsp/DriveRegion.h"
@@ -25,6 +26,7 @@
 #include "osp/dsp/oversampling/Oversampler.h"
 #include "osp/dsp/reverb/DattorroTank.h"
 #include "osp/dsp/reverb/FdnTank.h"
+#include "osp/dsp/reverb/SpringTank.h"
 #include "osp/dsp/tuner/TunerTap.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
@@ -394,6 +396,23 @@ int main(int argc, char** argv)
                            delayTape.process(out, delayRight.data(), n);
                        })});
 
+    // The delay block (#71 part 4): ping-pong, ducking 6 dB, toggling digital <-> tape every 100 ms, so 30 % of the
+    // time both slots run inside the 30 ms mode crossfade and each toggle copies the voice state.
+    osp::dsp::Delay delayBlock;
+    delayBlock.setStereo(osp::dsp::Delay::Stereo::pingpong);
+    delayBlock.setDuckDb(6.0f);
+    delayBlock.prepare(kSampleRate, kBlock);
+    int delayBlocks = 0;
+    results.push_back({"delay_block", measure(bench, "delay_block", input, [&](const float* in, float* out, int n) {
+                           if (++delayBlocks % 75 == 0) // 75 blocks of 64 at 48 kHz = 100 ms
+                               delayBlock.setMode(delayBlock.mode() == osp::dsp::Delay::Mode::digital
+                                                      ? osp::dsp::Delay::Mode::tape
+                                                      : osp::dsp::Delay::Mode::digital);
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, delayRight.begin());
+                           delayBlock.process(out, delayRight.data(), n);
+                       })});
+
     // FDN reverb tank, hall voicing at its defaults (2.5 s, 20 % modulation): stereo, the mono input on both sides.
     osp::dsp::FdnTank fdn;
     fdn.prepare(kSampleRate, osp::dsp::FdnTank::kHall);
@@ -414,6 +433,17 @@ int main(int argc, char** argv)
     std::vector<float> plateRight(kBlock);
     results.push_back({"plate_tank", measure(bench, "plate_tank", input, [&](const float* in, float* out, int n) {
                            plate.process(in, in, out, plateRight.data(), n);
+                       })});
+
+    // Spring tank at 2.5 s, 20 % modulation: two springs (stereo out), the mono input on both sides.
+    osp::dsp::SpringTank spring;
+    spring.prepare(kSampleRate);
+    spring.setDecaySeconds(2.5f);
+    spring.setModulation(0.2f);
+    spring.reset();
+    std::vector<float> springRight(kBlock);
+    results.push_back({"spring_tank", measure(bench, "spring_tank", input, [&](const float* in, float* out, int n) {
+                           spring.process(in, in, out, springRight.data(), n);
                        })});
 
     // Reverb block at its defaults (hall, 2.5 s, 20 ms pre-delay, 100 Hz / 6 kHz cuts, 20 % mix): stereo in/out.
