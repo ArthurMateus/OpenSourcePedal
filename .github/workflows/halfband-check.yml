@@ -11,7 +11,9 @@ permissions:
 jobs:
   halfband-check:
     name: halfband-check
-    runs-on: ubuntu-latest
+    # windows-latest on purpose: halfband_fir.py compares the header byte-for-byte, and numpy/scipy
+    # (libm/BLAS) differ from Windows in the 10th digit on Linux, so ubuntu fails on a correct header.
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
         with:
