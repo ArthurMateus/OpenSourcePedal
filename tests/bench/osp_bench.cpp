@@ -6,6 +6,7 @@
 // prints a table and writes them as JSON (--out). tools/bench/check_budget.py compares that JSON with
 // tests/bench/budget.json.
 
+#include "osp/dsp/ChorusFlanger.h"
 #include "osp/dsp/Compressor.h"
 #include "osp/dsp/Eq.h"
 #include "osp/dsp/Gain.h"
@@ -200,6 +201,17 @@ int main(int argc, char** argv)
     gate.reset();
     results.push_back(
         {"gate", measure(bench, "gate", input, [&](const float* in, float* out, int n) { gate.process(in, out, n); })});
+
+    // Modulation, chorusWide at its defaults (0.8 Hz, depth 50 %, mix 50 %, width 100 %), stereo (#70): two ring
+    // writes, four LFO-modulated Catmull-Rom reads, three sin() and the mix per sample.
+    osp::dsp::ChorusFlanger chorus;
+    chorus.prepare(kSampleRate, kBlock);
+    std::vector<float> chorusRight(static_cast<std::size_t>(kBlock));
+    results.push_back({"mod_chorus", measure(bench, "mod_chorus", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, chorusRight.begin());
+                           chorus.process(out, chorusRight.data(), n);
+                       })});
 
     // Compressor at its defaults (opto, -20 dB, 4:1, all three detectors run) with the tone tilt active (knob 7).
     osp::dsp::Compressor comp;
