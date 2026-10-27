@@ -30,6 +30,19 @@
 //
 // Auto makeup = the static gain reduction at the DI nominal peak level kAutoMakeupRefDb (tone-targets-a §3.4), so
 // a DI at nominal level leaves at the same peak. It adds to the manual makeup. Makeup applies to the wet path.
+// Its dynamics (#160, own design): the makeup must not lead the gain reduction, or a lower threshold (or a higher
+// ratio, a harder knee) is a burst: the old 10 ms ramp to the new target gave +13.4 dB on a -30 -> -50 dB step,
+// while the GR still waited on the 20 ms threshold smoother and the attack. So the auto makeup in dB is recomputed
+// every sample from the *smoothed* threshold and the current ratio/knee, and follows that target through a branching
+// one-pole like the detector's. It rises with 2 x the attack time constant (1.5 x more in dual, whose second stage
+// attacks 4 x slower; at least 5 ms): on a real signal the peak detector only charges near the peaks, so the GR rises
+// more slowly than its time constant. It falls with 0.25 x the release (at least 5 ms): on a real signal the GR also
+// releases toward the troughs, so it falls faster than its time constant. Both err toward a short dip, never a burst.
+// Measured (220 Hz sine at -12 dBFS, defaults, block 64; test_compressor.cpp "[makeup]"): threshold -30 -> -50 dB
+// overshoot +0.05 dB (was +13.4), dip -0.6 dB (vca, opto) / -1.4 dB (dual); -30 -> -10 dB dip -5.3 dB (was -12.0);
+// ratio 4 -> 20 +0.1 dB (was +2.0). Worst overshoot over attack 0.1...100 ms, release 20...1000 ms, 82 Hz...1 kHz,
+// all modes and threshold/ratio/knee steps: +0.7 dB (dual, 82 Hz, 0.1 ms attack, 20 ms release, threshold up).
+// Steady state is unchanged. The on/off switch stays the xf 10 linear-gain fade.
 //
 // Tone: first-order tilt at the comp output, H(s) = (G s + w0) / (s + G w0) with w0 = 2 pi kTiltPivotHz and
 // G = 10^(t / 20), t = (tone - 5) * 1.2 dB: -t dB at DC, +t dB at HF, exactly 0 dB at the pivot. Bilinear
@@ -46,6 +59,13 @@ enum class CompMode { opto, vca, dual };
 class Compressor {
 public:
     static constexpr float kAutoMakeupRefDb = -12.0f;
+    // Auto-makeup follower (#160): rise tau = kAutoMakeupRiseScale x attack (x kAutoMakeupDualScale in dual), at least
+    // kAutoMakeupMinRiseMs; fall tau = kAutoMakeupFallScale x release, at least kAutoMakeupMinFallMs.
+    static constexpr float kAutoMakeupRiseScale = 2.0f;
+    static constexpr float kAutoMakeupDualScale = 1.5f;
+    static constexpr float kAutoMakeupMinRiseMs = 5.0f;
+    static constexpr float kAutoMakeupFallScale = 0.25f;
+    static constexpr float kAutoMakeupMinFallMs = 5.0f;
     static constexpr float kOptoSlowDepth = 0.5f;
     static constexpr float kOptoSlowAttack = 20.0f;
     static constexpr float kOptoSlowRelease = 8.0f;
@@ -94,7 +114,7 @@ private:
     };
 
     void updateCoefficients() noexcept;
-    void updateAutoMakeup() noexcept;
+    float autoMakeupTargetDb(float thresholdDb) const noexcept;
     void updateTilt(float knob) noexcept;
     void processTilt(float* out, int numSamples) noexcept;
 
@@ -109,7 +129,10 @@ private:
     OnePoleSmoother threshold_; // 20 ms, dB
     LinearRamp blend_; // 20 ms, 0...1
     LinearRamp makeup_; // 20 ms, linear gain of the manual makeup
-    LinearRamp autoGain_; // 10 ms (xf 10), linear gain of the auto makeup (1 when off)
+    LinearRamp autoOn_; // 10 ms (xf 10), 0 = auto makeup off, 1 = on
+    float autoDb_ = 0.0f; // applied auto makeup in dB: the lagged follower of autoMakeupTargetDb()
+    float autoGain_ = 1.0f; // dbToGain(autoDb_)
+    float autoRise_ = 0.0f, autoRiseDual_ = 0.0f, autoFall_ = 0.0f; // follower coefficients
     LinearRamp modeFade_; // 10 ms (xf 10), 0 = modeFrom_, 1 = modeTo_
     OnePoleSmoother tone_; // 20 ms, knob
     double tiltK_ = 0.0; // 1 / tan(pi f0 / fs)

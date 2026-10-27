@@ -53,7 +53,9 @@ Compressor::Compressor() noexcept
     tone_.reset(5.0f);
     blend_.reset(1.0f);
     makeup_.reset(1.0f);
-    updateAutoMakeup();
+    autoOn_.reset(1.0f);
+    autoDb_ = autoMakeupTargetDb(thresholdTarget_);
+    autoGain_ = dbToGain(autoDb_);
 }
 
 void Compressor::prepare(double sampleRate, int /*maxBlockSize*/) noexcept
@@ -62,7 +64,7 @@ void Compressor::prepare(double sampleRate, int /*maxBlockSize*/) noexcept
     threshold_.prepare(sampleRate, 0.020);
     blend_.prepare(sampleRate, 0.020);
     makeup_.prepare(sampleRate, 0.020);
-    autoGain_.prepare(sampleRate, 0.010);
+    autoOn_.prepare(sampleRate, 0.010);
     modeFade_.prepare(sampleRate, 0.010);
     tone_.prepare(sampleRate, 0.020);
     tiltK_ = 1.0 / std::tan(3.14159265358979323846 * kTiltPivotHz / sampleRate);
@@ -77,7 +79,9 @@ void Compressor::reset() noexcept
     threshold_.reset(thresholdTarget_);
     blend_.reset(blend_.target());
     makeup_.reset(makeup_.target());
-    autoGain_.reset(autoGain_.target());
+    autoOn_.reset(autoOn_.target());
+    autoDb_ = autoMakeupTargetDb(thresholdTarget_);
+    autoGain_ = dbToGain(autoDb_);
     modeFrom_ = modeTo_ = pendingMode_;
     modeFade_.reset(0.0f);
     grDb_ = 0.0f;
@@ -91,19 +95,16 @@ void Compressor::setThresholdDb(float dB) noexcept
 {
     thresholdTarget_ = clampf(dB, -50.0f, 0.0f);
     threshold_.setTarget(thresholdTarget_);
-    updateAutoMakeup();
 }
 
 void Compressor::setRatio(float ratio) noexcept
 {
     ratio_ = clampf(ratio, 1.0f, 20.0f);
-    updateAutoMakeup();
 }
 
 void Compressor::setKneeDb(float dB) noexcept
 {
     kneeDb_ = clampf(dB, 0.0f, 12.0f);
-    updateAutoMakeup();
 }
 
 void Compressor::setAttackMs(float ms) noexcept
@@ -138,7 +139,7 @@ void Compressor::setMakeupDb(float dB) noexcept
 void Compressor::setAutoMakeup(bool on) noexcept
 {
     autoMakeup_ = on;
-    updateAutoMakeup();
+    autoOn_.setTarget(on ? 1.0f : 0.0f);
 }
 
 void Compressor::setMode(CompMode mode) noexcept
@@ -198,12 +199,15 @@ void Compressor::updateCoefficients() noexcept
     optoSlow_.attack = coefficient(sampleRate_, kOptoSlowAttack * attackMs_);
     optoSlow_.release = coefficient(sampleRate_, kOptoSlowRelease * releaseMs_);
     dual2_.attack = coefficient(sampleRate_, kDualStage2Attack * attackMs_);
+    const float rise = std::fmax(kAutoMakeupRiseScale * attackMs_, kAutoMakeupMinRiseMs);
+    autoRise_ = coefficient(sampleRate_, rise);
+    autoRiseDual_ = coefficient(sampleRate_, kAutoMakeupDualScale * rise);
+    autoFall_ = coefficient(sampleRate_, std::fmax(kAutoMakeupFallScale * releaseMs_, kAutoMakeupMinFallMs));
 }
 
-void Compressor::updateAutoMakeup() noexcept
+float Compressor::autoMakeupTargetDb(float thresholdDb) const noexcept
 {
-    const float dB = autoMakeup_ ? staticGainReductionDb(kAutoMakeupRefDb, thresholdTarget_, ratio_, kneeDb_) : 0.0f;
-    autoGain_.setTarget(dbToGain(dB));
+    return staticGainReductionDb(kAutoMakeupRefDb, thresholdDb, ratio_, kneeDb_);
 }
 
 void Compressor::process(const float* in, float* out, int numSamples) noexcept
@@ -233,6 +237,17 @@ void Compressor::process(const float* in, float* out, int numSamples) noexcept
     }
 
     const float rootRatio = std::sqrt(ratio_);
+    // Auto makeup follower (header, "Auto makeup"). Steady state (threshold settled, follower on its target) keeps
+    // the cached gain, so the per-sample exp only runs while a parameter moves. While auto makeup is off (and its
+    // fade is over) the follower sits on its target, so switching it on is the plain xf 10 fade.
+    const float autoRise = modeTo_ == CompMode::dual ? autoRiseDual_ : autoRise_;
+    const bool autoOff = !autoMakeup_ && !autoOn_.isRamping();
+    bool autoFollow = threshold_.isSmoothing() || autoDb_ != autoMakeupTargetDb(threshold_.current());
+    if (autoFollow && autoOff) {
+        autoDb_ = autoMakeupTargetDb(threshold_.current());
+        autoGain_ = dbToGain(autoDb_);
+        autoFollow = false;
+    }
     float gr[3] = {};
     for (int i = 0; i < numSamples; ++i) {
         const float x = in[i];
@@ -254,7 +269,16 @@ void Compressor::process(const float* in, float* out, int numSamples) noexcept
             g = (1.0f - p) * dbToGain(-gr[static_cast<int>(modeFrom_)]) + p * g;
         grDb_ = grTo;
 
-        const float wet = x * g * makeup_.next() * autoGain_.next();
+        if (autoFollow) {
+            const float t = autoMakeupTargetDb(thr);
+            const float a = t > autoDb_ ? autoRise : autoFall_;
+            autoDb_ = std::abs(autoDb_ - t) < 1.0e-4f ? t : t + a * (autoDb_ - t);
+            autoGain_ = dbToGain(autoDb_);
+        }
+        // Linear in the gain, as the old xf 10 ramp was.
+        const float autoGain = 1.0f + autoOn_.next() * (autoGain_ - 1.0f);
+
+        const float wet = x * g * makeup_.next() * autoGain;
         const float b = blend_.next();
         out[i] = x + b * (wet - x); // exact dry at b = 0, and exact identity at every b when wet == dry
     }
