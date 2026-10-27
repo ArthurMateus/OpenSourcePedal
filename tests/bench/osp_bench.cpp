@@ -8,6 +8,7 @@
 
 #include "osp/dsp/ChorusFlanger.h"
 #include "osp/dsp/Compressor.h"
+#include "osp/dsp/Doubler.h"
 #include "osp/dsp/Eq.h"
 #include "osp/dsp/Gain.h"
 #include "osp/dsp/Gate.h"
@@ -227,6 +228,17 @@ int main(int argc, char** argv)
                            std::copy(in, in + n, out);
                            std::copy(in, in + n, outRight.begin());
                            outputStage.process(out, outRight.data(), n);
+                       })});
+
+    // Doubler (#74) at its defaults (50 %, width 100 %, 18 ms, 8 cents), stereo: two ring writes, two LFO-modulated
+    // Catmull-Rom reads and the pan/mix per sample.
+    osp::dsp::Doubler doubler;
+    doubler.prepare(kSampleRate, kBlock);
+    std::vector<float> dblRight(static_cast<std::size_t>(kBlock));
+    results.push_back({"doubler", measure(bench, "doubler", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, dblRight.begin());
+                           doubler.process(out, dblRight.data(), n);
                        })});
 
     // Modulation, chorusWide at its defaults (0.8 Hz, depth 50 %, mix 50 %, width 100 %), stereo (#70): two ring
