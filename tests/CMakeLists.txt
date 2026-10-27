@@ -22,6 +22,7 @@ add_executable(osp_tests
     dsp/test_compressor.cpp
     dsp/test_convolver.cpp
     dsp/test_drive.cpp
+    dsp/test_drive_region.cpp
     dsp/test_doubler.cpp
     dsp/test_eq.cpp
     dsp/test_fdn_tank.cpp
@@ -46,6 +47,7 @@ add_executable(osp_tests
     engine/test_chain.cpp
     engine/test_engine.cpp
     engine/test_state.cpp
+    engine/test_tone_profile.cpp
     engine/test_version.cpp
     measure/test_measure.cpp
     measure/test_spectral.cpp
