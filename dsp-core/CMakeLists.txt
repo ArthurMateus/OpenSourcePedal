@@ -7,14 +7,20 @@ add_library(osp_dsp_core STATIC
     src/delay/LoopSaturator.cpp
     src/conv/IrLoader.cpp
     src/conv/PartitionedConvolver.cpp
+    src/Drive.cpp
+    src/DriveRegion.cpp
     src/Doubler.cpp
     src/Eq.cpp
     src/Gain.cpp
     src/Gate.cpp
+    src/Reverb.cpp
+    src/reverb/DattorroTank.cpp
+    src/reverb/FdnTank.cpp
     src/InputStage.cpp
     src/OutputStage.cpp
     src/Modulation.cpp
     src/oversampling/Oversampler.cpp
+    src/reverb/FdnTank.cpp
     src/tuner/PitchDetector.cpp
     src/tuner/TunerTap.cpp
     src/Phaser.cpp
