@@ -59,6 +59,13 @@
       "baseline": "#66, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 5 runs (R 0.186-0.196, 0.209-0.218 %); earlier runs read R 0.145-0.21",
       "headroom": "about 2.9x the measured 0.21 %: defaults (opto) with the tone tilt on; all three mode detectors run every sample"
     },
+    "delay_digital": {
+      "kind": "block",
+      "r0": 0.1049,
+      "maxCpuPercent": 3.0,
+      "baseline": "#71 part 2, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.0974-0.1456), T_ref about 19 ms on this machine",
+      "headroom": "about 15x the measured 0.20 %: digital ping-pong at the defaults, stereo; two Catmull-Rom reads, four TPT one-poles and two ring writes per sample. Parts 3-4 add the saturating voicings and the block"
+    },
     "passthrough_chain": {
       "kind": "full_chain",
       "r0": 0.000486,
