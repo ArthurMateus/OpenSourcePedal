@@ -1,6 +1,6 @@
 # Orchestrator state (LIVE, `state` branch)
 
-> Last updated: 2026-10-26 ~06:00Z by acct2/orchestrator (canvas name "Orchestrator", Maestro).
+> Last updated: 2026-10-27 ~00:55Z by acct2/orchestrator (canvas name "Orchestrator", Maestro).
 > To take over: paste `docs/MASTER_PROMPT.md` (from main) into a fresh agent with **RESUME** appended.
 
 ## Phase
@@ -24,14 +24,16 @@
 ## Roster
 | Canvas | Preset / account | Role | Current | Queue | Reviews PRs from |
 |---|---|---|---|---|---|
-| Orchestrator | default = acct2 | orchestrator + fill-in reviewer | heartbeat; reviewing #61 | | acct1, acct3 when short |
+| Orchestrator | default = acct2 | orchestrator + fill-in reviewer | heartbeat | | acct1, acct3 when short (NOT owner-session PRs: same account) |
+| Owner session | default = acct2 | dsp-engineer (owner's own Claude Code) | #74 (#124-#126), #75 (#122-#123), #117 tone match (#118-#121), #127 merged | | — |
 | Corvid | Antigravity (gemini) | reviewer | IDLE (quota until ~2026-10-30 16:00) | | everyone |
-| Lyra | Claude acct1 | dsp-engineer | #69 part 2 Cab block; sync #93 | #89 | acct3 |
-| Sable | Claude acct1 | dsp-engineer | #63 part 2 (HIIR Oversampler, new branch dsp/63-oversampler-hiir) | #67 drive | acct3 |
-| Wren | Claude acct3 | audio-io + devops + reviewer | merge #58; re-review #87; retarget/fix #61; review #92 | #43, #44 | acct1 |
-| Moth | Claude acct3 | dsp-engineer + reviewer | push WIP #72; fix #88; review #90, #91 | #72 reverb | acct1 |
+| Lyra | Claude acct1 | dsp-engineer + reviewer | resync #114; review #124→#125→#126 | #71 part 2 (on #116) | acct3, owner |
+| Sable | Claude acct1 | dsp-engineer + reviewer | resync #102 (→ Wren re-review), retarget #104 then merge; confirm #105; re-review #111 | review #118→#121 (tone match), #89 | acct3, owner |
+| Wren | Claude acct3 | audio-io + devops + reviewer | resync #61 (THIRD_PARTY.md) + merge; re-review #102 | review #122→#123 (tuner); #115 (TOP); #83 pt2 | acct1, owner |
+| Moth | Claude acct3 | dsp-engineer + reviewer | resync #103 + merge; resync #105; fix #111 | review #114, #116; #73 | acct1, owner |
 
 2026-10-26 heartbeat: every worker had been idle since ~01:45Z (usage limit, no handoff; Moth had unpushed #72 work). All re-dispatched at 05:35Z.
+2026-10-27 00:50Z heartbeat: all workers idle again since ~06:40Z (limits). Main moved (#108-#110 at ~06:33Z, #127 at 19:42Z), so #61, #102, #103, #105 and #114 are CONFLICTING on registry files (osp_bench.cpp, budget.json, CMakeLists, THIRD_PARTY.md). Resyncs sent to the authors; all re-dispatched. The owner session (acct2) opened 9 PRs (#118-#126), reviewed by acct1/acct3 only.
 
 ## ACCOUNT ALERT
 - **Corvid (Antigravity/Gemini) quota exhausted** (2026-10-25 ~22:00), "resets in 114h", so about **2026-10-30 16:00**.
@@ -71,8 +73,12 @@
 | #94 third-party notices in Credits/installer (Signalsmith, HIIR, nlohmann, JUCE, VST3, ASIO) | — | | filed by Lyra; HIIR added |
 | #95 engine v1 signal graph (Phase 5) | unassigned (architect) | | filed. +Moth: report round(sum D) not sum round(D), and add an end-to-end REQ-301 Live test |
 | #89 compressor THD probe (82/110 Hz) | — (Lyra preferred) | | unblocked (#87 merged) |
-| #70 mod, #74 doubler/io, #75 tuner | — | | queued |
-| #115 split shared source/bench/budget registries per block | Wren (after #83 part 2) | | filed: 6 conflict-only resyncs on 2026-10-26 |
+| #70 mod | — | | queued |
+| #74 input/output/doubler | owner session | #124 ← #125 ← #126 (stacked), green | review: Lyra |
+| #75 tuner | owner session | #122 ← #123 (stacked), green | review: Wren |
+| #117 tone match (ADR-0008) | owner session | #118 ← #119 ← #120 ← #121 (stacked on dsp/tonematch-base), green; #127 DI guide MERGED | review: Sable (formal Verdicts; advisory review done) |
+| #71 delay | Lyra | #116 part 1 green | review: Moth |
+| #115 split shared source/bench/budget registries per block | Wren, NOW TOP PRIORITY | | 5 PRs conflicting again on 2026-10-27 |
 Spec amendment merged: #81 (REQ-TEST-003 = residual vs the per-sample smoothing-law reference, starting at the delivery block,
 normalised to the larger settled RMS; parameters.md has no 16-sample coefficient updates).
 
@@ -86,11 +92,12 @@ normalised to the larger settled RMS; parameters.md has no 16-sample coefficient
 - **Stacked PRs:** retarget the child to `main` BEFORE `gh pr merge <parent> --delete-branch`. Deleting the base branch auto-CLOSES the child, and a closed PR cannot be retargeted (#91 on 2026-10-26). To recover: recreate the base ref at the parent's head SHA (`gh api -X POST repos/{owner}/{repo}/git/refs`), `gh pr reopen`, `gh pr edit --base main`, then delete the ref again.
 
 ## Waiting on
-- Wren: #58 CI, then #61 fix, #92 review and #43. Lyra: #93 sync, #69 part 2. Moth: #91 re-review (+ merge in stack order), #93, #96, then #72. Sable: #67.
+- Resyncs: Wren #61, Sable #102, Moth #103/#105, Lyra #114. Then the merges: #61, #103, #102 → #104, #105.
+- Reviews: Lyra #124-#126, Wren #122-#123 + #102, Sable #118-#121 + #105/#111, Moth #114 + #116.
 
 ## Next actions
-1. Merge #87, #88 and #90→#91→#92 (merge each in stack order, and retarget the next PR to main) once approved and green.
-2. Re-review #61 after Wren's range fix. Then #42 closes.
-3. Unassigned: #47 latency, #83 CI baselines, #89. Give them to whoever frees first (#83/#43/#44 to Wren).
-4. Rule 8 reminder to all: hand off before limits hit (Moth left unpushed work on 2026-10-26).
+1. Verify that each resync is conflict-only (range-diff) and that the approvals hold; merge in stack order.
+2. #115 lands ASAP, to stop the registry-conflict churn.
+3. Unassigned: #47 latency, #70 mod, #89 (Sable after the tone-match reviews), #94 notices, #95 engine graph (Phase 5).
+4. Rule 8 reminder to all: hand off before limits hit (all idle ~18h with no handoff on 2026-10-26).
 5. Heartbeat routine every 45 min.
