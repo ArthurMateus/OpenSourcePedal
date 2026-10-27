@@ -25,6 +25,12 @@ void panGains(float pan, float& gl, float& gr) noexcept
     gr = std::numbers::sqrt2_v<float> * std::sin(theta);
 }
 
+// NaN-safe clamp: NaN maps to `lo` (std::clamp passes NaN through, and a NaN target would stick in its ramp).
+float clampSafe(float v, float lo, float hi) noexcept
+{
+    return v > lo ? (v < hi ? v : hi) : lo;
+}
+
 void convolve(PartitionedConvolver* ir, const float* in, float* out, int n) noexcept
 {
     if (ir != nullptr)
@@ -131,13 +137,13 @@ void Cab::setSlotEnabled(int slot, bool on) noexcept
 void Cab::setLevelDb(int slot, float dB) noexcept
 {
     if (slot >= 0 && slot < kNumSlots)
-        slots_[static_cast<std::size_t>(slot)].level.setTarget(std::pow(10.0f, std::clamp(dB, -60.0f, 6.0f) / 20.0f));
+        slots_[static_cast<std::size_t>(slot)].level.setTarget(std::pow(10.0f, clampSafe(dB, -60.0f, 6.0f) / 20.0f));
 }
 
 void Cab::setPanPct(int slot, float pct) noexcept
 {
     if (slot >= 0 && slot < kNumSlots)
-        slots_[static_cast<std::size_t>(slot)].pan.setTarget(std::clamp(pct, -100.0f, 100.0f) / 100.0f);
+        slots_[static_cast<std::size_t>(slot)].pan.setTarget(clampSafe(pct, -100.0f, 100.0f) / 100.0f);
 }
 
 void Cab::setInvert(int slot, bool on) noexcept
@@ -151,7 +157,7 @@ void Cab::setDelayMs(int slot, float ms) noexcept
     if (slot < 0 || slot >= kNumSlots)
         return;
     Slot& s = slots_[static_cast<std::size_t>(slot)];
-    s.delayMs = std::clamp(ms, 0.0f, kMaxDelayMs);
+    s.delayMs = clampSafe(ms, 0.0f, kMaxDelayMs);
     s.delay.setTarget(static_cast<float>(double(s.delayMs) * sampleRate_ / 1000.0));
 }
 
@@ -164,7 +170,7 @@ void Cab::retire(PartitionedConvolver* ir) noexcept
         retired_[static_cast<std::size_t>(retiredCount_++)] = ir;
 }
 
-void Cab::startSwap(Slot& s, PartitionedConvolver* ir) noexcept
+void Cab::startSwap(Slot& s, PartitionedConvolver* ir, int ahead) noexcept
 {
     if (!isPrepared()) { // nothing is playing yet: install without a fade
         retire(s.active);
@@ -174,13 +180,13 @@ void Cab::startSwap(Slot& s, PartitionedConvolver* ir) noexcept
     const int base = slotBase(s);
     s.phase = base + (s.phase - base + kMaxPartition / 4) % (kMaxPartition / 2);
     if (ir != nullptr)
-        ir->setStartPhase(phaseNow(s.phase)); // ir is cold: just prepared by the worker
+        ir->setStartPhase(phaseNow(s.phase, ahead)); // ir is cold: just prepared by the worker
     s.incoming = ir;
     s.swap.reset(false);
     s.swap.setTarget(true);
 }
 
-void Cab::completeSwap(Slot& s) noexcept
+void Cab::completeSwap(Slot& s, int ahead) noexcept
 {
     retire(s.active);
     s.active = s.incoming;
@@ -189,7 +195,7 @@ void Cab::completeSwap(Slot& s) noexcept
     if (s.pending != nullptr) {
         PartitionedConvolver* const next = s.pending;
         s.pending = nullptr;
-        startSwap(s, next);
+        startSwap(s, next, ahead);
     }
 }
 
@@ -198,9 +204,10 @@ int Cab::slotBase(const Slot& s) const noexcept
     return static_cast<int>(&s - slots_.data()) * (kMaxPartition / 2);
 }
 
-int Cab::phaseNow(int phase) const noexcept
+int Cab::phaseNow(int phase, int ahead) const noexcept
 {
-    return static_cast<int>((clock_ + static_cast<unsigned>(phase)) % static_cast<unsigned>(kMaxPartition));
+    const unsigned t = clock_ + static_cast<unsigned>(ahead) + static_cast<unsigned>(phase);
+    return static_cast<int>(t % static_cast<unsigned>(kMaxPartition));
 }
 
 void Cab::renderSlot(Slot& s, const float* in, float* outL, float* outR, int n) noexcept
@@ -225,7 +232,7 @@ void Cab::renderSlot(Slot& s, const float* in, float* outL, float* outR, int n) 
         convolve(s.incoming, in, incoming_.data(), n);
         s.swap.process(m, incoming_.data(), m, n);
         if (!s.swap.isFading())
-            completeSwap(s);
+            completeSwap(s, n); // a promoted pending IR starts with the next chunk
     }
 
     const int mask = static_cast<int>(s.history.size()) - 1;
