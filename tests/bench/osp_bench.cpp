@@ -6,6 +6,7 @@
 // prints a table and writes them as JSON (--out). tools/bench/check_budget.py compares that JSON with
 // tests/bench/budget.json.
 
+#include "osp/dsp/Cab.h"
 #include "osp/dsp/ChorusFlanger.h"
 #include "osp/dsp/Compressor.h"
 #include "osp/dsp/Doubler.h"
@@ -33,10 +34,12 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -106,6 +109,35 @@ double measure(ankerl::nanobench::Bench& bench, const char* name, const std::vec
         ankerl::nanobench::doNotOptimizeAway(out[static_cast<std::size_t>(kSamples - 1)]);
     });
     return bench.results().back().median(ankerl::nanobench::Result::Measure::elapsed);
+}
+
+// Costliest callback of a block whose work repeats every `period` samples (the cab's 1024 stage): every block is timed
+// over kPeakCycles periods, the median is taken per block phase (robust to preemption), and the worst phase wins.
+// Returned as the time for 1 s of audio if every block cost that much, so CPU % reads as the peak share of a block.
+double peakCallback(const std::vector<float>& input,
+                    int period,
+                    const std::function<void(const float*, float*, int)>& perBlock)
+{
+    constexpr int kPeakCycles = 200;
+    const int phases = period / kBlock;
+    std::vector<std::vector<double>> byPhase(static_cast<std::size_t>(phases));
+    std::vector<float> out(kBlock);
+    const int blocksPerInput = kSamples / kBlock;
+    for (int b = 0; b < (kPeakCycles + 4) * phases; ++b) {
+        const float* in = input.data() + static_cast<std::ptrdiff_t>(b % blocksPerInput) * kBlock;
+        const auto t0 = std::chrono::steady_clock::now();
+        perBlock(in, out.data(), kBlock);
+        const std::chrono::duration<double> dt = std::chrono::steady_clock::now() - t0;
+        if (b >= 4 * phases) // warm-up
+            byPhase[static_cast<std::size_t>(b % phases)].push_back(dt.count());
+    }
+    double worst = 0.0;
+    for (auto& v : byPhase) {
+        std::nth_element(v.begin(), v.begin() + static_cast<std::ptrdiff_t>(v.size() / 2), v.end());
+        worst = std::max(worst, v[v.size() / 2]);
+    }
+    ankerl::nanobench::doNotOptimizeAway(out[0]);
+    return worst * blocksPerInput;
 }
 
 } // namespace
@@ -311,6 +343,30 @@ int main(int argc, char** argv)
                            comp.process(in, out, n);
                        })});
 
+    // Cab (#69): both slots on with 1 s IRs (the cap and the budget case), staggered 1024 frames. The mean row is the
+    // steady state; the peak row is the costliest callback (see peakCallback).
+    std::vector<std::vector<float>> cabIrs(2, std::vector<float>(static_cast<std::size_t>(kSampleRate)));
+    std::uint32_t irSeed = 69u;
+    for (auto& ir : cabIrs)
+        for (std::size_t i = 0; i < ir.size(); ++i) {
+            irSeed = irSeed * 1664525u + 1013904223u;
+            const float decay = std::exp(-6.9f * static_cast<float>(i) / static_cast<float>(ir.size())); // -60 dB
+            ir[i] = decay * (static_cast<float>(irSeed >> 8) / 8388608.0f - 1.0f) * 0.05f;
+        }
+    osp::dsp::PartitionedConvolver cabConv1, cabConv2;
+    cabConv1.prepare(cabIrs[0].data(), static_cast<int>(cabIrs[0].size()));
+    cabConv2.prepare(cabIrs[1].data(), static_cast<int>(cabIrs[1].size()));
+    osp::dsp::Cab cab;
+    cab.setIr(0, &cabConv1);
+    cab.setIr(1, &cabConv2);
+    cab.setSlotEnabled(1, true);
+    cab.setPanPct(0, -50.0f);
+    cab.setPanPct(1, 50.0f);
+    cab.prepare(kSampleRate, kBlock);
+    std::vector<float> cabRight(kBlock);
+    const auto cabBlock = [&](const float* in, float* out, int n) { cab.process(in, out, cabRight.data(), n); };
+    results.push_back({"cab_2x1s", measure(bench, "cab_2x1s", input, cabBlock)});
+    results.push_back({"cab_2x1s_peak", peakCallback(input, osp::dsp::PartitionedConvolver::kMaxPartition, cabBlock)});
     // FIR (HQ) oversampler at 8x, identity processing: the up/down cost of one HQ region (ADR-0005 D2, A2).
     osp::dsp::Oversampler os8fir;
     os8fir.prepare(kSampleRate, kBlock, 8, osp::dsp::OversamplingFilter::fir);
