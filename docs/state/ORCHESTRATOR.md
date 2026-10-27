@@ -1,5 +1,11 @@
 # Orchestrator state (LIVE, `state` branch)
 
+> **2026-10-27 ~16:50Z, owner-session handoff (account switch).** Read
+> [`docs/state/HANDOFF/owner-session.md`](https://github.com/ArthurMateus/OpenSourcePedal/blob/main/docs/state/HANDOFF/owner-session.md)
+> (PR #141) before this file; it is newer than the roster below. In short: the owner approved merging green PRs without
+> a cross-account review. 22 PRs merged today. The queue left is #133 → #134 → #61 → #135 → #136 → #137 → #112's PR,
+> run with `tools/merge-train/merge_train.py`. QA filed #138. Then #115, then #95.
+
 > Last updated: 2026-10-27 ~00:55Z by acct2/orchestrator (canvas name "Orchestrator", Maestro).
 > To take over: paste `docs/MASTER_PROMPT.md` (from main) into a fresh agent with **RESUME** appended.
 
