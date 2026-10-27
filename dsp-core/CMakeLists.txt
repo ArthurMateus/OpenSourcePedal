@@ -12,6 +12,7 @@ add_library(osp_dsp_core STATIC
     src/OutputStage.cpp
     src/Modulation.cpp
     src/oversampling/Oversampler.cpp
+    src/reverb/FdnTank.cpp
     src/tuner/PitchDetector.cpp
     src/tuner/TunerTap.cpp
     src/Phaser.cpp

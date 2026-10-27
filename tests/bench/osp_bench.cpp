@@ -19,6 +19,7 @@
 #include "osp/dsp/Phaser.h"
 #include "osp/dsp/Tremolo.h"
 #include "osp/dsp/oversampling/Oversampler.h"
+#include "osp/dsp/reverb/FdnTank.h"
 #include "osp/dsp/tuner/TunerTap.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
@@ -343,6 +344,16 @@ int main(int argc, char** argv)
                            comp.process(in, out, n);
                        })});
 
+    // FDN reverb tank, hall voicing at its defaults (2.5 s, 20 % modulation): stereo, the mono input on both sides.
+    osp::dsp::FdnTank fdn;
+    fdn.prepare(kSampleRate, osp::dsp::FdnTank::kHall);
+    fdn.setDecaySeconds(2.5f);
+    fdn.setModulation(0.2f);
+    fdn.reset();
+    std::vector<float> fdnRight(kBlock);
+    results.push_back({"fdn_hall", measure(bench, "fdn_hall", input, [&](const float* in, float* out, int n) {
+                           fdn.process(in, in, out, fdnRight.data(), n);
+                       })});
     // Cab (#69): both slots on with 1 s IRs (the cap and the budget case), staggered 1024 frames. The mean row is the
     // steady state; the peak row is the costliest callback (see peakCallback).
     std::vector<std::vector<float>> cabIrs(2, std::vector<float>(static_cast<std::size_t>(kSampleRate)));

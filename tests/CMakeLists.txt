@@ -25,6 +25,7 @@ add_executable(osp_tests
     dsp/test_eq.cpp
     dsp/test_fractional_delay.cpp
     dsp/test_eq_dynamics.cpp
+    dsp/test_fdn_tank.cpp
     dsp/test_svf.cpp
     dsp/test_tuner.cpp
     dsp/test_tuner_tap.cpp
