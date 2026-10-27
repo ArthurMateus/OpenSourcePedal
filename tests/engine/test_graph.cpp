@@ -199,6 +199,47 @@ TEST_CASE("Graph: mod.position moves the block without a step", "[engine][graph]
     CHECK(maxStep(std::vector<float>(out.l.begin() + 4800, out.l.end())) < 0.05);
 }
 
+TEST_CASE("Graph: a disabled delay keeps its tail, idles once silent and wakes cleanly", "[engine][graph]")
+{
+    const double rate = 48000.0;
+    Rig rig(rate, 64);
+    rig.set("delay.enabled", 1.0f);
+    rig.set("delay.timeMs", 300.0f);
+    rig.set("delay.feedbackPct", 0.0f); // one echo, then the tails are below -140 dBFS within about 1 s
+    rig.set("reverb.decayS", 0.3f);
+    rig.set("delay.mixPct", 50.0f);
+    rig.set("reverb.enabled", 1.0f);
+    // A 50 ms burst at 0, the blocks disabled at 0.1 s, a second burst at 6 s with both enabled again at 5.9 s.
+    auto in = sine(rate, 997.0, 0.25f, 7 * 48000);
+    for (std::size_t i = 2400; i < in.size(); ++i)
+        if (i < 288000 || i >= 290400)
+            in[i] = 0.0f;
+    const int delayOn = osp::engine::findParam("delay.enabled"), reverbOn = osp::engine::findParam("reverb.enabled");
+    bool idleSeen = false;
+    const auto out = rig.render(in, 64, [&](int pos) {
+        if (pos == 4800) {
+            rig.params.set(delayOn, 0.0f);
+            rig.params.set(reverbOn, 0.0f);
+        }
+        if (pos == 283200) {
+            idleSeen = rig.graph.isDelayIdle() && rig.graph.isReverbIdle();
+            rig.params.set(delayOn, 1.0f);
+            rig.params.set(reverbOn, 1.0f);
+        }
+    });
+    const auto energy = [&](double from, double to) {
+        double e = 0.0;
+        for (auto i = static_cast<std::size_t>(from * rate); i < static_cast<std::size_t>(to * rate); ++i)
+            e += static_cast<double>(out.l[i]) * out.l[i];
+        return e;
+    };
+    CHECK(energy(0.3, 0.4) > 1e-3); // the first echo rings after the disable (trails)
+    CHECK(idleSeen); // silent for 3.5 s: both idle
+    CHECK(energy(6.3, 6.4) > 1e-3); // woken: the second burst echoes
+    for (std::size_t i = 283200; i < 288000; ++i) // waking adds nothing of its own before the burst
+        REQUIRE(out.l[i] == 0.0f);
+}
+
 TEST_CASE("Graph: latency is round(D_os1 + D_slot), with a fractional amp-slot test delay", "[engine][graph]")
 {
     const double rate = GENERATE(44100.0, 48000.0, 88200.0, 96000.0);

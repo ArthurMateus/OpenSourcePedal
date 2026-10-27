@@ -32,6 +32,7 @@
 #include "osp/dsp/util/DelayLine.h"
 #include "osp/dsp/util/Smoothers.h"
 #include "osp/engine/Chain.h"
+#include "osp/engine/Engine.h"
 
 #include <nanobench.h>
 
@@ -496,6 +497,36 @@ int main(int argc, char** argv)
              chain.setOutputLevelDb(0.0f);
              chain.process(in, out, n);
          })});
+
+    // The v1 signal graph through the Engine (#95, ADR-0009): mono in, stereo out. graph_default is the default
+    // preset (most blocks off, no cab IR loaded: a unit impulse); graph_all_blocks has every block on, the delay in
+    // tape mode (2x saturation in the loop) and both cab slots on 1 s IRs: the full-chain ceiling case.
+    std::vector<float> graphRight(kBlock);
+    const auto engineBlock = [&graphRight](osp::engine::Engine& e) {
+        return [&e, &graphRight](const float* in, float* out, int n) {
+            std::copy_n(in, n, out);
+            float* channels[] = {out, graphRight.data()};
+            e.process(channels, 2, n);
+        };
+    };
+    osp::engine::Engine graphDefault;
+    graphDefault.prepare(kSampleRate, kBlock);
+    results.push_back({"graph_default", measure(bench, "graph_default", input, engineBlock(graphDefault))});
+    osp::dsp::PartitionedConvolver graphConv1, graphConv2; // declared first: they outlive the engine
+    graphConv1.prepare(cabIrs[0].data(), static_cast<int>(cabIrs[0].size()));
+    graphConv2.prepare(cabIrs[1].data(), static_cast<int>(cabIrs[1].size()));
+    osp::engine::Engine graphAll;
+    for (const char* id : {"gate.enabled", "comp.enabled", "drive1.enabled", "drive2.enabled", "eq.enabled",
+                           "mod.enabled", "delay.enabled", "reverb.enabled", "doubler.enabled", "cab.ch1.ir2.enabled"})
+        graphAll.parameters().set(id, 1.0f);
+    graphAll.parameters().set("delay.mode", 2.0f); // tape
+    graphAll.prepare(kSampleRate, kBlock);
+    graphAll.graph().setCabIr(0, 0, &graphConv1);
+    graphAll.graph().setCabIr(0, 1, &graphConv2);
+    graphAll.reset(); // finishes the IR fades; the engine's own unit IR comes back through popRetired
+    while (graphAll.graph().popRetired() != nullptr) {
+    }
+    results.push_back({"graph_all_blocks", measure(bench, "graph_all_blocks", input, engineBlock(graphAll))});
 
     std::printf("\nT_ref = %.6f s per 1 s of audio\n", tRef);
     std::printf("%-20s %12s %10s %10s\n", "benchmark", "T_median s", "CPU %", "R");

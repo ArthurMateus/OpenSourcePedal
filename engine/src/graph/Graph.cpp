@@ -54,6 +54,7 @@ void Graph::prepare(double sampleRate, int maxBlockSize, dsp::OversamplingQualit
     inputOn_.prepare(sampleRate);
     compOn_.prepare(sampleRate);
     stripFade_.prepare(sampleRate, kSwapSeconds);
+    tailIdleSamples_ = static_cast<int>(std::ceil(kTailIdleSeconds * sampleRate));
     modMoveSamples_ = static_cast<int>(std::ceil(dsp::Crossfader::kBlockEnableSeconds * sampleRate)) + 1;
     cleanBlend_.prepare(sampleRate, 0.020); // parameters.md §1.4: mix % is a 20 ms linear ramp
     gateOn_.prepare(sampleRate, dsp::Crossfader::kBlockEnableSeconds);
@@ -101,6 +102,8 @@ void Graph::reset() noexcept
     }
     delay_.reset();
     reverb_.reset();
+    delayTail_ = {};
+    reverbTail_ = {};
     doubler_.reset();
     output_.reset();
     inputOn_.reset(inputOn_.target());
@@ -233,6 +236,34 @@ void Graph::processGate(float* io, int n) noexcept
         post[i] = 1.0f - post[i];
 }
 
+// Trails with an idle state (see TailIdle). While disabled, the wet is out − in; once it has been below
+// kTailSilence for tailIdleSamples_, the block is skipped, which leaves exactly the dry signal it was producing.
+template <typename Run, typename Wake>
+void Graph::processTail(TailIdle& t, bool enabled, float* l, float* r, int n, Run&& run, Wake&& wake) noexcept
+{
+    if (t.idle) {
+        if (!enabled || bypassedAll_)
+            return;
+        wake();
+        t = {};
+    }
+    if (enabled || bypassedAll_) {
+        t.silentSamples = 0;
+        run();
+        return;
+    }
+    std::copy_n(l, n, stripL_.data());
+    std::copy_n(r, n, stripR_.data());
+    run();
+    float wet = 0.0f;
+    for (int i = 0; i < n; ++i) {
+        const auto k = static_cast<std::size_t>(i);
+        wet = std::max(wet, std::max(std::abs(l[i] - stripL_[k]), std::abs(r[i] - stripR_[k])));
+    }
+    t.silentSamples = wet <= kTailSilence ? t.silentSamples + n : 0;
+    t.idle = t.silentSamples >= tailIdleSamples_;
+}
+
 void Graph::processStrip(Strip& s, const float* in, float* outL, float* outR, int n) noexcept
 {
     std::copy_n(in, n, outL);
@@ -295,8 +326,20 @@ void Graph::processChunk(float* io, float* outL, float* outR, int n) noexcept
 
     if (!modPre_)
         mod_.processStereo(outL, outR, n);
-    delay_.process(outL, outR, n);
-    reverb_.process(outL, outR, outL, outR, n);
+    processTail(
+        delayTail_, on(ids_->delay[kDlyEnabled]), outL, outR, n, [&] { delay_.process(outL, outR, n); },
+        [&] { // reset with the send still muted, so it fades in over its own 10 ms
+            delay_.setSoftBypass(true);
+            delay_.reset();
+            delay_.setSoftBypass(false);
+        });
+    processTail(
+        reverbTail_, on(ids_->reverb[kRevEnabled]), outL, outR, n, [&] { reverb_.process(outL, outR, outL, outR, n); },
+        [&] {
+            reverb_.setEnabled(false);
+            reverb_.reset();
+            reverb_.setEnabled(true);
+        });
     doubler_.process(outL, outR, n);
     output_.process(outL, outR, n);
     // Tuner mute (REQ-419): one ramp for both channels. Unmuted and idle it leaves the gains at exactly 1.
