@@ -9,6 +9,7 @@ add_library(osp_dsp_core STATIC
     src/Gate.cpp
     src/oversampling/Oversampler.cpp
     src/Phaser.cpp
+    src/Tremolo.cpp
     src/util/DelayLine.cpp
     src/rt/AudioThread.cpp)
 add_library(osp::dsp_core ALIAS osp_dsp_core)

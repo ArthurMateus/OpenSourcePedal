@@ -66,6 +66,13 @@
       "baseline": "#70 part 2, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.4708-0.5948, a busy machine), T_ref about 19 ms on this machine",
       "headroom": "about 13x the measured 0.93 %: vibe (the costliest allpass type), stereo, 2 x 4 TPT allpass stages with a tan() each, two pow() and the LFO sines per sample; the tan() calls dominate and could become a polynomial if needed"
     },
+    "mod_tremolo": {
+      "kind": "block",
+      "r0": 0.0961,
+      "maxCpuPercent": 3.0,
+      "baseline": "#70 part 3, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.0897-0.0978), T_ref about 17 ms on this machine",
+      "headroom": "about 18x the measured 0.16 %: harmonic tremolo, stereo, two cascaded TPT one-poles, two band gains and one LFO sine per side per sample"
+    },
     "comp": {
       "kind": "block",
       "r0": 0.1931,
