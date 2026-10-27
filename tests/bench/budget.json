@@ -52,6 +52,13 @@
       "baseline": "#65, 2026-10-25, local VS 2022 Release build (windows-msvc-ci), median of 6 quiet runs, T_ref about 10.3 ms",
       "headroom": "about 50x the measured 0.014 %: enabled gate, peak detector + hysteresis/hold state machine + per-sample gain on -12 dBFS noise"
     },
+    "mod_chorus": {
+      "kind": "block",
+      "r0": 0.3397,
+      "maxCpuPercent": 8.0,
+      "baseline": "#70, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.3337-0.3399), T_ref about 14.7 ms on this machine",
+      "headroom": "about 16x the measured 0.50 %: chorusWide (the costliest modulation type), stereo, two ring writes, four Catmull-Rom reads and three sin() per sample"
+    },
     "comp": {
       "kind": "block",
       "r0": 0.1931,
