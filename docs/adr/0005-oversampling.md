@@ -61,11 +61,11 @@ Oversampled regions follow `docs/spec/signal-flow.md` (#52):
 ### D3. Filter specifications
 | Stage | IIR (Live) | FIR (HQ) |
 |---|---|---|
-| Upsampler, first 2× stage (fs ↔ 2fs) | stopband ≥ 90 dB, transition 0.05 | stopband ≥ 100 dB, transition 0.05 |
-| Decimator, first 2× stage (fs ↔ 2fs) | stopband ≥ 75 dB, transition **0.01** (Amendment A1; was 0.06) | stopband ≥ 100 dB, transition 0.06 |
-| Later stages | as JUCE: +10 dB stopband per stage; transition 0.10 (up) and 0.12 (down), i.e. × 2 the JUCE stage-0 values | stopband ≥ 100 dB, transition × 2 |
+| Upsampler, first 2× stage (fs ↔ 2fs) | stopband ≥ 90 dB, transition 0.05 | stopband ≥ 100 dB, transition **0.03** (Amendment A2; was 0.05) |
+| Decimator, first 2× stage (fs ↔ 2fs) | stopband ≥ 75 dB, transition **0.01** (Amendment A1; was 0.06) | stopband ≥ 100 dB, transition **0.03** (Amendment A2; was 0.06) |
+| Later stages | as JUCE: +10 dB stopband per stage; transition 0.10 (up) and 0.12 (down), i.e. × 2 the JUCE stage-0 values | stopband ≥ 100 dB, transition 0.06 (× 2 the A2 stage-0 value) |
 
-Transition is relative to the stage's higher rate. Apart from Amendment A1, these are JUCE's max-quality defaults
+Transition is relative to the stage's higher rate. Apart from Amendments A1 and A2, these are JUCE's max-quality defaults
 (OS §2.2), and our CI measures them (REQ-OS-002). Passband ripple must be
 ≤ 0.1 dB up to 20 kHz at 44.1/48 kHz, which the IIR satisfies by construction (allpass halfband) and the FIR must be
 designed to.
@@ -156,6 +156,35 @@ designed to.
 - **HQ (FIR):** the FIR decimator column keeps 0.06 for now. HQ ASR is warn-only in v1 (D5). #63 part 3 reports the
   HQ ASR with the FIR, and proposes the matching FIR transition if needed (FIR taps, and so latency, grow as
   1/transition).
+
+## Amendment A2 (2026-10-26, #63 part 3): FIR (HQ) stage-0 transition 0.05/0.06 → 0.03
+
+- Status: **Accepted** (2026-10-26, reviewed by acct2). Author: acct1/dsp-engineer (Sable).
+- **Problem.** D3 itself requires FIR passband ripple ≤ 0.1 dB up to 20 kHz at 44.1/48 kHz. An equiripple FIR halfband
+  with transition tw only holds its passband to (0.25 − tw)·2fs and then rolls off to −6 dB at fs/2. With D3's 0.05
+  (up) / 0.06 (down), the passband ends at 17.6 kHz at 44.1 kHz, and 20 kHz loses −0.57 dB (up) − 0.98 dB (down)
+  ≈ **−1.5 dB** (prototype, scipy remez). The IIR column does not have this problem, because an elliptic halfband stays
+  flat well into its transition band. So the FIR column contradicts D3's own ripple clause.
+- **Decision.** Stage 0 (up and down): transition **0.03**, which puts the passband edge at 0.44·fs = 19.4 kHz at
+  44.1 kHz. Later stages: 0.06 (× 2). At 44.1 kHz, 20 kHz still lies in the transition band (19.4–22.05 kHz), so
+  compliance with the 20 kHz clause is by measurement (below), not by construction. Every FIR filter is **designed for 110 dB**. That is above the D3 minimum
+  of 100 dB, because in a halfband the passband ripple equals the stopband ripple, and REQ-OS-001a's −120 dBFS identity
+  null needs it. `tools/design/halfband_fir.py` picks the tap counts so the up + down delay of each stage is an
+  integer at the base rate (D4).
+- **Measured (#63 part 3 PR, VS 2022 Release):**
+  - Stopbands: stage 0 −112.4 dB up / −112.5 dB down; stage 1 −123.2 / −116.4; stage 2 −130.3 / −123.2.
+  - Passband ripple to 20 kHz: ≤ 0.037 dB at 44.1 kHz and ≤ 1e-4 dB at 48 kHz and above.
+  - Identity null, 64 tones ≤ 18 kHz at −12 dBFS RMS, against the input delayed by the latency: −121.2…−122.3 dBFS RMS
+    at every rate and factor (gate −120).
+  - **Latency** is an exact integer: **57 / 72 / 80 base samples** at 2× / 4× / 8×. HQ at 8× is 1.67 ms at 48 kHz per
+    oversampled region. That is above the *unverified* 10–40 samples D4 estimated, and it is the cost of the 20 kHz
+    passband. HQ is not the Live mode (REQ-302 applies to Live only), and the latency is reported to the host in
+    `prepare()` (D6). A whole HQ chain with both oversampled regions (OS-1 and OS-2) is about **160 samples**
+    (3.3 ms at 48 kHz) of oversampler latency, before ADAA and other blocks.
+- **Not chosen:** keeping 0.05/0.06 (about 31 samples at stage 0) breaks the ripple clause by 1.4 dB; tw 0.02 (75
+  samples at stage 0) gains nothing at 20 kHz over 0.03.
+- **Follow-up:** with 2 ADAA slots of 1 sample at 8×, an FIR OS-1 region has D = 80 + 2/8. D4 asks for an integer, so
+  `DriveRegion` pads 6 samples at the oversampled rate when it switches HQ to the FIR kind (after #104).
 
 ## Requirements
 
