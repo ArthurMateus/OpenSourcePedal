@@ -25,6 +25,12 @@ void panGains(float pan, float& gl, float& gr) noexcept
     gr = std::numbers::sqrt2_v<float> * std::sin(theta);
 }
 
+// NaN-safe clamp: NaN maps to `lo` (std::clamp passes NaN through, and a NaN target would stick in its ramp).
+float clampSafe(float v, float lo, float hi) noexcept
+{
+    return v > lo ? (v < hi ? v : hi) : lo;
+}
+
 void convolve(PartitionedConvolver* ir, const float* in, float* out, int n) noexcept
 {
     if (ir != nullptr)
@@ -131,13 +137,13 @@ void Cab::setSlotEnabled(int slot, bool on) noexcept
 void Cab::setLevelDb(int slot, float dB) noexcept
 {
     if (slot >= 0 && slot < kNumSlots)
-        slots_[static_cast<std::size_t>(slot)].level.setTarget(std::pow(10.0f, std::clamp(dB, -60.0f, 6.0f) / 20.0f));
+        slots_[static_cast<std::size_t>(slot)].level.setTarget(std::pow(10.0f, clampSafe(dB, -60.0f, 6.0f) / 20.0f));
 }
 
 void Cab::setPanPct(int slot, float pct) noexcept
 {
     if (slot >= 0 && slot < kNumSlots)
-        slots_[static_cast<std::size_t>(slot)].pan.setTarget(std::clamp(pct, -100.0f, 100.0f) / 100.0f);
+        slots_[static_cast<std::size_t>(slot)].pan.setTarget(clampSafe(pct, -100.0f, 100.0f) / 100.0f);
 }
 
 void Cab::setInvert(int slot, bool on) noexcept
@@ -151,7 +157,7 @@ void Cab::setDelayMs(int slot, float ms) noexcept
     if (slot < 0 || slot >= kNumSlots)
         return;
     Slot& s = slots_[static_cast<std::size_t>(slot)];
-    s.delayMs = std::clamp(ms, 0.0f, kMaxDelayMs);
+    s.delayMs = clampSafe(ms, 0.0f, kMaxDelayMs);
     s.delay.setTarget(static_cast<float>(double(s.delayMs) * sampleRate_ / 1000.0));
 }
 
