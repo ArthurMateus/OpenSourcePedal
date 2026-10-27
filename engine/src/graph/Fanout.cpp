@@ -24,7 +24,8 @@ void Graph::applyParameters() noexcept
     gp.rangeDb = value(g[kGateRange]);
     gp.detector = choice(g[kGateDetector]) == 1 ? dsp::Gate::Detector::Rms : dsp::Gate::Detector::Peak;
     gate_.setParameters(gp);
-    gate_.setEnabled(on(g[kGateEnabled]));
+    gateOn_.setTarget(on(g[kGateEnabled]) ? 1.0f : 0.0f); // the gain law is the graph's (ADR-0009 D6)
+    gateTap_.setTarget(on(g[kGatePostAmp]) ? 1.0f : 0.0f);
 
     const auto& c = id.comp;
     compOn_.setTarget(on(c[kCompEnabled]));

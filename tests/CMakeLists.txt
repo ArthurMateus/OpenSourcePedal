@@ -52,6 +52,7 @@ add_executable(osp_tests
     engine/test_chain.cpp
     engine/test_engine.cpp
     engine/test_graph.cpp
+    engine/test_graph_gate.cpp
     engine/test_graph_latency.cpp
     engine/test_params.cpp
     engine/test_state.cpp
