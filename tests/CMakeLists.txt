@@ -48,6 +48,7 @@ add_executable(osp_tests
     engine/test_engine.cpp
     engine/test_state.cpp
     engine/test_tone_profile.cpp
+    engine/test_tonematch.cpp
     engine/test_version.cpp
     measure/test_measure.cpp
     measure/test_spectral.cpp

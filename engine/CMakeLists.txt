@@ -2,6 +2,7 @@ add_library(osp_engine STATIC
     src/Chain.cpp
     src/Engine.cpp
     src/State.cpp
+    src/ToneMatch.cpp
     src/ToneProfile.cpp
     src/Version.cpp)
 add_library(osp::engine ALIAS osp_engine)
