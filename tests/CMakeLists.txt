@@ -49,6 +49,7 @@ add_executable(osp_tests
     engine/test_amp_slot.cpp
     engine/test_chain.cpp
     engine/test_engine.cpp
+    engine/test_graph.cpp
     engine/test_params.cpp
     engine/test_tone_profile.cpp
     engine/test_tone_sections.cpp
