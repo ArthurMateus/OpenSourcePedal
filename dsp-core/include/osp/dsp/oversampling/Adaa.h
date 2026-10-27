@@ -89,11 +89,15 @@ class Adaa2 {
 public:
     static constexpr double kDelaySamples = 1.0;
 
-    void reset() noexcept
+    void reset() noexcept { reset(0.0); }
+
+    // RT-safe. Primes the history at a constant input x, as if x had been applied forever: the next processSample(x)
+    // returns exactly f(x). Use it when a block's input at rest is not 0 (e.g. a biased shaper).
+    void reset(double x) noexcept
     {
-        x1_ = x2_ = 0.0;
-        f2x1_ = Shape::F2(0.0);
-        d12_ = Shape::F1(0.0);
+        x1_ = x2_ = x;
+        f2x1_ = Shape::F2(x);
+        d12_ = Shape::F1(x); // the limit of D(x, x)
     }
 
     float processSample(float in) noexcept

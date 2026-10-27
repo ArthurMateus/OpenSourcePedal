@@ -17,15 +17,22 @@ osp_apply_settings(osp_measure)
 add_executable(osp_tests
     dsp/test_adaa.cpp
     dsp/test_cab.cpp
+    dsp/test_cab_req.cpp
     dsp/test_chorus_flanger.cpp
     dsp/test_compressor.cpp
     dsp/test_convolver.cpp
     dsp/test_delay_voice.cpp
     dsp/test_delay_voicings.cpp
+    dsp/test_drive.cpp
+    dsp/test_drive_region.cpp
     dsp/test_doubler.cpp
     dsp/test_eq.cpp
+    dsp/test_fdn_tank.cpp
+    dsp/test_plate_tank.cpp
+    dsp/test_reverb.cpp
     dsp/test_fractional_delay.cpp
     dsp/test_eq_dynamics.cpp
+    dsp/test_fdn_tank.cpp
     dsp/test_svf.cpp
     dsp/test_tuner.cpp
     dsp/test_tuner_tap.cpp
@@ -41,11 +48,17 @@ add_executable(osp_tests
     dsp/test_util.cpp
     engine/test_chain.cpp
     engine/test_engine.cpp
+    engine/test_tone_profile.cpp
+    engine/test_tone_sections.cpp
+    engine/test_tonematch.cpp
     engine/test_version.cpp
     measure/test_measure.cpp
     measure/test_spectral.cpp
-    rt/test_rt_checker.cpp)
+    rt/test_rt_checker.cpp
+    tools/test_sha256.cpp)
 
+# tools/tonematch/Sha256.h is header-only and tested here (ADR-0008).
+target_include_directories(osp_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/tonematch")
 target_link_libraries(osp_tests PRIVATE osp_engine osp_measure osp_rt_checker osp_dr_wav Catch2::Catch2WithMain)
 # The asset tests read the bundled CC0 IRs and DI clips (Git LFS; CI checks them out with lfs: true).
 target_compile_definitions(osp_tests PRIVATE OSP_ASSET_DIR="${PROJECT_SOURCE_DIR}/assets")

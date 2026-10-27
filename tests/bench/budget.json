@@ -45,6 +45,20 @@
       "baseline": "#63 part 2 (#96, HIIR FPU classes after review), 2026-10-26, local VS 2022 Release build (windows-msvc-ci), T_ref 10.50 ms",
       "headroom": "about 10x the measured 0.098 %: HIIR FPU up + down at 4x (stages 0-1, 7/6 + 6/5 coefficients), identity processing; one OS region"
     },
+    "drive_stage_4x": {
+      "kind": "block",
+      "r0": 0.622607,
+      "maxCpuPercent": 2.5,
+      "baseline": "#67 part 1, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (0.67-0.75 %), T_ref 10.8-11.0 ms",
+      "headroom": "about 3.7x the measured 0.68 %: one drive slot (mid, defaults; ADAA2 in double, 3 SVFs, 3 one-poles per sample) at 192 kHz plus the 4x IIR up/down. OS-1 with both slots is about 1.4 %"
+    },
+    "drive_region_live": {
+      "kind": "block",
+      "r0": 1.100457,
+      "maxCpuPercent": 4.0,
+      "baseline": "#67 part 2, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (1.15-1.20 %), T_ref 10.7-10.8 ms",
+      "headroom": "about 3.4x the measured 1.19 %: OS-1 Live at 48 kHz (4x IIR up/down) with both slots enabled, mid into dist; the drive section of a stacked preset"
+    },
     "gate": {
       "kind": "block",
       "r0": 0.013424,
@@ -128,6 +142,41 @@
       "maxCpuPercent": 12.0,
       "baseline": "#71 part 3, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.7293-0.7529), T_ref about 41 ms on a loaded machine (3.06 % CPU)",
       "headroom": "about 4x the measured 3.06 %: tape ping-pong, modulation 50 %, stereo; per side a 2x IIR oversampler pair and ADAA1 tanh (double, two transcendentals per oversampled sample) inside the loop. The costliest delay voicing"
+    },
+    "fdn_hall": {
+      "kind": "block",
+      "r0": 0.633103,
+      "maxCpuPercent": 3.0,
+      "baseline": "#72 part 1, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 7 quiet runs (R 0.602-0.659), T_ref 10.6-11.1 ms",
+      "headroom": "about 4.4x the measured 0.68 %: 8-line FDN, 4 diffuser stages (32 delay taps + 4 Hadamard), 8 modulated linear-interpolated reads with std::sin LFOs, stereo; reverb is one of the heavier non-amp blocks, so the ceiling leaves room for the block wrapper (pre-delay, filters, mix) in part 2"
+    },
+    "plate_tank": {
+      "kind": "block",
+      "r0": 0.136758,
+      "maxCpuPercent": 1.0,
+      "baseline": "#72 part 3, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 7 runs (R 0.135-0.143) on a lightly loaded machine, T_ref about 11 ms",
+      "headroom": "about 6.5x the measured 0.155 %: Dattorro figure-eight tank, 4 input allpasses + 2 modulated allpasses + 2 allpasses + 4 delays, 14 output taps, one sin/cos LFO pair per sample; one plate per Reverb block"
+    },
+    "reverb_block": {
+      "kind": "block",
+      "r0": 0.670447,
+      "maxCpuPercent": 3.0,
+      "baseline": "#72 part 2, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 7 quiet runs (R 0.641-0.686), T_ref about 10.5 ms",
+      "headroom": "about 4.3x the measured 0.70 %: the hall FdnTank (fdn_hall) plus fractional pre-delay, two TPT one-poles per channel, mix and enable ramps, stereo; the same 3 % ceiling as the tank, since the wrapper adds about 4 %"
+    },
+    "cab_2x1s": {
+      "kind": "block",
+      "r0": 0.7194,
+      "maxCpuPercent": 2.4,
+      "baseline": "#69 part 4, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 3 runs (R 0.710-0.733, 0.797-0.841 %)",
+      "headroom": "about 3x the measured 0.81 %: both slots on with 1 s IRs (the IrLoader cap, the #69 budget case), mono in, stereo out, align and pan per sample; zero-latency partitioned convolution (64-tap head + 64/256/1024 FFT stages)"
+    },
+    "cab_2x1s_peak": {
+      "kind": "block",
+      "r0": 3.3805,
+      "maxCpuPercent": 12.0,
+      "baseline": "#69 part 4, 2026-10-26, same build, median of 3 runs (R 3.365-3.457, 3.78-3.97 %): the costliest 64-sample callback (median over 200 cycles of the worst of 16 block phases), about 51 us",
+      "headroom": "about 3x the measured 3.8 %: CPU % here is that callback's share of the 1.33 ms block deadline. It is set by one slot's 1024-stage frame (2048-point FFT pair + 46-partition sum); the slots are staggered so their frames never share a callback (#100)"
     },
     "oversampler_fir_8x": {
       "kind": "block",
