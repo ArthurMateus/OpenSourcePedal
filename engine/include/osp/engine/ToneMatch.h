@@ -20,6 +20,7 @@
 
 #include <array>
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -83,7 +84,23 @@ struct MatchResult {
     double flatnessDistance = 0.0;
     double spreadDistance = 0.0;
     double unmatchedResidualDb = 0.0; // the DI through the default chain (clean, cab 0, flat EQ), for comparison
+    double diTrebleDb = 0.0;          // diTrebleDb() of the DI: below kDarkDiDb, clean matches come out dull
     std::vector<Candidate> ranking; // the chosen setting's candidate first, then the next best by predicted score
+};
+
+// One DI, many references (ADR-0008 D5): the constructor renders and profiles the drive candidates once (the slow
+// part), and each match() then costs only the cab/EQ fit and the refinement renders. Throws like match().
+class Matcher {
+public:
+    Matcher(std::vector<float> di, double sampleRate, std::vector<CabIr> cabs, MatchOptions options = {});
+    ~Matcher();
+    Matcher(Matcher&&) noexcept;
+    Matcher& operator=(Matcher&&) noexcept;
+    MatchResult match(const Profile& reference) const;
+
+private:
+    struct State;
+    std::unique_ptr<State> s_;
 };
 
 // `di` is the player's dry guitar at `sampleRate`, `reference` the profiled target, analysed at that same rate.
@@ -93,6 +110,17 @@ MatchResult match(const Profile& reference,
                   double sampleRate,
                   const std::vector<CabIr>& cabs,
                   const MatchOptions& options = {});
+
+// The DI's treble: the mean level of its 2-6 kHz bands minus that of its 0.5-2 kHz bands, in dB, from its profile.
+// A clean match can only pass on treble the DI has (distortion makes some from the mids), so a DI below kDarkDiDb
+// gives dull clean tones that no EQ setting can brighten. Measured with this function: the bundled lossy DI -33.6 dB
+// (its clean matches against real songs lost 10-48 dB above 8 kHz and pinned the 4k/8k bands at +12 dB), the
+// full-band Karplus-Strong DI from tools/testsignals -4.3 dB. The threshold is a judgement between those, unverified
+// on real guitar DIs.
+constexpr double kDarkDiDb = -20.0;
+double diTrebleDb(const Profile& di) noexcept;
+// Graphic-EQ bands (0 = 63 Hz ... 8 = 16 kHz) at their +-12 dB limit: the match wanted more than the EQ can give.
+std::vector<int> eqBandsAtLimit(const Setting& s);
 
 // Preset names are at most this many characters (preset.v1.schema.json).
 constexpr std::size_t kMaxNameChars = 64;

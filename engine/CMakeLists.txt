@@ -4,6 +4,7 @@ add_library(osp_engine STATIC
     src/State.cpp
     src/ToneMatch.cpp
     src/ToneProfile.cpp
+    src/ToneSections.cpp
     src/Version.cpp)
 add_library(osp::engine ALIAS osp_engine)
 
