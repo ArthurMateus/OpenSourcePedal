@@ -29,6 +29,7 @@ add_executable(osp_tests
     dsp/test_ir_loader.cpp
     dsp/test_modulation.cpp
     dsp/test_oversampler.cpp
+    dsp/test_output_stage.cpp
     dsp/test_phaser.cpp
     dsp/test_tremolo.cpp
     dsp/test_util.cpp

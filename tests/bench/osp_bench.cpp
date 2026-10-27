@@ -13,6 +13,7 @@
 #include "osp/dsp/Gate.h"
 #include "osp/dsp/InputStage.h"
 #include "osp/dsp/Modulation.h"
+#include "osp/dsp/OutputStage.h"
 #include "osp/dsp/Phaser.h"
 #include "osp/dsp/Tremolo.h"
 #include "osp/dsp/oversampling/Oversampler.h"
@@ -213,6 +214,19 @@ int main(int argc, char** argv)
     inputStage.reset();
     results.push_back({"input_stage", measure(bench, "input_stage", input, [&](const float* in, float* out, int n) {
                            inputStage.process(in, out, n);
+                       })});
+
+    // Output block (#74), stereo, limiter on and engaged (+12 dB level into the -0.3 dBTP ceiling): NaN guard, level,
+    // 4x interpolated true-peak detector (3 phases x 12 taps x 2 channels), gain and meters per sample.
+    osp::dsp::OutputStage outputStage;
+    outputStage.prepare(kSampleRate, kBlock);
+    outputStage.setLevelDb(12.0f);
+    outputStage.reset();
+    std::vector<float> outRight(static_cast<std::size_t>(kBlock));
+    results.push_back({"output_stage", measure(bench, "output_stage", input, [&](const float* in, float* out, int n) {
+                           std::copy(in, in + n, out);
+                           std::copy(in, in + n, outRight.begin());
+                           outputStage.process(out, outRight.data(), n);
                        })});
 
     // Modulation, chorusWide at its defaults (0.8 Hz, depth 50 %, mix 50 %, width 100 %), stereo (#70): two ring
