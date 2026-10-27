@@ -46,6 +46,7 @@ add_executable(osp_tests
     dsp/test_phaser.cpp
     dsp/test_tremolo.cpp
     dsp/test_util.cpp
+    engine/test_amp_slot.cpp
     engine/test_chain.cpp
     engine/test_engine.cpp
     engine/test_params.cpp
