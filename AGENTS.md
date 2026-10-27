@@ -48,6 +48,7 @@ docs/research/ Research notes with sources and dates.
 docs/spec/     Requirements, signal flow, parameters, preset schema, threading, RT rules.
 docs/state/    BLOCKERS.md, HANDOFF/<issue>.md, ORCHESTRATOR.md (a pointer: the LIVE copy is on the `state` branch, see §5).
 docs/demos/    Rendered demo clips per milestone.
+docs/guides/   Step-by-step guides for the owner (e.g. recording a DI for tone match). See §9.
 ```
 
 ## 3. Build and test (from Phase 3 on. Commands are final once `CMakePresets.json` lands)
@@ -126,3 +127,12 @@ tell the orchestrator, and **keep working on everything that is not blocked**.
 
 Pro accounts have usage limits. Before you run out, hand off (§5). Prefer cheaper models for mechanical
 work (running tests, formatting, triage). Keep the strongest model for architecture, DSP design and review.
+
+## 9. Guides for the owner
+
+Some tasks need something only the owner can provide. When it comes up, walk the owner through the matching guide
+step by step, in plain language, instead of improvising:
+- **Recording a DI (dry guitar) for tone match** (#117, ADR-0008): [`docs/guides/recording-a-di.md`](docs/guides/recording-a-di.md).
+  Give it whenever the owner asks how to record their guitar, sends a song to match, or plans a tone-match run, and
+  before you match with the bundled stand-in DI (it is dark and lossy, so its clean matches sound muffled). The owner
+  records in FL Studio; the guide has those steps.

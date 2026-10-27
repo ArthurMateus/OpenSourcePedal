@@ -56,7 +56,7 @@ public:
     // RT-safe. Hands every object back (teardown); the slots are silent afterwards.
     void retireAll() noexcept;
 
-    // RT-safe, once per block. Values are clamped to the parameters.md ranges.
+    // RT-safe, once per block. Values are clamped to the parameters.md ranges (NaN maps to the range minimum).
     void setEnabled(bool on) noexcept
     {
         enableL_.setTarget(on);
