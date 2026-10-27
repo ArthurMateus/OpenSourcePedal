@@ -34,6 +34,22 @@ cmake --build --preset release
 ctest --preset release
 ```
 
+## Tone match: a song's guitar tone, on your guitar
+
+Give it a song (WAV, MP3, or a YouTube link) and a short recording of **your own guitar played dry** (a DI, ideally the
+same part). It renders your DI through the real drive, cab and EQ blocks, searches for the setting that sounds closest
+to the guitar in the song, and writes a preset. Design, measurements and limits: [ADR-0008](docs/adr/0008-tone-match.md).
+
+```powershell
+# a local file; --start/--end pick a section where the guitar is prominent
+python tools/tonematch/tonematch.py --ref song.mp3 --di my-di.wav --start 32 --end 58 --render preview.wav
+# a YouTube link (needs yt-dlp + ffmpeg); --stem isolates the guitar first (needs: pip install demucs)
+python tools/tonematch/tonematch.py --ref "https://www.youtube.com/watch?v=..." --di my-di.wav --stem
+```
+
+It prints the matched setting, a band-by-band comparison and the remaining spectral difference. Only download
+recordings you have the right to. The amp block is not in yet, so for now the overdrive slot is the only gain stage.
+
 ## License
 
 [AGPL-3.0-or-later](LICENSE). See [ADR-0001](docs/adr/0001-license-and-framework.md) for why, and
