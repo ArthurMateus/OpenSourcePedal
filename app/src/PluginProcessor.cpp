@@ -1,5 +1,7 @@
 #include "PluginProcessor.h"
 
+#include "osp/engine/State.h"
+
 namespace osp::app {
 
 namespace {
@@ -11,7 +13,8 @@ PluginProcessor::PluginProcessor()
     : AudioProcessor(BusesProperties()
                          .withInput("Input", juce::AudioChannelSet::mono(), true)
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      parameters_(*this, nullptr, "OpenSourcePedal", createParameterLayout())
+      parameters_(*this, nullptr, "OpenSourcePedal", createParameterLayout()),
+      presetId_(juce::Uuid().toDashedString().toLowerCase().toStdString())
 {
     // The engine reads the host-owned atomic once per block (ADR-0004 rule 3).
     engine_.setOutputLevelParameter(parameters_.getRawParameterValue(kGainId));
@@ -20,8 +23,10 @@ PluginProcessor::PluginProcessor()
 juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
+    // Range = parameters.md §3.6 (-60...+12 dB). Restore clamps through convertTo0to1(), so a narrower range here
+    // would silently change any valid blob outside it.
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{kGainId, 1}, "Output Level",
-                                                           juce::NormalisableRange<float>{-24.0f, 12.0f, 0.1f}, 0.0f,
+                                                           juce::NormalisableRange<float>{-60.0f, 12.0f, 0.1f}, 0.0f,
                                                            juce::AudioParameterFloatAttributes{}.withLabel("dB")));
     return layout;
 }
@@ -60,6 +65,35 @@ void PluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
 
     // Host blocks larger than the prepared size are split inside processChunked (ADR-0004 rule 8).
     osp::engine::processChunked(engine_, buffer.getArrayOfWritePointers(), numOut, numSamples);
+}
+
+void PluginProcessor::getStateInformation(juce::MemoryBlock& destData)
+{
+    const juce::ScopedLock lock(stateLock_);
+    osp::engine::PluginState state;
+    state.presetId = presetId_;
+    state.presetName = presetName_;
+    state.outputLevelDb = parameters_.getRawParameterValue(kGainId)->load();
+    state.dirty = dirty_;
+    const auto blob = osp::engine::writeState(state);
+    destData.replaceAll(blob.data(), blob.size());
+}
+
+void PluginProcessor::setStateInformation(const void* data, int sizeInBytes)
+{
+    const juce::ScopedLock lock(stateLock_);
+    if (data == nullptr || sizeInBytes <= 0)
+        return;
+    const auto state = osp::engine::readState({static_cast<const char*>(data), static_cast<std::size_t>(sizeInBytes)});
+    if (!state)
+        return; // invalid blob: keep the current state
+
+    presetId_ = state->presetId;
+    presetName_ = state->presetName;
+    dirty_ = state->dirty;
+    // Written synchronously, so getValue()/getStateInformation() on the next line see the restored value.
+    auto* level = parameters_.getParameter(kGainId);
+    level->setValueNotifyingHost(level->convertTo0to1(static_cast<float>(state->outputLevelDb)));
 }
 
 juce::AudioProcessorEditor* PluginProcessor::createEditor()
