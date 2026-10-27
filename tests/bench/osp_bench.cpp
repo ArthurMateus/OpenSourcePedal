@@ -18,6 +18,7 @@
 #include "osp/dsp/Phaser.h"
 #include "osp/dsp/Tremolo.h"
 #include "osp/dsp/oversampling/Oversampler.h"
+#include "osp/dsp/tuner/TunerTap.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
 #include "osp/dsp/util/Smoothers.h"
@@ -207,6 +208,16 @@ int main(int argc, char** argv)
     gate.reset();
     results.push_back(
         {"gate", measure(bench, "gate", input, [&](const float* in, float* out, int n) { gate.process(in, out, n); })});
+
+    // Tuner tap (#75) while the tuner is open: 4th-order low pass + decimation + ring hand-off on the input, and the
+    // output mute pass (unmuted, so it returns at once). The YIN detector runs on a worker and is not in this budget.
+    osp::dsp::TunerTap tuner;
+    tuner.prepare(kSampleRate, kBlock);
+    results.push_back({"tuner_tap", measure(bench, "tuner_tap", input, [&](const float* in, float* out, int n) {
+                           tuner.push(in, n);
+                           std::copy(in, in + n, out);
+                           tuner.applyMute(out, n);
+                       })});
 
     // Input block (#74) at +6 dB trim: constant-gain trim + one-pole/one-zero DC blocker per sample.
     osp::dsp::InputStage inputStage;
