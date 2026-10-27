@@ -3,7 +3,10 @@ add_library(osp_nanobench STATIC nanobench_impl.cpp)
 target_include_directories(osp_nanobench SYSTEM PUBLIC "${nanobench_SOURCE_DIR}/src/include")
 target_compile_features(osp_nanobench PUBLIC cxx_std_20)
 
-add_executable(osp-bench osp_bench.cpp)
+# Each benchmark is one self-registering file in entries/ (bench_common.h), so adding a block touches no shared list.
+file(GLOB OSP_BENCH_ENTRIES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/entries/*.cpp")
+add_executable(osp-bench osp_bench.cpp ${OSP_BENCH_ENTRIES})
+target_include_directories(osp-bench PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(osp-bench PRIVATE osp_engine osp_nanobench)
 osp_apply_settings(osp-bench)
 # AGENTS.md section 3 runs it as build/<preset>/tests/osp-bench.
