@@ -1,5 +1,6 @@
 #include "measure.hpp"
 #include "osp/dsp/Drive.h"
+#include "osp/dsp/DriveRegion.h"
 #include "osp/dsp/oversampling/Oversampler.h"
 #include "rt_checker.hpp"
 
@@ -10,6 +11,7 @@
 #include <complex>
 #include <cstdint>
 #include <cstdio>
+#include <limits>
 #include <numbers>
 #include <utility>
 #include <vector>
@@ -300,6 +302,94 @@ TEST_CASE("Drive: 1000 random parameter vectors, NaN/subnormal scan, NaN recover
     stage.setMixPct(100.0f);
     stage.reset();
     CHECK(render(stage, clean) == expected);
+}
+
+TEST_CASE("Drive: a NaN/Inf parameter maps to the range minimum and never poisons the output (#138, REQ-803)",
+          "[dsp][drive][rt]")
+{
+    constexpr double fs = 48000.0;
+    struct Setter {
+        const char* name;
+        void (DriveStage::*set)(float) noexcept;
+        float lo, valid;
+    };
+    const Setter setters[] = {
+        {"setDrive", &DriveStage::setDrive, 0.0f, 5.0f},       {"setTone", &DriveStage::setTone, 0.0f, 5.0f},
+        {"setLevelDb", &DriveStage::setLevelDb, -20.0f, 0.0f}, {"setLowCutHz", &DriveStage::setLowCutHz, 20.0f, 100.0f},
+        {"setMixPct", &DriveStage::setMixPct, 0.0f, 100.0f},
+    };
+    const float bad[] = {std::nanf(""), std::numeric_limits<float>::infinity(),
+                         -std::numeric_limits<float>::infinity()};
+    const auto in = m::makeTone(m::coherentTone(220.0, fs), fs, -12.0, 64 * 750);
+    // The last 200 ms of a render, where every ramp and filter has settled.
+    auto tail = [](const std::vector<float>& x) { return std::vector<float>(x.end() - 9600, x.end()); };
+    for (const auto& s : setters) {
+        // The reference gets only the valid value at block 101.
+        DriveStage clean;
+        clean.prepare(fs, 64);
+        const auto ref = render(clean, in, 64, [&](int pos) {
+            if (pos == 101 * 64)
+                (clean.*s.set)(s.valid);
+        });
+        for (const float v : bad) {
+            CAPTURE(s.name, v);
+            // A bad value at block 100, a valid one at block 101: every output sample stays finite, and the output
+            // recovers to the reference (a NaN low cut used to leave the slot silent, −141 dB; #138 QA pass 1).
+            DriveStage stage;
+            stage.prepare(fs, 64);
+            const auto out = render(stage, in, 64, [&](int pos) {
+                if (pos == 100 * 64)
+                    (stage.*s.set)(v);
+                if (pos == 101 * 64)
+                    (stage.*s.set)(s.valid);
+            });
+            CHECK(osp::rt::test::scanOutput(out).nonFinite == 0);
+            CHECK(m::residualDbc(tail(out), tail(ref)) <= -60.0);
+        }
+        // NaN is the range minimum, as in the other blocks (InputStage.h).
+        CAPTURE(s.name);
+        DriveStage nan, lo;
+        (nan.*s.set)(std::nanf(""));
+        (lo.*s.set)(s.lo);
+        nan.prepare(fs, 64);
+        lo.prepare(fs, 64);
+        CHECK(render(nan, in) == render(lo, in));
+    }
+
+    // The issue's repros on DriveRegion slot 0 (mid), 48 kHz / 64, 750 blocks: NaN at block 100, a valid value at block
+    // 101. 0 non-finite samples, and the output recovers to a render that only got the valid value (Live and HQ).
+    using osp::dsp::DriveRegion;
+    using osp::dsp::OversamplingQuality;
+    auto renderRegion = [&](OversamplingQuality q, void (DriveStage::*set)(float) noexcept, bool poison, float valid) {
+        DriveRegion region;
+        region.slot(0).setEnabled(true);
+        region.prepare(fs, 64, q);
+        std::vector<float> io = in;
+        OSP_REQUIRE_RT_CLEAN(osp::rt::test::runAsAudioThread([&] {
+            for (int b = 0; b < 750; ++b) {
+                if (b == 100 && poison)
+                    (region.slot(0).*set)(std::nanf(""));
+                if (b == 101)
+                    (region.slot(0).*set)(valid);
+                region.process(io.data() + b * 64, io.data() + b * 64, 64);
+            }
+        }));
+        return io;
+    };
+    const std::pair<const Setter*, float> repros[] = {{&setters[0], 5.0f}, {&setters[3], 200.0f}};
+    for (const auto q : {OversamplingQuality::live, OversamplingQuality::hq}) {
+        for (const auto& [s, valid] : repros) {
+            CAPTURE(s->name, q == OversamplingQuality::hq);
+            const auto out = renderRegion(q, s->set, true, valid);
+            const auto ref = renderRegion(q, s->set, false, valid);
+            const auto scan = osp::rt::test::scanOutput(out);
+            const double residual = m::residualDbc(tail(out), tail(ref));
+            std::printf("drive region %s NaN repro (%s): %zu non-finite of %zu, tail residual %.1f dBc\n", s->name,
+                        q == OversamplingQuality::hq ? "hq" : "live", scan.nonFinite, out.size(), residual);
+            CHECK(scan.nonFinite == 0);
+            CHECK(residual <= -60.0);
+        }
+    }
 }
 
 TEST_CASE("Drive: shape antiderivatives are consistent (F1' = f, F2' = F1)", "[dsp][drive]")

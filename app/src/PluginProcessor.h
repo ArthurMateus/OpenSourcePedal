@@ -34,9 +34,9 @@ public:
     const juce::String getProgramName(int) override { return {}; }
     void changeProgramName(int, const juce::String&) override {}
 
-    // Minimal placeholders: the JSON state blob and its byte-for-byte round-trip test are the second PR of #42.
-    void getStateInformation(juce::MemoryBlock&) override {}
-    void setStateInformation(const void*, int) override {}
+    // Control thread. JSON blob per preset-schema.md §8; parameters are written synchronously (threading.md §6).
+    void getStateInformation(juce::MemoryBlock& destData) override;
+    void setStateInformation(const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState& parameters() noexcept { return parameters_; }
 
@@ -45,6 +45,13 @@ private:
 
     juce::AudioProcessorValueTreeState parameters_;
     osp::engine::Engine engine_;
+
+    // Stand-in for the EngineController mutex (ADR-0004 rule 6): serialises state calls; never taken on the audio
+    // thread.
+    juce::CriticalSection stateLock_;
+    std::string presetId_;
+    std::string presetName_ = "Init";
+    bool dirty_ = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginProcessor)
 };

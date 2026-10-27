@@ -99,7 +99,7 @@ public:
     // RT-safe. Clears every state and jumps every smoother to its target: two renders after reset() match.
     void reset() noexcept;
 
-    // RT-safe, once per block. Values are clamped to the parameters.md ranges.
+    // RT-safe, once per block. Values are clamped to the parameters.md ranges; NaN gives the range minimum.
     void setType(DriveType type) noexcept;
     void setDrive(float knob) noexcept;
     void setTone(float knob) noexcept;
