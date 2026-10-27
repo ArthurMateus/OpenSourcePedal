@@ -9,7 +9,11 @@
 // fs <-> 2fs stage) 90 dB / 0.05 up and 75 dB / 0.01 down (Amendment A1), later stages +10 dB per stage with
 // transitions 0.10 up and 0.12 down.
 // They come from HIIR's designer (tools/design/hiir_coefs.cpp) and are committed in src/oversampling/Oversampler.cpp.
-// The FIR (HQ) kind is #63 part 3.
+//
+// FIR (HQ): our own linear-phase equiripple halfbands (src/oversampling/HalfbandFir.h), coefficients from
+// tools/design/halfband_fir.py (scipy.signal.remez, Vaidyanathan & Nguyen halfband trick, IEEE Trans. CAS 34(3),
+// 1987). Specs: D3 FIR column + Amendment A2. Tap counts are chosen so the up + down delay is an integer number of
+// base-rate samples, so the FIR kind is an exact pure delay of getLatencySamples() (ADR-0005 D4, REQ-OS-001a).
 //
 // The factor is chosen in prepare(), never in process() (ADR-0005 D1, REQ-OS-006). Usage per block:
 //   float* os = oversampler.upsample(in, n);   // n * factor samples at the oversampled rate
@@ -20,6 +24,8 @@
 #include <memory>
 
 namespace osp::dsp {
+
+enum class OversamplingFilter { iir, fir }; // Live, HQ (ADR-0005 D1)
 
 class Oversampler {
 public:
@@ -33,7 +39,7 @@ public:
 
     // Non-RT: allocates. factor is 1, 2, 4 or 8 (others round up to the next of these, capped at 8). Measures the
     // identity up/down delay at 1 kHz (ADR-0005 D4) and leaves the filters reset.
-    void prepare(double sampleRate, int maxBlockSize, int factor);
+    void prepare(double sampleRate, int maxBlockSize, int factor, OversamplingFilter filter = OversamplingFilter::iir);
     // RT-safe. Clears the filter state, so two renders after reset() are bit-identical.
     void reset() noexcept;
 
@@ -61,6 +67,7 @@ public:
     }
 
     int getFactor() const noexcept { return factor_; }
+    OversamplingFilter getFilter() const noexcept { return filter_; }
     // round(D), D = the measured 1 kHz group delay of up + down, in base-rate samples (ADR-0005 D4).
     int getLatencySamples() const noexcept { return latency_; }
     double getMeasuredDelaySamples() const noexcept { return delay_; }
@@ -70,6 +77,7 @@ private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
     int factor_ = 1, maxBlock_ = 0, latency_ = 0, lastN_ = 0;
+    OversamplingFilter filter_ = OversamplingFilter::iir;
     double delay_ = 0.0;
     float* os_ = nullptr; // buffer holding the last upsample() result
 };
@@ -78,6 +86,8 @@ namespace detail {
 // Non-RT test hook (REQ-OS-002): runs IIR halfband stage `stage` (0 = the fs <-> 2fs stage) alone, from reset.
 // up: numSamples in -> 2 * numSamples out. down: 2 * numSamples in -> numSamples out.
 void runIirStage(int stage, bool up, const float* in, float* out, int numSamples);
+// Same for FIR halfband stage `stage`.
+void runFirStage(int stage, bool up, const float* in, float* out, int numSamples);
 } // namespace detail
 
 } // namespace osp::dsp
