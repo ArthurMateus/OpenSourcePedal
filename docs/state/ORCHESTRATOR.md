@@ -1,20 +1,19 @@
 # Orchestrator state (LIVE, `state` branch)
 
-> **2026-10-28 ~02:45Z, Codex owner-session continuation ACTIVE.** Initial queues and #112 were already
-> merged; this session merged #150. #151 is synced at `241dd7e`, CI running, but the local train was stopped
-> safely during its read-only CI wait to honor the current user's explicit **#115 before remaining #95** order
-> (this overrides owner-session-3's proposed last-in-train position for #115).
-> `C:\osp115` exclusively owns #157, resynced/pushed at `106400e` against frozen main `faec4e7`.
-> Local Release `/WX`: 252/252 tests; exact 31-entry bench/budget parity and CPU ceilings pass.
-> Final six CI jobs are running; mark ready and merge only after all required conclusions are SUCCESS.
-> Once #157 is all-six-green and merged, manually resolve the registry migration in remaining #151-156
-> (especially #155 graph benches), then resume the train. Scratch runner `C:\osptrain-control\merge_train.py`
-> has the full PARENT map and six required job names; replace its broad conflict resolver with the #115 version
-> after #157 lands. No active train process remains.
+> **2026-10-28 ~03:22Z, Codex owner-session continuation ACTIVE.** Initial queues and #112 were already
+> merged. This session merged #150 and **#157 (#115)**; registry split landed at `db9a496` after all six CI jobs
+> passed. Local split verification: 252/252 tests, exact31 bench/budget parity, CPU ceilings and discovery demo.
+> User's explicit #115-before-remaining-#95 order is now satisfied.
+> **Train ACTIVE** in exclusive `C:\osptrain`, scratch runner `C:\osptrain-control\merge_train.py`, durable log
+> `C:\osptrain-control\train.log`; queue `151 152 153 154 155 156 162 163 164`.
+> #151 manually resolved registry migration (keep the #115 test glob), pushed `d7d107b`, waiting fresh six-job CI.
+> Scratch runner carries the full PARENT map and the strict #115 conflict/check rules; it stops on source/CMake conflicts.
+> Independent writers: `C:\osp115` owns #155 migration (graph entries/budgets, final33 set; release before train),
+> `C:\osp164review` owns only #156 ADR/docs acceptance alignment (no source/registry edits).
 > #154 correction is pushed at `fc82fd7`: actual Spring/Shimmer + amount/interval fan-out; Release and Debug
 > `/WX` engine tests passed (31 cases / 8,897 assertions each). Worker released ownership.
-> QA baseline `C:\ospqa3`: Release app/VST3 build and 248/248 tests pass; 2,521 standalone checks reproduce
-> only known #145/#160/#161 failures. Final QA awaits merged main. Handoff on `qa/95-post-merge-audit`.
+> QA baseline `C:\ospqa3`: Release app/VST3 build and248/248 tests pass; 2,521 standalone checks reproduce only
+> known #145/#160/#161 failures. Final QA awaits merged main; resume agent after train. Handoff on `qa/95-post-merge-audit`.
 > #47/#94/#145/#146/#147 remain on hold; old Maestri workers remain stopped.
 > Follow owner-session-3 for baseline history, then this live entry for current progress.
 
