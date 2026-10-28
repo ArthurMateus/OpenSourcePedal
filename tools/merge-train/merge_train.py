@@ -10,9 +10,14 @@ branch to main, then delete its branch. Stops on anything it cannot resolve safe
 import json, os, re, subprocess, sys, time
 
 REPO = "ArthurMateus/OpenSourcePedal"
-REQUIRED = {"guard", "windows-msvc (Release, /WX)", "clang-format"}
-KEEP_BOTH_OK = re.compile(r"(CMakeLists\.txt$|^tests/bench/|^docs/state/|^THIRD_PARTY\.md$|^assets/LICENSES\.md$)")
-TRAILER = "\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+REQUIRED = {
+    "guard", "windows-msvc (Release, /WX)", "clang-format", "halfband-check",
+    "windows-msvc-debug (RT checker)", "pluginval (v1.0.4, strictness 9)",
+}
+# #115 removes shared source/benchmark append lists. Conflicts in CMake, benchmark bodies, or budget fragments
+# now need an explicit resolution: blindly keeping both can duplicate a target, benchmark, or JSON key.
+KEEP_BOTH_OK = re.compile(r"^(THIRD_PARTY\.md|assets/LICENSES\.md)$")
+TRAILER = ""
 os.environ["GIT_LFS_SKIP_SMUDGE"] = "1"
 
 
@@ -149,7 +154,8 @@ def wait_checks(n, sha, timeout=90 * 60):
         bad = [k for k, v in got.items() if v in ("FAILURE", "CANCELLED", "TIMED_OUT", "ERROR", "ACTION_REQUIRED")]
         if bad:
             raise RuntimeError(f"#{n}: check failed: {bad}")
-        if REQUIRED <= set(got) and all(v in ("SUCCESS", "SKIPPED", "NEUTRAL") for v in got.values()):
+        if (REQUIRED <= set(got) and all(got[name] == "SUCCESS" for name in REQUIRED)
+                and all(v in ("SUCCESS", "SKIPPED", "NEUTRAL") for v in got.values())):
             return
         time.sleep(30)
     raise RuntimeError(f"#{n}: checks did not finish in {timeout // 60} min")

@@ -2,8 +2,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <complex>
 #include <cstddef>
+#include <limits>
 #include <numbers>
+
+#include <signalsmith-dsp/fft.h>
 
 namespace osp::dsp {
 
@@ -21,7 +25,61 @@ double besselI0(double x)
     return sum;
 }
 
+// Σ w_k·|H_k|² and Σ w_k over the reference band, w_k = 1/f_k (pink), from a zero-padded double FFT with bins of at
+// most 1 Hz. Both sums run over the same bins in the same order, so |H_k|² = 1 (a unit impulse) gives num == den.
+void pinkBandSums(const float* ir, int length, double rate, double& num, double& den)
+{
+    num = den = 0.0;
+    if (length <= 0 || !(rate > 0.0))
+        return;
+    std::size_t size = 2;
+    while (size < static_cast<std::size_t>(length) || static_cast<double>(size) < rate)
+        size *= 2;
+    std::vector<double> time(size, 0.0);
+    for (int n = 0; n < length; ++n)
+        time[static_cast<std::size_t>(n)] = static_cast<double>(ir[n]);
+    std::vector<std::complex<double>> spectrum(size / 2);
+    signalsmith::fft::RealFFT<double> fft(size);
+    fft.fft(time.data(), spectrum.data()); // bin 0 packs DC and Nyquist, both outside the band
+
+    const double binHz = rate / static_cast<double>(size);
+    const double hi = std::min(IrLoader::kRefHighHz, 0.45 * rate);
+    for (std::size_t k = 1; k < spectrum.size(); ++k) {
+        const double f = static_cast<double>(k) * binHz;
+        if (f < IrLoader::kRefLowHz)
+            continue;
+        if (f > hi)
+            break;
+        const double w = 1.0 / f;
+        num += w * std::norm(spectrum[k]);
+        den += w;
+    }
+}
+
 } // namespace
+
+double IrLoader::pinkBandGainDb(const float* ir, int length, double rate)
+{
+    double num = 0.0, den = 0.0;
+    pinkBandSums(ir, length, rate, num, den);
+    if (!(num > 0.0) || !(den > 0.0))
+        return -std::numeric_limits<double>::infinity();
+    return 10.0 * std::log10(num / den);
+}
+
+double IrLoader::normalise(float* ir, int length, double rate)
+{
+    const double gainDb = pinkBandGainDb(ir, length, rate);
+    if (!std::isfinite(gainDb)) // empty or silent: nothing to scale
+        return 0.0;
+    const double correctionDb = std::clamp(-gainDb, -kMaxCorrectionDb, kMaxCorrectionDb);
+    if (std::abs(correctionDb) < kDeadbandDb)
+        return 0.0;
+    const double g = std::pow(10.0, correctionDb / 20.0);
+    for (int n = 0; n < length; ++n)
+        ir[n] = static_cast<float>(static_cast<double>(ir[n]) * g);
+    return correctionDb;
+}
 
 std::vector<float> IrLoader::resample(const float* ir, int length, double fromRate, double toRate)
 {
@@ -55,7 +113,7 @@ std::vector<float> IrLoader::resample(const float* ir, int length, double fromRa
     return out;
 }
 
-std::vector<float> IrLoader::condition(const float* ir, int length, double irRate, double processRate)
+std::vector<float> IrLoader::condition(const float* ir, int length, double irRate, double processRate, IrLevel level)
 {
     std::vector<float> clean(ir, ir + std::max(length, 0));
     for (auto& v : clean)
@@ -72,6 +130,8 @@ std::vector<float> IrLoader::condition(const float* ir, int length, double irRat
             out[cap - fade + i] *= static_cast<float>(0.5 * (1.0 + std::cos(phase)));
         }
     }
+    if (level == IrLevel::Normalise) // on the final taps at the processing rate, i.e. what the convolver runs
+        normalise(out.data(), static_cast<int>(out.size()), processRate);
     return out;
 }
 
