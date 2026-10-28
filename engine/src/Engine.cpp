@@ -38,12 +38,12 @@ void Engine::prepare(double sampleRate, int maxBlockSize)
     }
 }
 
-void Engine::reset() noexcept
+void Engine::reset() noexcept OSP_RT_NONBLOCKING
 {
     graph_->reset();
 }
 
-void Engine::process(float* const* channels, int numChannels, int numSamples) noexcept
+void Engine::process(float* const* channels, int numChannels, int numSamples) noexcept OSP_RT_NONBLOCKING
 {
     numChannels = std::min(numChannels, kMaxChannels);
     if (numSamples <= 0 || numChannels <= 0)
@@ -58,7 +58,7 @@ void Engine::process(float* const* channels, int numChannels, int numSamples) no
     graph_->process(channels[0], channels[0], right, numSamples);
 }
 
-void processChunked(Engine& engine, float* const* channels, int numChannels, int numSamples) noexcept
+void processChunked(Engine& engine, float* const* channels, int numChannels, int numSamples) noexcept OSP_RT_NONBLOCKING
 {
     numChannels = std::min(numChannels, Engine::kMaxChannels);
     const int chunk = std::max(1, engine.getMaxBlockSize());

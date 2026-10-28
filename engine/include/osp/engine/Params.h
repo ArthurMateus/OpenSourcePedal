@@ -9,6 +9,8 @@
 // Own decision (parameters.md lists "off, 1/1 … 1/16 (+ D/T variants)" for mod.sync): the order is off, the five
 // straight values long to short, then the dotted ones, then the triplets. delay.sync follows dsp::SyncDivision.
 
+#include "osp/rt/AudioThread.h"
+
 #include <atomic>
 #include <memory>
 #include <span>
@@ -42,10 +44,10 @@ int findParam(std::string_view id);
 int hostParamCount();
 
 // Clamps to [min, max] (NaN → min) and snaps bool, choice and integer values. RT-safe.
-float sanitize(const ParamInfo& p, float plain) noexcept;
+float sanitize(const ParamInfo& p, float plain) noexcept OSP_RT_NONBLOCKING;
 // The 0…1 host value for a plain value and back, with the table's skew (parameters.md §1.3). RT-safe.
-float toNormalized(const ParamInfo& p, float plain) noexcept;
-float fromNormalized(const ParamInfo& p, float normalized) noexcept;
+float toNormalized(const ParamInfo& p, float plain) noexcept OSP_RT_NONBLOCKING;
+float fromNormalized(const ParamInfo& p, float normalized) noexcept OSP_RT_NONBLOCKING;
 
 static_assert(std::atomic<float>::is_always_lock_free); // realtime-rules RT-6
 
@@ -65,7 +67,7 @@ public:
     void bind(int index, const std::atomic<float>* external) noexcept;
 
     // RT-safe. The raw value (bound or own); the graph sanitizes it. 0 for an index out of range.
-    float get(int index) const noexcept
+    float get(int index) const noexcept OSP_RT_NONBLOCKING
     {
         return index >= 0 && index < size_ ? src_[static_cast<std::size_t>(index)]->load(std::memory_order_relaxed)
                                            : 0.0f;

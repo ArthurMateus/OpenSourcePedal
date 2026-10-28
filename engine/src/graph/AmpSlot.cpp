@@ -12,25 +12,25 @@ void AmpStub::prepare(double sampleRate, int /*maxBlockSize*/, dsp::Oversampling
     reset();
 }
 
-void AmpStub::reset() noexcept
+void AmpStub::reset() noexcept OSP_RT_NONBLOCKING
 {
     level_.reset(level_.target());
     delay_.reset();
 }
 
-void AmpStub::setParameters(const AmpParams& params) noexcept
+void AmpStub::setParameters(const AmpParams& params) noexcept OSP_RT_NONBLOCKING
 {
     const float dB = std::isfinite(params.levelDb) ? params.levelDb : -24.0f;
     level_.setTarget(std::pow(10.0f, 0.05f * (dB < -24.0f ? -24.0f : (dB > 12.0f ? 12.0f : dB))));
 }
 
-void AmpStub::setBypassed(bool bypassed, int padSamples) noexcept
+void AmpStub::setBypassed(bool bypassed, int padSamples) noexcept OSP_RT_NONBLOCKING
 {
     bypassed_ = bypassed;
     pad_ = padSamples > 0 ? padSamples : 0;
 }
 
-void AmpStub::process(float* io, int numSamples) noexcept
+void AmpStub::process(float* io, int numSamples) noexcept OSP_RT_NONBLOCKING
 {
     // FractionalDelay::read(d) after push() is a delay of d − 1 samples, exact at an integer d.
     const float d = 1.0f + static_cast<float>(bypassed_ ? pad_ : testDelay_);

@@ -7,7 +7,7 @@
 
 namespace osp::engine {
 
-void Graph::applyParameters() noexcept
+void Graph::applyParameters() noexcept OSP_RT_NONBLOCKING
 {
     const Ids& id = *ids_;
 
@@ -111,7 +111,7 @@ void Graph::applyParameters() noexcept
     output_.setLimiter(on(id.output[1]));
 }
 
-void Graph::applyStrip(int strip) noexcept
+void Graph::applyStrip(int strip) noexcept OSP_RT_NONBLOCKING
 {
     const Ids& id = *ids_;
     auto& s = strips_[static_cast<std::size_t>(strip)];
