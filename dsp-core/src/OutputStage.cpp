@@ -35,7 +35,7 @@ void OutputStage::prepare(double sampleRate, int /*maxBlockSize*/) noexcept
     level_.prepare(sampleRate, 0.020);
     limiterMix_.prepare(sampleRate, kSwitchSeconds);
     monoMix_.prepare(sampleRate, kSwitchSeconds);
-    release_ = static_cast<float>(std::exp(-1.0 / (kReleaseSeconds * sampleRate)));
+    release_ = static_cast<float>(std::exp(1.0 / (kReleaseSeconds * sampleRate)));
     reset();
 }
 
@@ -113,13 +113,11 @@ void OutputStage::process(float* left, float* right, int numSamples) noexcept
                 for (std::size_t p = 0; p < 3; ++p)
                     e = std::max(e, std::abs(values[p]));
             }
-            const bool over = e > ceiling_;
             const float target = ceiling_ / std::max(e, ceiling_);
-            holdRemaining_ = over ? holdSamples_ : std::max(0, holdRemaining_ - 1);
+            holdRemaining_ = target < 1.0f && target <= gain_ ? holdSamples_ : std::max(0, holdRemaining_ - 1);
             const float release = holdRemaining_ > 0 ? 1.0f : release_;
-            float released = 1.0f - (1.0f - gain_) * release;
-            if (1.0f - released < 1.0e-7f)
-                released = 1.0f; // exactly 1 again, so the limiter is bit-exact below the ceiling
+            // A floor lets a gain flushed to zero by FTZ recover; normal gain reaches exactly unity.
+            const float released = std::min(1.0f, std::max(gain_, 1.0e-12f) * release);
             gain_ = std::min(target, released);
             const float mix = limiterMix_.next();
             l += mix * (l * gain_ - l); // gain_ == 1: l + mix * 0 == l exactly

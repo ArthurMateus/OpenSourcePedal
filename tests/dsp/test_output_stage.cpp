@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <numbers>
 #include <random>
 #include <string>
@@ -286,16 +287,26 @@ TEST_CASE("OutputStage: detector hold ends, releases and resets", "[dsp][output]
     r = l;
     render(o, l, r, 32);
     CHECK(o.gainReductionDb() == held);
-    l.assign(4800, 0.25f);
+    l.assign(14400, 1.0f); // still over the internal threshold: the earlier spike must not latch attenuation
     r = l;
     render(o, l, r, 127);
     CHECK(o.gainReductionDb() < held);
+    CHECK(o.gainReductionDb() < 3.0f);
     o.reset();
     CHECK(o.gainReductionDb() == 0.0f);
     l.assign(2048, 0.25f);
     r = l;
     render(o, l, r, 2048);
     CHECK(std::all_of(l.begin(), l.end(), [](float v) { return v == 0.25f; }));
+    l.assign(64, 0.0f);
+    r = l;
+    l.front() = std::numeric_limits<float>::max() / 8.0f; // target gain can underflow with FTZ
+    render(o, l, r, 64);
+    l.assign(76800, 0.25f);
+    r = l;
+    render(o, l, r, 127);
+    CHECK(o.gainReductionDb() == 0.0f); // no permanent mute after that finite over
+    CHECK(l.back() == 0.25f);
 }
 
 TEST_CASE("OutputStage: level ramp residual, mono sum, limiter switch, meters, NaN guard", "[dsp][output]")

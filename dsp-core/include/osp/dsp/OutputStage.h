@@ -12,10 +12,10 @@
 //    10 ms linear crossfade.
 // 4. Safety limiter, output.limiter (default on, xf 10), linked stereo, no look-ahead (L_out = 0). Sample
 //    peaks plus 4x Hann-sinc interpolation of the last kTpTaps samples drive an instant attack. While the detector
-//    exceeds the internal threshold, hold the minimum gain; after kHoldSeconds without an over, release with
-//    the kReleaseSeconds one-pole. Releasing between successive peaks used to create new inter-sample overs even
-//    on a steady 110 Hz square. The held envelope prevents that gain modulation. kTpMarginDb reserves headroom
-//    for the causal, finite interpolator and gain changes: the internal threshold is kCeilingDb - kTpMarginDb.
+//    requests at least the held attenuation, renew a bounded kHoldSeconds peak hold. Afterwards the gain rises
+//    exponentially (8.686 dB per kReleaseSeconds), even if quieter material still exceeds the internal threshold.
+//    This avoids both release-induced overs and indefinitely latching a previous loud spike. kTpMarginDb reserves
+//    headroom for finite causal interpolation/gain changes: the internal threshold is kCeilingDb - kTpMarginDb.
 //    With no limiting history, material below that detector threshold remains bit-exact. Reset clears the hold.
 //    Independent 16x Kaiser-sinc reconstruction in tests/dsp/test_output_stage.cpp checks the -0.3 dBTP ceiling on
 //    steady sines/squares and distorted guitar. These finite-corpus tests are not a universal mathematical bound
@@ -32,8 +32,9 @@ class OutputStage {
 public:
     static constexpr float kMinLevelDb = -60.0f, kMaxLevelDb = 12.0f;
     static constexpr float kCeilingDb = -0.3f;
-    static constexpr double kReleaseSeconds = 0.050;
-    static constexpr double kHoldSeconds = 0.010; // detector must stay below the ceiling this long before release
+    static constexpr double kReleaseSeconds = 0.050; // one e-fold of gain recovery (8.686 dB)
+    static constexpr double kHoldSeconds =
+        0.100; // bounded hold after an attack, renewed only by a peak needing the held gain
     static constexpr float kTpMarginDb = 1.25f; // headroom when limiting; validated by the independent 16x tests
     static constexpr double kSwitchSeconds = 0.010; // limiter on/off and mono sum (xf 10)
     static constexpr int kTpTaps = 12; // true-peak interpolator length (per phase)
