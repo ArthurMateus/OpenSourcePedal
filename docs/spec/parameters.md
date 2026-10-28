@@ -49,18 +49,41 @@ A `log` skew needs min > 0. Where a range starts at 0 (e.g. hold 0–200 ms), th
 
 ### 1.4 Smoothing
 
-Smoothing runs in the audio thread with no allocation (one-pole or linear ramp, coefficients recomputed in
-`prepare()`). The time is the 0→63 % time constant for one-pole, or the ramp length for linear ramps.
+Smoothing runs in the audio thread with no allocation (one-pole or linear ramp). Smoother time-constant
+coefficients are computed in `prepare()`. The time is the 0→63 % time constant for one-pole, or the ramp length
+for linear ramps. A processing sample is a sample at the block's actual processing rate, including oversampling.
 
 | Class | Default | Method |
 |---|---|---|
 | Gain / level (`dB`, mix `%`) | 20 ms | Linear ramp of the **linear** gain per sample. No zipper noise (AGENTS.md §4 test) |
-| Filter frequency / Q, tone knobs | 20 ms | One-pole on the parameter, TPT/SVF coefficients updated **every sample** while the parameter moves (a 16-sample update measured −55 dBc on a 0↔10 tone step and fails REQ-TEST-003, #87) |
+| Filter frequency / Q, tone knobs | 20 ms | One-pole on the parameter or the stage-specified filter coefficient; applied coefficients evolve **every processing sample** while moving. Target design and per-sample application are separate (see below) |
 | Nonlinear drive (gain, drive knobs) | 30 ms | One-pole on the pre-gain |
 | Time (delay time) | 80 ms | Tape-style glide (modulated read pointer). A crossfade mode is in part 2 |
 | Envelope times (attack/release/hold), ratio, threshold | none / 20 ms | Read once per block. Threshold is smoothed at 20 ms |
 | `enum`, `bool` inside one block | 10–50 ms crossfade (`xf N`) | Old and new state run in parallel for the crossfade |
 | Amp channel, amp model / NAM capture, IR file, preset swap | `xf ADR-0004` | The single owner is ADR-0004 §5 (25 ms), installed at a block boundary once the new state is ready. This spec never repeats the number |
+
+**Filter/tone coefficient timing (clarified 2026-10-28).** Parameter targets are delivered at block boundaries;
+the applied coefficient trajectory must still advance per processing sample. Expensive target/design work may run
+only on a changed value or at a bounded sub-block cadence, provided stable per-sample coefficient glides/ramps track
+the stage's specified smoothing law. Holding coefficients constant between updates is not equivalent: the
+16-sample hold in [PR #87](https://github.com/ArthurMateus/OpenSourcePedal/pull/87) measured −55 dBc on a 0↔10
+tone step and failed REQ-TEST-003 (source accessed 2026-10-28).
+
+Every implementation must pass the unchanged [REQ-TEST-003](../adr/0007-test-strategy.md) gate: RMS residual
+≤ −60 dBc against an offline double-precision reference applying the specified law per sample from the delivery
+sample, normalised to the larger settled steady-state RMS. A sparse design cadence does not relax that gate.
+The merged Phase 5 stages demonstrate two permitted implementations (sources accessed 2026-10-28):
+
+- `PreampStage` computes target TPT coefficients only when a corner value changes, then applies a 20 ms one-pole
+  glide to those coefficients every sample. Its reported drive/corner step residual is −93.6 dBc
+  ([PR #183](https://github.com/ArthurMateus/OpenSourcePedal/pull/183)).
+- `ToneStack` applies 20 ms one-poles to the knob values and designs at adaptive chunks nominally 1/1500 s,
+  rounded to whole samples (≤0.67 ms at supported processing rates, shortened at block boundaries and for large
+  log-resistance changes). It linearly ramps its modal coefficients every sample across each chunk. Its reported
+  worst knob-step residual is −90.8 dBc at 192 kHz
+  against a double-precision reference designed every sample
+  ([PR #185](https://github.com/ArthurMateus/OpenSourcePedal/pull/185)).
 
 ### 1.5 Automatable and visibility
 
