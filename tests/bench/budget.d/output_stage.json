@@ -18,6 +18,10 @@
         "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel": {
           "r0": 0.114818552,
           "baseline": "bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001520, image 20261022.344.1; median of 5 R 0.114818552 (range 0.112242962..0.116441481, spread 3.74%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40761033116, head 189a950 (PR #187; bench code identical to main f9aa767)"
+        },
+        "AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD": {
+          "r0": 0.090908446,
+          "baseline": "bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001547, image 20261022.344.1; median of 5 R 0.090908446 (range 0.090815127..0.091733915, spread 1.01%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40767060990, head 1547a0f (PR #187; bench code identical to main)"
         }
       }
     }
