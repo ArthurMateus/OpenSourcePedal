@@ -1,5 +1,11 @@
 # Orchestrator state (LIVE, `state` branch)
 
+> **2026-10-28 ~08:24Z: STOPPED at owner request.** Local train stopped safely while waiting for #152 CI.
+> Read [owner-session-4.md](HANDOFF/owner-session-4.md) on state FIRST; it supersedes all active entries below.
+> Merged150/157/151;152 synced pending Debug;153-156 and162-164 queued. Latest156 d441e8e passes fresh272/272
+> Release tests and35 Debug RT engine cases locally. All work pushed, no active local workers. Resume only on owner instruction.
+
+
 > **2026-10-28 ~07:53Z, Codex continuation ACTIVE.** Completed this session: #150, #157 (#115, main
 > `db9a496`) and #151 (main `c07bff1`), each after all six CI jobs passed. Earlier queues and #112 were already merged.
 > **Train ACTIVE** in exclusive `C:\osptrain`: `C:\osptrain-control\merge_train.py`, queue
