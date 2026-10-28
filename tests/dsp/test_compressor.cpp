@@ -518,3 +518,160 @@ TEST_CASE("Compressor: tilt tail never goes subnormal, even with FTZ off", "[dsp
         CHECK(y.back() == 0.0f);
     }
 }
+
+namespace {
+
+const char* modeName(CompMode mode)
+{
+    return mode == CompMode::opto ? "opto" : mode == CompMode::vca ? "vca" : "dual";
+}
+
+std::vector<float> sine(double hz, double fs, int n)
+{
+    std::vector<float> x(static_cast<std::size_t>(n));
+    for (int i = 0; i < n; ++i) // -12 dBFS peak: the auto-makeup reference level
+        x[static_cast<std::size_t>(i)] = static_cast<float>(0.25118864315 * std::sin(6.283185307179586 * hz * i / fs));
+    return x;
+}
+
+struct StepResult {
+    double before, after, overshoot, dip; // dB: steady peaks, then the worst period peaks after the step
+};
+
+// Sine of `hz` at -12 dBFS, `setup()` before prepare(), `change()` before the block at 1.5 s. The steady levels are
+// the peaks of the last 0.2 s before the step and of the last 0.2 s of the render (4.5 s: the opto slow stage
+// releases over 8 x 150 ms). Overshoot and dip are the highest and lowest period peak after the step relative to the
+// higher and the lower steady level.
+template <typename Setup, typename Change>
+StepResult stepResponse(CompMode mode, double hz, int block, Setup&& setup, Change&& change)
+{
+    const double fs = 48000.0;
+    const int n = static_cast<int>(4.5 * fs);
+    const auto in = sine(hz, fs, n);
+    Compressor comp;
+    comp.setMode(mode);
+    setup(comp);
+    comp.prepare(fs, 2048);
+    const int at = (static_cast<int>(1.5 * fs) + block - 1) / block * block;
+    const auto out = renderWithStep(comp, in, block, at, [&] { change(comp); });
+    OSP_REQUIRE_OUTPUT_CLEAN(out);
+    const int period = static_cast<int>(std::ceil(fs / hz));
+    auto peakDb = [&](int from, int to) {
+        float p = 1.0e-12f;
+        for (int i = from; i < to; ++i)
+            p = std::max(p, std::abs(out[static_cast<std::size_t>(i)]));
+        return 20.0 * std::log10(p);
+    };
+    const int window = static_cast<int>(0.2 * fs);
+    StepResult r{peakDb(at - window, at), peakDb(n - window, n), -1.0e9, 1.0e9};
+    for (int i = at; i + period <= n; i += period) {
+        const double p = peakDb(i, i + period);
+        r.overshoot = std::max(r.overshoot, p - std::max(r.before, r.after));
+        r.dip = std::min(r.dip, p - std::min(r.before, r.after));
+    }
+    return r;
+}
+
+} // namespace
+
+TEST_CASE("Compressor: lowering the threshold with auto makeup on does not burst (#160)", "[dsp][comp][makeup]")
+{
+    // Before the fix the auto makeup reached its new target in 10 ms while the GR followed the 20 ms threshold
+    // smoother and then the detector: -30 -> -50 dB peaked 13 dB above the steady level for about 30 ms.
+    std::ostringstream log;
+    log << std::fixed << std::setprecision(2)
+        << "comp threshold step, auto makeup on, 220 Hz at -12 dBFS, block 64 (steady before / after, overshoot, dip;"
+           " dB):";
+    for (CompMode mode : {CompMode::opto, CompMode::vca, CompMode::dual})
+        for (float to : {-35.0f, -40.0f, -50.0f})
+            for (int block : {1, 64}) {
+                const auto r = stepResponse(
+                    mode, 220.0, block, [](Compressor& c) { c.setThresholdDb(-30.0f); },
+                    [&](Compressor& c) { c.setThresholdDb(to); });
+                CAPTURE(modeName(mode), to, block, r.before, r.after, r.overshoot, r.dip);
+                if (block == 64)
+                    log << "\n  " << modeName(mode) << " -30 -> " << to << ": " << r.before << " / " << r.after << ", +"
+                        << r.overshoot << ", " << r.dip;
+                CHECK(std::abs(r.after - r.before) <= 1.0); // auto makeup keeps the DI level
+                CHECK(r.overshoot <= 1.0);
+            }
+    WARN(log.str());
+}
+
+TEST_CASE("Compressor: auto makeup does not lead the GR (times, pitch, ratio, knee)", "[dsp][comp][makeup]")
+{
+    // Every step that raises the auto makeup (threshold down, ratio up, knee harder) or lowers it (threshold up), over
+    // the attack range at the default release and the release extremes, on a low E, A3 and 1 kHz.
+    const std::tuple<float, float> times[] = {{0.1f, 150.0f},  {1.0f, 150.0f},   {10.0f, 150.0f},
+                                              {30.0f, 150.0f}, {100.0f, 150.0f}, {0.1f, 20.0f},
+                                              {10.0f, 20.0f},  {10.0f, 1000.0f}, {100.0f, 1000.0f}};
+    std::ostringstream log;
+    log << std::fixed << std::setprecision(1)
+        << "comp auto makeup, block 64, overshoot and dip dB per step (thr -50 | thr -10 | ratio 20 | knee 0):";
+    double worst = -1.0e9;
+    for (CompMode mode : {CompMode::opto, CompMode::vca, CompMode::dual})
+        for (double hz : {82.0, 220.0, 1000.0})
+            for (const auto& [attack, release] : times) {
+                auto setup = [&](Compressor& c) {
+                    c.setThresholdDb(-30.0f);
+                    c.setAttackMs(attack);
+                    c.setReleaseMs(release);
+                };
+                const StepResult r[] = {
+                    stepResponse(mode, hz, 64, setup, [](Compressor& c) { c.setThresholdDb(-50.0f); }),
+                    stepResponse(mode, hz, 64, setup, [](Compressor& c) { c.setThresholdDb(-10.0f); }),
+                    stepResponse(mode, hz, 64, setup, [](Compressor& c) { c.setRatio(20.0f); }),
+                    stepResponse(mode, hz, 64, setup, [](Compressor& c) { c.setKneeDb(0.0f); }),
+                };
+                log << "\n" << modeName(mode) << " " << hz << " Hz " << attack << "/" << release << " ms:";
+                for (const auto& s : r) {
+                    log << " " << s.overshoot << " " << s.dip;
+                    CAPTURE(modeName(mode), hz, attack, release, s.overshoot, s.dip);
+                    CHECK(s.overshoot <= 1.0);
+                    worst = std::max(worst, s.overshoot);
+                }
+            }
+    log << "\nworst overshoot " << worst << " dB";
+    WARN(log.str());
+}
+
+TEST_CASE("Compressor: threshold automation with auto makeup is click-free", "[dsp][comp][makeup][zipper]")
+{
+    // A host sweep -30 -> -50 -> -30 dB over 0.5 s each way, one value per block, on a 220 Hz sine at -12 dBFS. The
+    // largest sample-to-sample step stays near the steady signal's (the QA click metric, spike ratio, limit 3) and no
+    // sample peaks more than 1 dB above the steady level.
+    const double fs = 48000.0;
+    const int n = static_cast<int>(3.0 * fs), start = static_cast<int>(1.0 * fs), len = static_cast<int>(0.5 * fs);
+    const auto in = sine(220.0, fs, n);
+    for (CompMode mode : {CompMode::opto, CompMode::vca, CompMode::dual})
+        for (int block : {32, 127, 512}) {
+            Compressor comp;
+            comp.setMode(mode);
+            comp.setThresholdDb(-30.0f);
+            comp.prepare(fs, 2048);
+            std::vector<float> out(in.size());
+            const auto rt = osp::rt::test::runAsAudioThread([&] {
+                for (int pos = 0; pos < n; pos += block) {
+                    const double u = std::clamp(static_cast<double>(pos - start) / len, 0.0, 2.0);
+                    comp.setThresholdDb(static_cast<float>(-30.0 - 20.0 * (u <= 1.0 ? u : 2.0 - u)));
+                    comp.process(in.data() + pos, out.data() + pos, std::min(block, n - pos));
+                }
+            });
+            OSP_REQUIRE_RT_CLEAN(rt);
+            OSP_REQUIRE_OUTPUT_CLEAN(out);
+            float steadyStep = 0.0f, step = 0.0f, steadyPeak = 0.0f, peak = 0.0f;
+            for (int i = start / 2; i < n; ++i) {
+                const float d = std::abs(out[static_cast<std::size_t>(i)] - out[static_cast<std::size_t>(i - 1)]);
+                const float a = std::abs(out[static_cast<std::size_t>(i)]);
+                (i < start ? steadyStep : step) = std::max(i < start ? steadyStep : step, d);
+                (i < start ? steadyPeak : peak) = std::max(i < start ? steadyPeak : peak, a);
+            }
+            const double spike = step / steadyStep, overshoot = 20.0 * std::log10(peak / steadyPeak);
+            CAPTURE(modeName(mode), block, spike, overshoot);
+            CHECK(spike <= 1.5);
+            CHECK(overshoot <= 1.0);
+            if (block == 127)
+                WARN("comp threshold sweep, " << modeName(mode) << ": spike ratio " << spike << ", peak " << overshoot
+                                              << " dB re steady");
+        }
+}

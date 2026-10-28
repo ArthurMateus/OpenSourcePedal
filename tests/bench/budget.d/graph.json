@@ -1,0 +1,18 @@
+{
+  "benchmarks": {
+    "graph_default": {
+      "kind": "full_chain",
+      "r0": 1.65,
+      "maxCpuPercent": 25.0,
+      "baseline": "#95 part 7, 2026-10-27, local VS 2022 Release build on a loaded shared machine (T_ref 21.7 ms, R spread 87 % over 3 runs): noisy, re-baseline on a quiet run",
+      "headroom": "the v1 graph's default preset (most blocks off; the disabled delay and reverb idle once silent); the fixed 25 % ceiling applies"
+    },
+    "graph_all_blocks": {
+      "kind": "full_chain",
+      "r0": 7.98,
+      "maxCpuPercent": 25.0,
+      "baseline": "#95 part 7, 2026-10-27, local VS 2022 Release build on a loaded shared machine (T_ref 21.7 ms): about 8 % CPU at T_ref 10 ms; noisy, re-baseline on a quiet run",
+      "headroom": "every v1 block on, tape delay, both cab slots on 1 s IRs (the ceiling case): the fixed 25 % ceiling applies; the amp slot is still the identity stub, so Phase 5 amps add to it"
+    }
+  }
+}

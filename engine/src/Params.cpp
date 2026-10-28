@@ -256,7 +256,7 @@ int hostParamCount()
         std::count_if(table.begin(), table.end(), [](const ParamInfo& p) { return p.vis == Visibility::host; }));
 }
 
-float sanitize(const ParamInfo& p, float plain) noexcept
+float sanitize(const ParamInfo& p, float plain) noexcept OSP_RT_NONBLOCKING
 {
     if (std::isnan(plain))
         return p.min;
@@ -273,7 +273,7 @@ float sanitize(const ParamInfo& p, float plain) noexcept
     return v;
 }
 
-float toNormalized(const ParamInfo& p, float plain) noexcept
+float toNormalized(const ParamInfo& p, float plain) noexcept OSP_RT_NONBLOCKING
 {
     const double v = sanitize(p, plain);
     if (p.max <= p.min)
@@ -283,7 +283,7 @@ float toNormalized(const ParamInfo& p, float plain) noexcept
     return static_cast<float>((v - p.min) / (static_cast<double>(p.max) - p.min));
 }
 
-float fromNormalized(const ParamInfo& p, float normalized) noexcept
+float fromNormalized(const ParamInfo& p, float normalized) noexcept OSP_RT_NONBLOCKING
 {
     const double x = std::isnan(normalized) ? 0.0 : std::clamp(static_cast<double>(normalized), 0.0, 1.0);
     if (p.skew == Skew::log)

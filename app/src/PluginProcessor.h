@@ -39,6 +39,8 @@ public:
     void setStateInformation(const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState& parameters() noexcept { return parameters_; }
+    // Control thread (tests): the engine whose ParamStore the host parameters are bound into.
+    osp::engine::Engine& engine() noexcept { return engine_; }
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

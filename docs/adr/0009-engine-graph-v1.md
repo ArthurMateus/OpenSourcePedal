@@ -1,6 +1,6 @@
 # ADR-0009: Engine v1 signal graph
 
-- **Status:** Proposed (2026-10-27)
+- **Status:** Accepted (2026-10-28)
 - **Deciders:** `default/architect` (issue #95). Owner decisions in force: no UI yet (Phase 6), merge green PRs.
 - **Inputs:** [`signal-flow.md`](../spec/signal-flow.md) (topology §1, latency §4, transitions §5),
   [`parameters.md`](../spec/parameters.md), [`threading.md`](../spec/threading.md),
@@ -166,7 +166,7 @@ delayed amp input (REQ-424 null). The blend never changes `L_total`.
   block setters. Preset-only values are written by the control side into the store (the preset loader, later).
   Enums are rounded and clamped, and bools are `> 0.5`.
 - **Global settings** (not parameters) reach the graph as setters: `quality` in `prepare()`, and RT-safe
-  `setTempoBpm`, `setMonoSum` and `setTunerActive` (tuner mute, REQ-419).
+  `setTempoBpm`, `setMonoSum` and `setTunerMuted` (tuner mute, REQ-419).
 
 ### D9. Real-time rules
 
@@ -177,6 +177,10 @@ pre-touches every buffer (RT-12). `process(n)` handles any `0 ≤ n ≤ maxBlock
 blocks. The RT checker (C1–C4, C8) runs on the whole graph: rates {44.1, 48, 88.2, 96} kHz, block sizes
 {0, 1, 32, 64, 127, 512, 2048}. A parameter fuzz on every table entry (NaN, ±Inf, out of range) asserts finite
 output and no `nanDetected`. Denormals are flushed by the caller (RT-8).
+
+The engine's RT declarations, definitions and amp-slot virtual overrides carry `OSP_RT_NONBLOCKING` after
+`noexcept`, following [Clang's function-effect attribute syntax and virtual/redeclaration rules](https://clang.llvm.org/docs/FunctionEffectAnalysis.html)
+(accessed 2026-10-28). Allocating lifecycle calls and control-only parameter binding remain outside this contract.
 
 ### D10. Stacked PR plan
 
@@ -193,17 +197,37 @@ merge train. A PR that needs `origin/main` changes (#61, #133–#137, #115) merg
 | 5 | `engine/95-gate-tap` (#153) | D6 gate gain law, `K_gate` delay line | "`gate.postAmp` edge at exactly `K_gate` (±0) at 4 rates"; "xf-10 tap switch under signal ≤ −60 dBc" |
 | 6 | `engine/95-time-fx` (#154) | mod (pre/post and the position move), delay (#134), reverb, doubler | "every block reachable…" (time-based blocks) |
 | 7 | `engine/95-engine` (#155) | `Engine` owns the `Graph`; tail idle; osp-bench `graph_default` / `graph_all_blocks`; RT matrix and parameter fuzz | osp-bench entry; "RT checker clean; NaN/Inf fuzz on the full graph"; Moth (a) end to end |
-| 8 | `engine/95-app-params` | the host parameter layout from the table, host atomics bound into the `ParamStore`, REQ-PAR-001 snapshot `tests/spec/parameters.json` | the app reports `L_total` and exposes the 226 parameters |
+| 8 | `engine/95-app-params` (#156) | the host parameter layout from the table, host atomics bound into the `ParamStore`, REQ-PAR-001 snapshot `tests/spec/parameters.json` | the app reports `L_total` and exposes the 226 parameters |
 
 Decisions taken while implementing (rule 1):
 - **No cab until an IR is loaded:** until the preset loader installs IRs, `Engine` puts an engine-owned unit impulse in ir1 of every strip, so the default chain is audible.
 - **Tail idle:** a disabled (trails) delay or reverb is skipped once its wet has been ≤ −140 dBFS for 3.5 s, which is longer than the 3 s maximum delay plus the 200 ms maximum pre-delay. When enabled again it is reset with its send muted and fades in. This keeps the default chain's CPU low.
-- **Host values** snap to 1e-4 of their unit, so a save → restore gives back the stored value exactly (REQ-902). Host display names are the ids until the Phase 6 UI.
+- **Host values** snap to six significant digits, never finer than 1e-4 of their unit (`PluginProcessor.cpp::snapToGrid`, #156). A fixed 1e-4 step is finer than a float above about 1000, so the relative grid preserves the intended defaults through normalized host conversion. Host display names are the ids until the Phase 6 UI. The existing output-level state round trip remains tested; saving all 226 parameter values remains the follow-up below.
 - **`amp.channel` during a fade** waits for the fade to end, so at most two strips run at once.
 
 Not in #95 (follow-up tickets): the `EngineController`, the command/retire queues and the worker
 (threading.md §4); preset load and the whole-chain preset crossfade (two graphs, ADR-0004); extending the plugin
 state blob (#61) to every parameter; the real amp slot (Phase 5).
+
+### Acceptance coverage (reviewed 2026-10-28)
+
+The implementation in #149–#156 covers the issue's acceptance criteria through these checks. Final parent heads
+must be carried through the stack, including #154's spring/shimmer adapter correction, and all six CI jobs must
+succeed on each synchronized head before merging. This coverage review does not replace those merge gates.
+
+| Acceptance criterion | Evidence in the implementation |
+|---|---|
+| Every block reachable and parameter-addressable | `tests/engine/test_graph.cpp`: per-block enable/parameter cases; #154 adds spring/shimmer mode, amount and interval renders |
+| Exact post-amp gate alignment at four rates | `tests/engine/test_graph_gate.cpp`: gain-edge reference at `K_gate`, with adjacent-sample negative controls and fractional amp-slot delays |
+| xf-10 gate tap transition residual | `tests/engine/test_graph_gate.cpp`: toggles compared with a static reference at the REQ-TEST-003 −60 dBc limit |
+| All-bypassed latency-aligned null | `tests/engine/test_graph_latency.cpp` and `test_engine.cpp`: graph null ≤ −120 dBFS and exact delayed mono input through the Engine |
+| Reported latency matches measurement | `tests/engine/test_graph_latency.cpp`: measured 1 kHz impulse delay, four rates, fractional slot; Live test with both OS-1 drives enabled |
+| Full-chain benchmarks and budgets | #155: `graph_default` and `graph_all_blocks`, migrated into the #115 per-block registry and budget layout during integration |
+| Full-graph RT checker and non-finite parameter fuzz | `tests/engine/test_engine.cpp`: host-block/rate matrix under the RT checker, raw atomic NaN/Inf/out-of-range values and finite-output checks |
+| Host parameter table and latency forwarding | `tests/engine/test_param_snapshot.cpp`, `tests/app/test_parameters.cpp`: exact 226-entry snapshot, defaults, host bindings and reported `L_total` |
+
+The amp implementation exercised here is `AmpStub` (D5). This review does not claim that Phase 5 amp models or
+the deferred state-blob extension are implemented.
 
 ## Consequences
 

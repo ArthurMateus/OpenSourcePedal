@@ -1,0 +1,11 @@
+{
+  "benchmarks": {
+    "crossfade_delay": {
+      "kind": "block",
+      "r0": 0.0051,
+      "maxCpuPercent": 0.25,
+      "baseline": "#64/#82, 2026-10-25, local VS 2022 Release build (windows-msvc-ci), median of 3 runs, T_ref 10.1-10.4 ms",
+      "headroom": "about 50x the measured 0.0052 %: 10 ms block-enable crossfade toggled every 100 ms plus a 64-sample latency-padding delay line"
+    }
+  }
+}

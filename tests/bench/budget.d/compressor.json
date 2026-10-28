@@ -1,0 +1,11 @@
+{
+  "benchmarks": {
+    "comp": {
+      "kind": "block",
+      "r0": 0.1931,
+      "maxCpuPercent": 0.6,
+      "baseline": "#66, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 5 runs (R 0.186-0.196, 0.209-0.218 %); earlier runs read R 0.145-0.21",
+      "headroom": "about 2.9x the measured 0.21 %: defaults (opto) with the tone tilt on; all three mode detectors run every sample"
+    }
+  }
+}

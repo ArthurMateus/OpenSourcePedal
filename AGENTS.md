@@ -60,7 +60,7 @@ cmake --preset windows-msvc              # configure (fetches JUCE at configure 
 cmake --build --preset release           # build standalone, VST3, tests, tools
 ctest --preset release                   # unit + golden + RT-safety tests
 ./build/release/tools/osp-render --preset presets/factory/<name>.json --in assets/di/<clip>.wav --out out.wav
-./build/release/tests/osp-bench          # CPU benchmarks, compared against tests/bench/budget.json
+./build/release/tests/osp-bench          # CPU benchmarks, compared against tests/bench/budget.json + budget.d/*.json
 pluginval --strictness-level 8 --validate build/release/app/OpenSourcePedal_artefacts/Release/VST3/OpenSourcePedal.vst3
 ```
 

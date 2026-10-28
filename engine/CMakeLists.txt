@@ -6,7 +6,10 @@ add_library(osp_engine STATIC
     src/ToneMatch.cpp
     src/ToneProfile.cpp
     src/ToneSections.cpp
-    src/Version.cpp)
+    src/Version.cpp
+    src/graph/AmpSlot.cpp
+    src/graph/Fanout.cpp
+    src/graph/Graph.cpp)
 add_library(osp::engine ALIAS osp_engine)
 
 target_include_directories(osp_engine PUBLIC include)
