@@ -10,17 +10,16 @@
 // 2. Level: output.levelDb, -60...+12 dB, a 20 ms linear ramp of the linear gain (parameters.md §1.4).
 // 3. Mono sum: the global "mono sum" setting (settings file, signal-flow §2): L = R = (L + R) / 2, switched with a
 //    10 ms linear crossfade.
-// 4. Safety limiter, output.limiter (default on, xf 10): a -0.3 dBFS true-peak ceiling with no look-ahead, since
-//    L_out = 0. Linked stereo gain, instant attack, kReleaseSeconds one-pole release that snaps to exactly 1, so it is
-//    bit-exact below the ceiling. Sample peaks never exceed the ceiling (g <= ceiling / |x|). Peaks between samples
-//    are estimated by 4x band-limited interpolation of the last kTpTaps samples (the true-peak method of ITU-R
-//    BS.1770-4 Annex 2; here a Hann-windowed sinc, 12 taps per phase), which lags by kTpTaps / 2 samples. The release
-//    holds the gain over that lag, so steady material has no overs; a transient can overshoot between samples during
-//    its first kTpTaps / 2 samples only. Measured with 8x band-limited reconstruction in
-//    tests/dsp/test_output_stage.cpp: sines 100 Hz-19 kHz up to +12 dBFS stay <= -0.15 dBTP; white noise 3.5 dB over
-//    full scale reaches +2.4 dBTP and a naive square wave +0.7 dBTP between samples (sample peaks stay at the ceiling).
-//    Closing that gap needs ~6 samples of look-ahead, which L_out = 0 rules out. A first version that fitted a parabola
-//    through the last three samples let steady high-frequency sines through at up to +2.1 dBTP.
+// 4. Safety limiter, output.limiter (default on, xf 10), linked stereo, no look-ahead (L_out = 0). Sample
+//    peaks plus 4x Hann-sinc interpolation of the last kTpTaps samples drive an instant attack. While the detector
+//    exceeds the internal threshold, hold the minimum gain; after kHoldSeconds without an over, release with
+//    the kReleaseSeconds one-pole. Releasing between successive peaks used to create new inter-sample overs even
+//    on a steady 110 Hz square. The held envelope prevents that gain modulation. kTpMarginDb reserves headroom
+//    for the causal, finite interpolator and gain changes: the internal threshold is kCeilingDb - kTpMarginDb.
+//    With no limiting history, material below that detector threshold remains bit-exact. Reset clears the hold.
+//    Independent 16x Kaiser-sinc reconstruction in tests/dsp/test_output_stage.cpp checks the -0.3 dBTP ceiling on
+//    steady sines/squares and distorted guitar. These finite-corpus tests are not a universal mathematical bound
+//    on arbitrary first transients: a causal detector cannot see future samples. Added signal latency: 0 samples.
 // 5. Meters: peak and RMS per channel of the last block, for the engine's telemetry atomics (threading.md §3.5).
 
 #include "osp/dsp/util/Smoothers.h"
@@ -34,6 +33,8 @@ public:
     static constexpr float kMinLevelDb = -60.0f, kMaxLevelDb = 12.0f;
     static constexpr float kCeilingDb = -0.3f;
     static constexpr double kReleaseSeconds = 0.050;
+    static constexpr double kHoldSeconds = 0.010; // detector must stay below the ceiling this long before release
+    static constexpr float kTpMarginDb = 1.25f; // headroom when limiting; validated by the independent 16x tests
     static constexpr double kSwitchSeconds = 0.010; // limiter on/off and mono sum (xf 10)
     static constexpr int kTpTaps = 12; // true-peak interpolator length (per phase)
 
@@ -69,9 +70,10 @@ private:
     bool bypassed_ = false, nan_ = false;
     LinearRamp level_{1.0f}, limiterMix_{1.0f}, monoMix_{0.0f};
     float ceiling_ = 1.0f, release_ = 0.0f, gain_ = 1.0f;
-    std::array<std::array<float, kTpTaps>, 3> tp_{}; // 4x interpolator, phases 1/4, 2/4, 3/4
+    std::array<std::array<float, 4>, kTpTaps> tp_{}; // 4x interpolator, phases 1/4, 2/4, 3/4
     std::array<std::array<float, kTpTaps>, 2> hist_{}; // the last kTpTaps samples per channel, before the limiter
     std::array<float, 2> peak_{}, rms_{};
+    int holdSamples_ = 0, holdRemaining_ = 0;
 };
 
 } // namespace osp::dsp
