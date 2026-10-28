@@ -1,0 +1,11 @@
+{
+  "benchmarks": {
+    "smoother_onepole": {
+      "kind": "block",
+      "r0": 0.010892,
+      "maxCpuPercent": 0.5,
+      "baseline": "#64/#82, 2026-10-25, local VS 2022 Release build (windows-msvc-ci), median of 3 runs, T_ref 10.1-10.4 ms",
+      "headroom": "about 45x the measured 0.011 %: a per-sample one-pole (serial dependency, not vectorisable) on a gain, retargeted every 100 ms"
+    }
+  }
+}
