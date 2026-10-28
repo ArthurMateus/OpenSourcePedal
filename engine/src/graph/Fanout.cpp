@@ -52,6 +52,7 @@ void Graph::applyParameters() noexcept
         slot.setEnabled(on(d[kDriveEnabled]));
     }
 
+    cleanBlend_.setTarget(value(id.ampCleanBlend) / 100.0f);
     for (int s = 0; s < kNumChannels; ++s)
         applyStrip(s);
 

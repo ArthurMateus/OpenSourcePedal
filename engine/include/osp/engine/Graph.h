@@ -21,6 +21,7 @@
 #include "osp/dsp/OutputStage.h"
 #include "osp/dsp/tuner/TunerTap.h"
 #include "osp/dsp/util/Crossfader.h"
+#include "osp/dsp/util/DelayLine.h"
 
 #include <array>
 #include <memory>
@@ -62,7 +63,15 @@ public:
     void setCabIr(int channel, int slot, dsp::PartitionedConvolver* ir) noexcept;
     dsp::PartitionedConvolver* popRetired() noexcept;
 
+    // Hard bypass of every block (tests, signal-flow §5): the output is the input delayed by exactly
+    // getLatencySamples() (REQ-TEST-004). RT-safe.
+    void setBypassedAll(bool bypassed) noexcept;
+
+    // L_total = round(D_os1 + D_slot + D_cab), rounded once (ADR-0009 D4). Fixed after prepare().
     int getLatencySamples() const noexcept { return latency_; }
+    // The fractional sum it is rounded from, and the clean DI delay K_clean (ADR-0009 D4, D7).
+    double getMeasuredDelaySamples() const noexcept { return measuredDelay_; }
+    int getCleanDelaySamples() const noexcept { return clean_.getDelay(); }
     int activeChannel() const noexcept { return stripTo_; }
     const dsp::OutputStage& output() const noexcept { return output_; }
     const dsp::TunerTap& tuner() const noexcept { return tuner_; }
@@ -105,13 +114,20 @@ private:
     std::array<Strip, kNumChannels> strips_;
     dsp::OutputStage output_;
 
+    // Clean DI (amp.cleanBlendPct, ADR-0009 D7): the amp input delayed by K_clean, mixed after the strips.
+    dsp::DelayLine clean_;
+    dsp::LinearRamp cleanBlend_; // 0…1, 20 ms
+    bool bypassedAll_ = false;
+    int slotPad_ = 0; // the amp slot's hard-bypass pad, R(amp out) − R(amp in)
+    double measuredDelay_ = 0.0;
+
     // amp.channel switch: strip stripFrom_ fades to stripTo_ over kSwapSeconds; a change during a fade waits.
     int stripFrom_ = 0, stripTo_ = 0;
     dsp::LinearRamp stripFade_{1.0f};
 
     double sampleRate_ = 0.0, tempoBpm_ = 120.0;
     int maxBlock_ = 0, latency_ = 0;
-    std::vector<float> mono_, dry_, dryR_, stripL_, stripR_;
+    std::vector<float> mono_, dry_, dryR_, stripL_, stripR_, cleanBuf_;
 };
 
 } // namespace osp::engine
