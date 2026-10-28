@@ -1,5 +1,9 @@
 # Orchestrator state (LIVE, `state` branch)
 
+> **2026-10-28 ~10:30Z: owner session 5 DONE (Claude).** Read [owner-session-5.md](HANDOFF/owner-session-5.md) FIRST;
+> it supersedes everything below. Train 152-156 + 162-164 merged (main `38c3b06`), all six CI jobs green each time.
+> Final #95 QA passes 2/3 on exact main posted on #95: only deferred #145 fails. New #165 (bench ordering). Idle; no workers.
+
 > **2026-10-28 ~08:24Z: STOPPED at owner request.** Local train stopped safely while waiting for #152 CI.
 > Read [owner-session-4.md](HANDOFF/owner-session-4.md) on state FIRST; it supersedes all active entries below.
 > Merged150/157/151;152 synced pending Debug;153-156 and162-164 queued. Latest156 d441e8e passes fresh272/272
