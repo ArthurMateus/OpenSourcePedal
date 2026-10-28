@@ -1,5 +1,10 @@
 # Orchestrator state (LIVE, `state` branch)
 
+> **2026-10-28 ~00:05Z, owner session part 3 stopped (account switch).** Read
+> [`docs/state/HANDOFF/owner-session-3.md`](https://github.com/ArthurMateus/OpenSourcePedal/blob/state/docs/state/HANDOFF/owner-session-3.md)
+> (on this branch) first; it is the newest state. In short: #139/#140/#142/#143/#144/#148/#149 merged. Next: train
+> #150 → … → #156 (#95 stack), then #162, #163, #164 (QA bug fixes), then resync and merge #157 (#115).
+
 > **2026-10-27 ~19:45Z, owner session part 2 stopped (usage).** Read
 > [`docs/state/HANDOFF/owner-session-2.md`](https://github.com/ArthurMateus/OpenSourcePedal/blob/state/docs/state/HANDOFF/owner-session-2.md)
 > (on this branch) first; it is the newest state. In short: the merge queue is done (#133–#137, #61, #141 merged).
