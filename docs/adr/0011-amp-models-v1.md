@@ -86,8 +86,14 @@ Three built-in models, matching the parameters.md §2.5 defaults:
   not here. Constraints fixed now:
   - Static nonlinearities are precomputed in `prepare()` (tables or closed forms) and use 1st-order ADAA inside OS-2
     (ADR-0005 table). No per-sample allocation, table rebuild or transcendental beyond the stage's benchmark budget.
-  - Knob changes recompute coefficients at most once per block from smoothed values (parameters.md smoothing times),
-    with no zipper noise (AGENTS.md §4).
+  - Knob changes follow [parameters.md §1.4](../spec/parameters.md#14-smoothing): target coefficient design and
+    per-sample application are separate. A stage may design targets on changed values and glide coefficients per
+    sample, or smooth parameters and design at a bounded adaptive sub-block cadence with per-sample coefficient
+    ramps. Design may therefore run more than once per host block; applied coefficients must follow a stable
+    per-processing-sample trajectory. The unchanged REQ-TEST-003 residual gate is ≤ −60 dBc against the specified
+    per-sample double reference, not a licence to hold coefficients between updates. This clarification follows
+    merged [PR #183](https://github.com/ArthurMateus/OpenSourcePedal/pull/183) and
+    [PR #185](https://github.com/ArthurMateus/OpenSourcePedal/pull/185) (accessed 2026-10-28).
   - `bright` and `tight` are per-model switches with a 10 ms crossfade (parameters.md "xf 10").
   - Stage state is plain arrays; `reset()` is O(state) and allocation-free.
 
@@ -151,6 +157,25 @@ edit; two slices that run at the same time never own the same file.
 - **Shared files.** Only P5-9 edits `Graph.cpp`, `AmpSlot.*`, `Params.cpp` and parameters.md; only P5-10 edits
   `Engine.cpp`/`State.cpp`; only P5-2 edits `cmake/OspDependencies.cmake` and `THIRD_PARTY.md`; `assets/LICENSES.md` is
   edited by P5-3 only. Later edits to these files wait for the owning slice to merge.
+
+### Amendment A1 (2026-10-28): D7 interface ownership and engine source discovery
+
+The D7 table above records the original plan. This amendment supersedes the following assignments without
+rewriting that history (coordination sources accessed 2026-10-28):
+
+For coefficient timing, D3 and parameters.md §1.4 above supersede the historical "per-block coefficients" label
+in P5-6; the original row is retained as part of the plan's history.
+
+- **P5-8 (#174) creates `engine/include/osp/engine/AmpModel.h`:** `IAmpModel` per D2 (including
+  `getMeasuredDelaySamples()`), `AmpModelInfo` and the `makeClassicAmp` factory declaration, with no NAM types.
+  **P5-3 (#169) only extends that header** later with its NAM declarations (`loadNamModel`/`NamAmpModel`); it must
+  not replace the interface. Sources: [#174 ownership decision](https://github.com/ArthurMateus/OpenSourcePedal/issues/174#issuecomment-6479505891),
+  [#169 coordination](https://github.com/ArthurMateus/OpenSourcePedal/issues/169#issuecomment-6479506656).
+- **Engine source discovery is recursive:** `file(GLOB_RECURSE ... CONFIGURE_DEPENDS src/*.cpp)`, following #115,
+  so new engine sources need no shared source-list edit. #174 part 1 owns only the source-list change in
+  `engine/CMakeLists.txt`; #168 retains its separate PRIVATE `osp_nam_core` link and does not edit that list.
+  This records the [#174 source-discovery decision](https://github.com/ArthurMateus/OpenSourcePedal/issues/174#issuecomment-6479574275),
+  not a claim that the still-active implementation has already merged.
 
 ## Consequences
 
