@@ -15,6 +15,7 @@ add_library(osp_dsp_core STATIC
     src/Gate.cpp
     src/Reverb.cpp
     src/reverb/DattorroTank.cpp
+    src/reverb/ShimmerTank.cpp
     src/reverb/SpringTank.cpp
     src/reverb/FdnTank.cpp
     src/InputStage.cpp

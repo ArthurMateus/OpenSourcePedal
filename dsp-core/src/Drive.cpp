@@ -49,6 +49,13 @@ float dbToGain(float dB)
     return std::pow(10.0f, dB / 20.0f);
 }
 
+// NaN-safe clamp: a NaN host value maps to `lo` (std::clamp passes NaN through, and a NaN target sticks in its
+// smoother until reset(); #138).
+float clampSafe(float v, float lo, float hi) noexcept
+{
+    return v > lo ? (v < hi ? v : hi) : lo;
+}
+
 } // namespace
 
 DriveStage::DriveStage() noexcept
@@ -119,19 +126,19 @@ void DriveStage::setType(DriveType type) noexcept
 
 void DriveStage::setDrive(float knob) noexcept
 {
-    drive_.setTarget(std::clamp(knob, 0.0f, 10.0f));
+    drive_.setTarget(clampSafe(knob, 0.0f, 10.0f));
 }
 void DriveStage::setTone(float knob) noexcept
 {
-    tone_.setTarget(std::clamp(knob, 0.0f, 10.0f));
+    tone_.setTarget(clampSafe(knob, 0.0f, 10.0f));
 }
 void DriveStage::setLevelDb(float dB) noexcept
 {
-    level_.setTarget(dbToGain(std::clamp(dB, -20.0f, 12.0f)));
+    level_.setTarget(dbToGain(clampSafe(dB, -20.0f, 12.0f)));
 }
 void DriveStage::setLowCutHz(float hz) noexcept
 {
-    lowCut_.setTarget(std::clamp(hz, 20.0f, 300.0f));
+    lowCut_.setTarget(clampSafe(hz, 20.0f, 300.0f));
 }
 void DriveStage::setBright(bool on) noexcept
 {
@@ -139,7 +146,7 @@ void DriveStage::setBright(bool on) noexcept
 }
 void DriveStage::setMixPct(float pct) noexcept
 {
-    mix_.setTarget(std::clamp(pct, 0.0f, 100.0f) / 100.0f);
+    mix_.setTarget(clampSafe(pct, 0.0f, 100.0f) / 100.0f);
 }
 
 void DriveStage::setEnabled(bool on) noexcept
