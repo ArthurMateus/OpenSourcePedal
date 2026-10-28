@@ -8,6 +8,8 @@
 #include <cmath>
 #include <complex>
 #include <cstdint>
+#include <iomanip>
+#include <sstream>
 #include <tuple>
 #include <vector>
 #include <xmmintrin.h>
@@ -448,6 +450,54 @@ TEST_CASE("Compressor: mode and auto-makeup switches are click-free (xf 10)", "[
             // A hard switch would add up to |x| * g * (auto gain - 1), about 0.24 here; the ramp adds ~5e-4 per sample.
             REQUIRE(after <= steady + 1.0e-3f);
         }
+}
+
+TEST_CASE("Compressor: THD of low notes at -12 dBFS across attack/release (#89)", "[dsp][comp][thd]")
+{
+    // A peak detector with a short release sags between the peaks of a low note and re-attacks on each one, so the
+    // gain is modulated at 2 f0 and the output grows odd harmonics (Compressor.h, "Low-note distortion"). Defaults
+    // otherwise (T -20, R 4, knee 6: about 6 dB of GR on the peaks). Kept by decision, so this gates every cell at
+    // the 82 Hz value measured on this commit (worst mode) + 3 dB, and checks that THD falls as either time grows.
+    const double fs = 48000.0;
+    const std::size_t warmup = 24000;
+    const float attacks[] = {0.1f, 1.0f, 10.0f, 30.0f};
+    const float releases[] = {20.0f, 50.0f, 150.0f, 500.0f};
+    const double ceilingDb[4][4] = {
+        {-27.0, -34.0, -43.0, -53.0},
+        {-29.0, -35.0, -44.0, -53.0},
+        {-35.0, -40.0, -47.0, -55.0},
+        {-40.0, -44.0, -49.0, -57.0},
+    };
+    const char* names[] = {"opto", "vca", "dual"};
+    for (double nominal : {82.0, 110.0}) {
+        const auto tone = osp::measure::coherentTone(nominal, fs);
+        const auto in = osp::measure::makeTone(tone, fs, -12.0, warmup + osp::measure::kCoherentFftSize);
+        for (CompMode mode : {CompMode::vca, CompMode::opto, CompMode::dual}) {
+            double thd[4][4] = {};
+            std::ostringstream log;
+            log << std::fixed << std::setprecision(1) << "comp THD dB, " << names[static_cast<int>(mode)] << ", f0 "
+                << tone.frequency << " Hz (rows attack 0.1/1/10/30 ms, columns release 20/50/150/500 ms):";
+            for (int a = 0; a < 4; ++a) {
+                log << "\n ";
+                for (int r = 0; r < 4; ++r) {
+                    auto comp = make(fs, mode, -20.0f, 4.0f, 6.0f, attacks[a], releases[r]);
+                    const auto out = render(comp, in, 64);
+                    thd[a][r] = osp::measure::toDb(osp::measure::analyseCoherent(out, tone.bin).thd);
+                    log << " " << thd[a][r];
+                }
+            }
+            WARN(log.str());
+            for (int a = 0; a < 4; ++a)
+                for (int r = 0; r < 4; ++r) {
+                    CAPTURE(names[static_cast<int>(mode)], tone.frequency, attacks[a], releases[r], thd[a][r]);
+                    CHECK(thd[a][r] <= ceilingDb[a][r]);
+                    if (r > 0)
+                        CHECK(thd[a][r] < thd[a][r - 1]);
+                    if (a > 0)
+                        CHECK(thd[a][r] < thd[a - 1][r]);
+                }
+        }
+    }
 }
 
 TEST_CASE("Compressor: tilt tail never goes subnormal, even with FTZ off", "[dsp][comp][tone]")
