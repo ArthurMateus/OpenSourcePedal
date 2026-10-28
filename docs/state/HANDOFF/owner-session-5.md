@@ -56,3 +56,15 @@ Supersedes owner-session-4. Read AGENTS.md first.
   sag patent: #173 must use generic RC supply model and note it.
 - Follow-ups: docs PR reconciling parameters.md §1.4 vs ADR-0011 D3 coefficient-update wording; sympy in tools/requirements.txt.
 - Next after stages: #174 (needs #171-#173 + #83), #169 (needs #168 + #83). #83/#165 are on another account.
+
+## Update (resumed after the limit)
+
+- Merged: #183 (#171 preamp), #185 (#172 tone stack), #184 (#173 part 1), #182 (#165), #186 (#83, the regression gate
+  with per-processor `processorBaselines`; see docs/state/HANDOFF/83.md). main f9aa767.
+- #187 = #173 part 2 (sag, default 0), merge watcher was running. Squash conflicts were resolved by keeping the
+  branch's version after verifying main's files == #184 final head.
+- #168: subagent resumed in C:\osp168 (part 1 pushed at 5cf97ed, PR to open; part 2 RtResampler next).
+- #174: subagent started in C:\osp174. It now OWNS engine/include/osp/engine/AmpModel.h (interface only; #169 extends
+  it). The decision is in the comments on #174/#169, and an ADR-0011 D7 wording fix is pending (do it in the docs PR
+  with the parameters.md §1.4 reconciliation).
+- New bench entries need CI-runner processorBaselines (amp.json, nam.json) calibrated from CI artifacts.
