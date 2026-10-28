@@ -1,0 +1,29 @@
+name: halfband-check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  halfband-check:
+    name: halfband-check
+    # windows-latest on purpose: halfband_fir.py compares the header byte-for-byte, and numpy/scipy
+    # (libm/BLAS) differ from Windows in the 10th digit on Linux, so ubuntu fails on a correct header.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tools/requirements.txt
+      - name: Install Python tool dependencies
+        run: python -m pip install -r tools/requirements.txt
+      - name: Halfband FIR header is up to date
+        run: python -I tools/design/halfband_fir.py --check
