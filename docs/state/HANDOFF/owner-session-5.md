@@ -43,3 +43,16 @@ Supersedes owner-session-4. Read AGENTS.md first.
 - Still on hold without owner authorization: #47, #94, #145, #146, #147. No custom UI.
 - Roadmap: Phase 5 amps (engine amp slot is still AmpStub), then presets/UI, hardening, release.
 - pluginval not installed locally; CI covers strictness 9.
+
+## Phase 5 progress (session stopped at usage limit, 2026-10-28)
+
+- Merged: #180 (ADR-0011, main 1724518, closes #166), #181 (research note, closes #167).
+- Approved, auto-merge watcher was running (re-run `bash docs/state/HANDOFF/mergewatch.sh <PR>` if it died):
+  #183 preamp (#171), #185 tone stack (#172). Merge only after all six CI jobs SUCCESS; a Debug failure in
+  TunerTap is flaky #147, re-run that job.
+- Still running as subagents when stopped (their clones C:\osp168, C:\osp173): #168 NAM deps + RtResampler,
+  #173 power amp. Check for their PRs/handoffs; review like #183 (RT skim, measurements, file ownership), then merge.
+- Decisions recorded: 2x-rate (88.2/96 Live) full-band aliasing judged at full-model level in #174 (comment on #174);
+  sag patent: #173 must use generic RC supply model and note it.
+- Follow-ups: docs PR reconciling parameters.md §1.4 vs ADR-0011 D3 coefficient-update wording; sympy in tools/requirements.txt.
+- Next after stages: #174 (needs #171-#173 + #83), #169 (needs #168 + #83). #83/#165 are on another account.
