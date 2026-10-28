@@ -212,6 +212,7 @@ TEST_CASE("PowerAmp: rate x block-size matrix, reset() determinism, pre-prepare 
     CAPTURE(fs, name(shape));
     const auto in = noise(8192, 11u, 1.5f);
     auto v = voicing(shape);
+    v.sagAmount = 0.3;
     auto configure = [&](PowerAmp& a) { // targets move after prepare, so the smoothers run during the render
         a.setPresence(8.0f);
         a.setDepth(1.5f);
@@ -248,6 +249,7 @@ TEST_CASE("PowerAmp: parameter fuzz at max NFB stays finite, bounded and free of
     const auto shape = GENERATE(PowerAmpShape::beam, PowerAmpShape::pentode);
     CAPTURE(fs, name(shape));
     auto v = voicing(shape, 20.0);
+    v.sagAmount = 0.5;
     PowerAmp amp;
     amp.setVoicing(v);
     amp.prepare(fs, 64);
@@ -305,6 +307,7 @@ TEST_CASE("PowerAmp: the tanh loop solve has converged at the default iteration 
     auto run = [&](int iterations) {
         auto v = voicing(PowerAmpShape::beam, 20.0);
         v.maxNewtonIterations = iterations;
+        v.sagAmount = 0.3;
         PowerAmp amp;
         amp.setVoicing(v);
         amp.prepare(192000.0, 512);
@@ -340,6 +343,49 @@ TEST_CASE("PowerAmp: THD rises monotonically with master (REQ-TEST-002)", "[dsp]
         CHECK(thd > prev);
         prev = thd;
     }
+}
+
+TEST_CASE("PowerAmp: sag lowers the headroom under sustained load and recovers with the release time",
+          "[dsp][amp][poweramp][sag]")
+{
+    constexpr double fs = 192000.0;
+    auto v = voicing(PowerAmpShape::pentode);
+    v.sagAmount = 0.3;
+    v.sagAttackMs = 20.0;
+    v.sagReleaseMs = 200.0;
+    PowerAmp amp;
+    amp.setVoicing(v);
+    amp.setMaster(10.0f);
+    amp.prepare(fs, 512);
+    auto peakOf = [](const std::vector<float>& x, std::size_t from, std::size_t to) {
+        float p = 0.0f;
+        for (std::size_t i = from; i < to; ++i)
+            p = std::max(p, std::abs(x[i]));
+        return static_cast<double>(p);
+    };
+    const auto burst = sine(fs, 1000.0, 1.0, static_cast<std::size_t>(0.5 * fs));
+    const auto out = render(amp, burst);
+    const double onset = peakOf(out, 0, 384), held = peakOf(out, out.size() - 1920, out.size());
+    const double d0 = amp.getSupplyDroop();
+    const double drop = 20.0 * std::log10(held / onset);
+    render(amp, std::vector<float>(static_cast<std::size_t>(0.2 * fs), 0.0f)); // one release time
+    const double d1 = amp.getSupplyDroop();
+    render(amp, std::vector<float>(static_cast<std::size_t>(0.8 * fs), 0.0f)); // five in total
+    const double d5 = amp.getSupplyDroop();
+    std::printf("poweramp sag S 0.3: droop %.3f, peak %+.2f dB after 0.5 s; droop after 1/5 release times %.3f/%.4f\n",
+                d0, drop, d1, d5);
+    CHECK(d0 > 0.15);
+    CHECK(drop < -1.5);
+    CHECK(d1 <= std::exp(-1.0) * d0 * 1.02);
+    CHECK(d5 <= 0.01 * d0);
+    // After recovery, the next burst starts exactly as the first one.
+    CHECK(std::abs(peakOf(render(amp, burst), 0, 384) - onset) <= 0.01 * onset);
+
+    PowerAmp noSag; // default voicing: sagAmount 0 (patent note in PowerAmp.h)
+    noSag.setMaster(10.0f);
+    noSag.prepare(fs, 512);
+    render(noSag, burst);
+    CHECK(noSag.getSupplyDroop() == 0.0);
 }
 
 TEST_CASE("PowerAmp: ASR within ADR-0005 D5 Live gates at 4x IIR (REQ-OS-003)", "[dsp][amp][poweramp][asr]")
@@ -430,6 +476,7 @@ TEST_CASE("PowerAmp: CPU per stage (local timing, not a bench entry)", "[.][perf
     for (auto shape : {PowerAmpShape::beam, PowerAmpShape::pentode})
         for (double level : {0.05, 1.0}) {
             auto v = voicing(shape);
+            v.sagAmount = 0.2;
             PowerAmp amp;
             amp.setVoicing(v);
             amp.setMaster(8.0f);
