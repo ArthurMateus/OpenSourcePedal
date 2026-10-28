@@ -9,6 +9,7 @@
 // The benchmarks themselves are in tests/bench/entries/*.cpp and register through bench_common.h.
 
 #include "bench_common.h"
+#include "osp/platform/FlushDenormals.h"
 
 #include <nanobench.h>
 
@@ -24,6 +25,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -75,12 +77,16 @@ struct Biquad {
 
 int main(int argc, char** argv)
 {
+    const osp::ScopedFlushDenormals flushDenormals;
     const char* outPath = nullptr;
+    std::vector<const char*> selected;
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--out") == 0 && i + 1 < argc) {
             outPath = argv[++i];
+        } else if (std::strcmp(argv[i], "--entry") == 0 && i + 1 < argc) {
+            selected.push_back(argv[++i]);
         } else {
-            std::fprintf(stderr, "usage: osp-bench [--out results.json]\n");
+            std::fprintf(stderr, "usage: osp-bench [--out results.json] [--entry name ...]\n");
             return 2;
         }
     }
@@ -93,7 +99,11 @@ int main(int argc, char** argv)
 
     const auto input = makeInput();
     ankerl::nanobench::Bench bench;
-    bench.title("osp-bench (48 kHz, 64-sample blocks, 1 s of audio per op)").unit("s audio").epochs(kEpochs).warmup(1);
+    bench.title("osp-bench (48 kHz, 64-sample blocks, 1 s of audio per op)")
+        .unit("s audio")
+        .epochs(kEpochs)
+        .minEpochTime(std::chrono::milliseconds(10))
+        .warmup(1);
 
     // REQ-TEST-007 step 2: T_ref, 64 RBJ low-passes at 200 Hz ... 12.8 kHz (log-spaced), Q = 0.707.
     std::array<Biquad, 64> cascade;
@@ -112,6 +122,25 @@ int main(int argc, char** argv)
     auto entries = registry();
     std::sort(entries.begin(), entries.end(),
               [](const Entry& x, const Entry& y) { return std::strcmp(x.name, y.name) < 0; });
+    // Explicit selections run in argument order, for interleaved ordering/isolation diagnostics (#165).
+    if (!selected.empty()) {
+        std::vector<Entry> ordered;
+        for (const char* name : selected) {
+            if (std::any_of(ordered.begin(), ordered.end(),
+                            [name](const Entry& e) { return std::strcmp(e.name, name) == 0; })) {
+                std::fprintf(stderr, "osp-bench: duplicate entry %s\n", name);
+                return 2;
+            }
+            const auto it = std::find_if(entries.begin(), entries.end(),
+                                         [name](const Entry& e) { return std::strcmp(e.name, name) == 0; });
+            if (it == entries.end()) {
+                std::fprintf(stderr, "osp-bench: unknown entry %s\n", name);
+                return 2;
+            }
+            ordered.push_back(*it);
+        }
+        entries = std::move(ordered);
+    }
     Context ctx{bench, input, results};
     for (const auto& entry : entries)
         entry.fn(ctx);

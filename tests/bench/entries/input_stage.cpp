@@ -20,7 +20,12 @@ OSP_BENCH(input_stage)
     inputStage.prepare(kSampleRate, kBlock);
     inputStage.setGainDb(6.0f);
     inputStage.reset();
+    // Keep this unit kernel specialised when graph.cpp adds more callers under MSVC LTCG (#165).
+    // The full graph benchmarks retain the production Engine call path.
     results.push_back({"input_stage", measure(bench, "input_stage", input, [&](const float* in, float* out, int n) {
+#if defined(_MSC_VER)
+                           [[msvc::forceinline_calls]]
+#endif
                            inputStage.process(in, out, n);
                        })});
 }
