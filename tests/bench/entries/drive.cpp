@@ -44,4 +44,20 @@ OSP_BENCH(drive_region_live)
                                       [&](const float* in, float* out, int n) { os1.process(in, out, n); })});
 }
 
+// The same stacked drive section in HQ at 48 kHz (#112): 8x on the FIR kind (ADR-0005 A3) plus the 6-sample pad.
+OSP_BENCH(drive_region_hq)
+{
+    auto& bench = ctx.bench;
+    const auto& input = ctx.input;
+    auto& results = ctx.results;
+    osp::dsp::DriveRegion os1Hq;
+    os1Hq.slot(0).setEnabled(true);
+    os1Hq.slot(1).setEnabled(true);
+    os1Hq.slot(1).setType(osp::dsp::DriveType::dist);
+    os1Hq.prepare(kSampleRate, kBlock, osp::dsp::OversamplingQuality::hq);
+    results.push_back(
+        {"drive_region_hq", measure(bench, "drive_region_hq", input,
+                                    [&](const float* in, float* out, int n) { os1Hq.process(in, out, n); })});
+}
+
 } // namespace osp::bench

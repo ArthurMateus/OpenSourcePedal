@@ -32,7 +32,7 @@ flowchart LR
     end
     MODPRE --> CL
     MODPRE --> NAM
-    MODPRE --> CLEAN[Clean DI path<br/>amp.cleanBlendPct<br/>delay = L_slot + L_cab]
+    MODPRE --> CLEAN[Clean DI path<br/>amp.cleanBlendPct<br/>delay = K_clean]
 
     CL --> CAB
     NAM --> CAB
@@ -54,9 +54,10 @@ Notes:
 - The Modulation block exists **once** per preset. Its `position` parameter moves it between **pre-amp (after Drive B,
   before the amp)** and **post-cab (after the EQ and the clean blend)** (REQ-415, ref Q1; parameters review decision).
   In the pre-amp position it runs as a mono instance (stereo voices are summed). Changing the position is a discrete
-  change and crossfades like a channel switch.
+  change: the block's wet fades out (its own 10 ms enable fade), the block moves, resets and fades back in, so the dry
+  signal never dips (ADR-0009 D1).
 - **Clean DI blend (`amp.cleanBlendPct`, parameters.md):** a parallel path tapped at the amp input (after Drive B and the
-  pre-amp modulation position) that skips amp, cab and EQ. It is delayed by `L_slot + L_cab` (§4), duplicated to
+  pre-amp modulation position) that skips amp, cab and EQ. It is delayed by `K_clean` (§4), duplicated to
   centre-panned stereo, and mixed after the EQ: `out = (1 − b)·wet + b·clean`, b = cleanBlendPct / 100, smoothed per
   parameters.md. It is part of the amp block's latency contract, so it never changes `L_total`. The amp path's residual IIR fraction (≤ 0.5 sample, ADR-0005 D4) against the integer-delayed clean path is accepted; the amp path is nonlinear, so blends are not null-tested (only b = 100 % is, REQ-424). This answers ref Q4 and
   tone-targets-a T1.
@@ -115,19 +116,27 @@ the sample rate or the Live/HQ mode changes.
 | L_amp | Amp slot | ADR-0002 D4 `L_slot = max(L_res(fs, 48 kHz), L_classic(fs, q))`; every model is padded up to it | One value for all 3 channels and both model kinds |
 | L_classic | OS-2 cascade + ADAA | `round(D_os2)` | ADR-0005 D4 |
 | L_res | NAM resampler (Lanczos A = 12), 48 kHz model at host fs | `round(D_res)`; 0 at a 48 kHz host | ADR-0002 D4; ADR-0005 REQ-OS-005 |
-| L_clean | Clean DI path (`amp.cleanBlendPct`) | Delay line of exactly `L_slot + L_cab`, so it adds nothing to `L_total` | parameters.md (#51) |
+| L_clean | Clean DI path (`amp.cleanBlendPct`) | Delay line of exactly `K_clean` (below; equals `L_slot + L_cab` when the delays are integers), so it adds nothing to `L_total` | parameters.md (#51) |
 | L_cab | Convolution | **0**: zero-latency partitioned convolution (direct-form head + FFT tail) | Library choice deferred (ADR-0006 Deferred). If the cab ticket cannot meet 0 within budget, it amends this row with a fixed value |
 | L_eq | EQ | 0 | Minimum-phase biquads. A linear-phase EQ is post-v1 |
 | L_dly, L_rev, L_dbl | Delay, reverb, doubler | 0 | Wet paths are delayed by design. The dry path is not delayed |
 | L_out | Output stage | 0 | — |
 
-**Total latency (reported via `setLatencySamples`, shown in the latency panel):**
+**Total latency (reported via `setLatencySamples`, shown in the latency panel), rounded once (ADR-0009 D4):**
 
 ```
-L_total(fs, q) = L_os1(fs, q) + L_slot(fs, q) + L_cab(fs)        // every other term is 0 in v1
-L_slot(fs, q)  = max(L_res(fs, 48 kHz), L_classic(fs, q))          // ADR-0002 D4
-L_X(fs, q)     = round(D_X(fs, q))                                 // ADR-0005 D4: D = measured 1 kHz group delay
+L_total(fs, q) = round(D_os1 + D_slot + D_cab)                     // every other term is 0 in v1
+D_slot(fs, q)  = the amp slot's measured delay, padded to one value for every channel and model (ADR-0002 D4)
+D_X(fs, q)     = measured 1 kHz group delay of block X, base-rate samples, double (ADR-0005 D4)
+K_gate         = round(D_os1 + D_slot)                             // gate.postAmp gain delay
+K_clean        = round(D_os1 + D_slot + D_cab) − round(D_os1)      // clean DI delay
 ```
+
+Each tap point x of the graph gets one integer, `R(x) = round(P(x))`, where `P(x)` is the sum of the measured delays
+from the input to x. A parallel path from a to b is delayed by `R(b) − R(a)`, so every input-to-output path adds up to
+exactly `L_total`, and every tap is within ±0.5 sample of its true delay. A block's own integer `getLatencySamples()`
+(`round(D_X)`, the `L_X` column above) stays its contract for its own tests and hard-bypass padding. The engine does
+not add those integers: with two IIR regions at +0.47 each, the sum would be 0.94 sample off.
 
 The standalone UI also shows `L_driver_in + L_driver_out + L_total` as the predicted round trip, next to the measured
 loopback value (REQ-304/305, asio-low-latency R10).
@@ -136,8 +145,8 @@ Verification (REQ-301, ADR-0005 REQ-OS-001a/b, REQ-OS-005):
 - **FIR (HQ):** D is an integer by design. The block nulls against the input delayed by `getLatencySamples()`.
 - **IIR (Live):** the measured 1 kHz group delay is within ±0.5 sample of `getLatencySamples()`; the residual fraction
   is logged; no null test (non-linear phase).
-- A chain-level test checks `L_total` = Σ slot latencies, and that the reported latency and measured 1 kHz delay are
-  unchanged across every voicing, channel, model and bypass permutation of a preset.
+- A chain-level test checks `L_total` = `round(Σ D)`, and that the reported latency and measured 1 kHz delay are
+  unchanged across every voicing, channel, model and bypass permutation of a preset (ADR-0009 D4).
 
 Expected magnitude (ADR-0005 D4, *unverified*): IIR 2×/4× ≈ 1–5 samples and FIR ≈ 10–40 samples per domain. Live total
 ≤ 16 samples at 48 kHz (REQ-302, confirmed by ADR-0005 D4).
@@ -150,7 +159,9 @@ Expected magnitude (ADR-0005 D4, *unverified*): IIR 2×/4× ≈ 1–5 samples an
 | Block enable / bypass (user, `<blockId>.enabled`) | **10 ms constant-amplitude (linear) crossfade** between the processed and the latency-matched dry signal. Linear, not equal-power, because both signals are time-aligned and strongly correlated, so a linear fade keeps the level constant. Latency is kept (padding stays in). **This spec owns the length.** parameters.md references it | REQ-303, REQ-402 |
 | Delay / reverb bypass (user) | **Soft bypass (trails):** the input send is muted and tails ring out. `setSoftBypass(bool)` | time-based-effects Q4; ADR-0007 |
 | Hard bypass (tests, null test) | `setBypassed(true)`: output = latency-aligned input, nulls ≤ −120 dBFS | ADR-0007 REQ-TEST-004 |
-| Amp channel switch, model/IR change, modulation position change | ADR-0004 crossfade between the old and new instance | ADR-0004 §5 |
+| Amp channel switch, model/IR change | ADR-0004 crossfade between the old and new instance. A channel switch crossfades the {amp, cab, EQ} strips | ADR-0004 §5; ADR-0009 D1 |
+| Modulation position change | Wet fades out (10 ms), the block moves and resets, wet fades in | ADR-0009 D1 |
+| `gate.postAmp` switch (xf 10) | The gate's attenuation moves in the log domain from before the amp to after it over 10 ms (`h^(1−x)` before, `h^x` delayed by `K_gate` after), level-neutral through a linear amp | ADR-0009 D6 |
 | Preset change | The whole chain uses the ADR-0004 crossfade. Delay/reverb tails of the old preset are **cut by the fade** in v1. Cross-preset spillover is post-v1 (needs both chains' tails to run) | threading.md §8 deferral, resolved here |
 | Quality change (Live ↔ HQ) | Global user setting (not in presets). Rebuild on the worker → new latency reported on the message thread → ADR-0004 crossfade. Hosts are **not** switched to HQ automatically for offline renders in v1. `osp-render --quality hq` may force HQ | ADR-0005 D6; threading.md §4.6 |
 | Wet/dry mixes inside a block (comp blend, delay/reverb mix, doubler width) | Mixed inside the block. Any wet-path latency is matched on the dry path inside the block, so `getLatencySamples()` stays the block's single value | §4 rule |

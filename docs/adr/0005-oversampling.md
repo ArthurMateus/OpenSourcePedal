@@ -52,8 +52,8 @@ Oversampled regions follow `docs/spec/signal-flow.md` (#52):
     the oversampled rate).
   - **OS-2** is the classic amp's own region. It stays separate from OS-1 because NAM channels sit in the same amp slot
     and must not be forced into OS-2 (signal-flow §OS regions).
-  - The clean DI blend (`amp.cleanBlendPct`, signal-flow #52) is delayed by the integer `L_slot + L_cab`, so the
-    total latency is unchanged. Against an IIR amp path, the residual fraction (≤ 0.5 sample, D4) remains between the
+  - The clean DI blend (`amp.cleanBlendPct`, signal-flow #52) is delayed by the integer `K_clean` (ADR-0009 D4;
+    `L_slot + L_cab` when the delays are integers), so the total latency is unchanged. Against an IIR amp path, the residual fraction (≤ 0.5 sample, D4) remains between the
     blended signals. This is accepted, because the amp path is nonlinear and no null applies.
   - The cost is that soft-clip voicings in OS-1 run at 4× rather than the 2× the research suggests (OS §3.1). The
     extra CPU is accepted for one pair and constant latency.
@@ -88,8 +88,9 @@ designed to.
   padded with a preallocated delay. Enabling, bypassing or swapping a block never changes the reported total, and
   crossfades are time-aligned. The amp slot uses ADR-0002 D4's `L_slot`, which includes the classic amp's oversampler
   latency from this ADR (`L_classic`).
-- The engine sums the slot latencies and reports the total through `setLatencySamples`, from the control thread, only
-  in `prepare()` (a Live/HQ change or SR/block change).
+- The engine reports the total through `setLatencySamples`, from the control thread, only in `prepare()` (a Live/HQ
+  change or SR/block change). *Amended by ADR-0009 D4 (#95):* it rounds once, `round(Σ D)` over the measured
+  fractional delays, instead of summing the per-block `round(D)`; parallel paths use the same rounded sums.
 - Expected magnitude (*unverified*, OS §3.4): IIR 2×/4× ≈ 1–5 samples, FIR 2×/4× ≈ 10–40 samples per block. Live mode
   must stay at **≤ 16 samples total** for the full chain at 48 kHz (REQ-302, confirmed here), excluding the
   NAM resampler, which is 0 at 48 kHz (REQ-OS-005).
@@ -185,6 +186,36 @@ designed to.
   samples at stage 0) gains nothing at 20 kHz over 0.03.
 - **Follow-up:** with 2 ADAA slots of 1 sample at 8×, an FIR OS-1 region has D = 80 + 2/8. D4 asks for an integer, so
   `DriveRegion` pads 6 samples at the oversampled rate when it switches HQ to the FIR kind (after #104).
+
+## Amendment A3 (2026-10-27, #112): FIR (HQ) stage-0 decimator is full-band, stopband from fs/2
+
+- Status: **Proposed** (#112 part 1). Author: default/dsp-engineer.
+- **Problem.** A halfband is symmetric about fs/2: its passband edge is fs/2 − Δ and its stopband edge fs/2 + Δ. A2
+  needs the passband to 20 kHz at 44.1 kHz, so the stage-0 decimator's stopband starts at 0.56·fs (24.7 kHz), and
+  harmonics between fs/2 and 0.56·fs fold back to 19.4 kHz–fs/2 with little rejection. It is the A1 problem again, and
+  a halfband cannot fix it without breaking the A2 passband. Measured on #112 with `DriveRegion` HQ on the A2 FIR
+  (mid → dist at drive 10, ADR-0007 harness): ASR −51.5 dB at 1 kHz (44.1/48 kHz), −27.2 dB at 5 kHz @ 48 kHz (H5 at
+  25 kHz folds to 23 kHz). The old HQ path (IIR at 8×) measured −90.8…−93.0 and −73.3…−74.4 dB. So the FIR kind would
+  have made HQ alias worse than Live, and broken D5's "> 3 dB worse than `main`" gate.
+- **Decision.** Only the stage-0 decimator changes. It is a **full-band** equiripple lowpass (`scipy.signal.remez`,
+  equal weights), odd length N, with its passband to 20 kHz at 44.1 kHz (0.2268 of 2fs) and its stopband **from fs/2**
+  (0.25 of 2fs), designed for 110 dB. Nothing above fs/2 folds back unattenuated. The upsampler and stages 1–2 keep
+  the A2 halfbands, because their transition bands land above fs/2 and stage 0 removes them. `tools/design/halfband_fir.py`
+  picks N = 293 (the smallest that meets 110 dB with an integer stage-0 delay). The decimator computes only the kept
+  outputs, folds the symmetric taps, and runs 8 partial sums.
+- **Measured (#112 part 1, VS 2022 Release):**
+  - Stage-0 decimator stopband from fs/2: −108.1 dB (D3 min 100). The other stages are unchanged.
+  - Passband ripple to 20 kHz: ≤ 0.019 dB at 44.1 kHz, ≤ 6e-5 dB at 48 kHz and above. Identity null (REQ-OS-001a):
+    −122.1…−125.1 dBFS RMS (was −121.2…−122.3).
+  - **Latency** is still an exact integer: **101 / 116 / 124 base samples** at 2× / 4× / 8× (was 57 / 72 / 80). HQ at
+    8× is 2.6 ms at 48 kHz per oversampled region; OS-1 with its pad is 125 samples (#112 part 2).
+  - `DriveRegion` HQ ASR with A3: −92.0…−94.1 dB at 1 kHz and −74.3…−75.0 dB at 5 kHz (44.1/48 kHz, −6/0 dBFS), at
+    least as good as the IIR 8× path in every case and inside the D5 HQ targets (−80/−60).
+  - CPU: `oversampler_fir_8x` goes from r 0.46 to about 1.2 (about 1.2 % of a core per HQ region). HQ is not the
+    Live mode; the budget is raised in the same PR.
+- **Not chosen:** (a) a narrower halfband (stopband nearer fs/2) lowers the passband edge and breaks the A2 20 kHz
+  clause; (b) an extra in-domain lowpass at 2fs before the halfband costs as much and adds its own delay on top;
+  (c) keeping A2 and leaving HQ on the IIR breaks D1 (HQ = FIR).
 
 ## Requirements
 

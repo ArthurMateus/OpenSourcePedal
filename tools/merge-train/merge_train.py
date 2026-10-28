@@ -154,7 +154,8 @@ def wait_checks(n, sha, timeout=90 * 60):
         bad = [k for k, v in got.items() if v in ("FAILURE", "CANCELLED", "TIMED_OUT", "ERROR", "ACTION_REQUIRED")]
         if bad:
             raise RuntimeError(f"#{n}: check failed: {bad}")
-        if REQUIRED <= set(got) and all(v in ("SUCCESS", "SKIPPED", "NEUTRAL") for v in got.values()):
+        if (REQUIRED <= set(got) and all(got[name] == "SUCCESS" for name in REQUIRED)
+                and all(v in ("SUCCESS", "SKIPPED", "NEUTRAL") for v in got.values())):
             return
         time.sleep(30)
     raise RuntimeError(f"#{n}: checks did not finish in {timeout // 60} min")
