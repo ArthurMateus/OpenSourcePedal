@@ -2,8 +2,8 @@
 
 Own derivation by nodal analysis (Kirchhoff's current law at every node), solved with sympy. Method idea after Yeh and
 Smith, DAFx-06 (symbolic analysis, then a per-block discretisation); no formula, coefficient or code was taken from that
-paper, its web page or any other implementation. Offline tool, not shipped. Needs numpy and sympy (sympy is not in
-tools/requirements.txt: pip install sympy).
+paper, its web page or any other implementation. Offline tool, not shipped. Needs numpy and sympy, pinned in
+tools/requirements.txt.
 
   python tools/amp/tonestack_derive.py              print b0..b3, a0..a3 grouped by knob monomial t^i l^j m^k
   python tools/amp/tonestack_derive.py --bilinear   max error of a plain bilinear transform (why ToneStack uses
