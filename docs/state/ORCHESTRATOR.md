@@ -1,13 +1,19 @@
 # Orchestrator state (LIVE, `state` branch)
 
-> **2026-10-28 ~02:40Z, Codex owner-session continuation ACTIVE.** The requested older queues
-> #144/#143/#148/#142 and #139/#140 are already merged. #150 is merged; #151 is synced at
-> `241dd7e` and waiting for all six CI jobs. Sole train writer: `C:\osptrain`, scratch runner
-> `C:\osptrain-control\merge_train.py`, command `139 140 150 151 152 153 154 155 156 162 163 164`.
-> Independent writers: `C:\osp115` (#157 registry split, final resync after train),
-> `C:\osp164review` (#154 reverb Spring/Shimmer fan-out correction, release ownership before train reaches #154),
-> `C:\ospqa3` (QA pass 2 then merged-main pass 3; harness copies under `.git/qa-*`).
-> #47/#94/#145/#146/#147 remain on hold. Do not revive the old Maestri workers; CLI is unavailable here.
+> **2026-10-28 ~02:45Z, Codex owner-session continuation ACTIVE.** Initial queues and #112 were already
+> merged; this session merged #150. #151 is synced at `241dd7e`, CI running, but the local train was stopped
+> safely during its read-only CI wait to honor the current user's explicit **#115 before remaining #95** order
+> (this overrides owner-session-3's proposed last-in-train position for #115).
+> `C:\osp115` exclusively owns #157 resync to current main `faec4e7`, preserving 31 current benchmark entries.
+> Once #157 is all-six-green and merged, manually resolve the registry migration in remaining #151-156
+> (especially #155 graph benches), then resume the train. Scratch runner `C:\osptrain-control\merge_train.py`
+> has the full PARENT map and six required job names; replace its broad conflict resolver with the #115 version
+> after #157 lands. No active train process remains.
+> #154 correction is pushed at `fc82fd7`: actual Spring/Shimmer + amount/interval fan-out; Release and Debug
+> `/WX` engine tests passed (31 cases / 8,897 assertions each). Worker released ownership.
+> QA baseline `C:\ospqa3`: Release app/VST3 build and 248/248 tests pass; 2,521 standalone checks reproduce
+> only known #145/#160/#161 failures. Final QA awaits merged main. Handoff on `qa/95-post-merge-audit`.
+> #47/#94/#145/#146/#147 remain on hold; old Maestri workers remain stopped.
 > Follow owner-session-3 for baseline history, then this live entry for current progress.
 
 > **2026-10-28 ~00:05Z, owner session part 3 stopped (account switch).** Read
