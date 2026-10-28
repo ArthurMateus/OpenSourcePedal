@@ -2,9 +2,9 @@
   "benchmarks": {
     "gate": {
       "kind": "block",
-      "r0": 0.013424,
+      "r0": 0.014530498,
       "maxCpuPercent": 0.7,
-      "baseline": "#65, 2026-10-25, local VS 2022 Release build (windows-msvc-ci), median of 6 quiet runs, T_ref about 10.3 ms",
+      "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.014530498 (range 0.014364252..0.015109462, spread 5.19%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
       "headroom": "about 50x the measured 0.014 %: enabled gate, peak detector + hysteresis/hold state machine + per-sample gain on -12 dBFS noise"
     }
   }

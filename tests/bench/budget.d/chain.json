@@ -2,9 +2,9 @@
   "benchmarks": {
     "passthrough_chain": {
       "kind": "full_chain",
-      "r0": 0.000486,
+      "r0": 0.000347764,
       "maxCpuPercent": 25.0,
-      "baseline": "first osp-bench run, #46, 2026-10-25, local VS 2022 Release build, T_ref 10.45 ms",
+      "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.000347764 (range 0.000344731..0.000360521, spread 4.58%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
       "headroom": "full chain: the fixed 25 % ceiling (AGENTS.md section 4) applies"
     }
   }

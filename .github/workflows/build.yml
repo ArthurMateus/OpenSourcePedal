@@ -58,8 +58,8 @@ jobs:
           pip install jsonschema==4.23.0
           python tools/tonematch/check_preset.py build/release/tools/osp-tonematch.exe
       # REQ-TEST-007. 5 runs, gated on the per-benchmark median (tools/bench/median.py), so one noisy run cannot fail
-      # the job. The R regression gate stays off until budget.json holds r0 values from this runner (#83).
-      - name: Benchmarks (CPU ceilings)
+      # the job. The strict >10% R gate uses runner-derived r0 in budget.d (#83); no extra noise allowance.
+      - name: Benchmarks (CPU ceilings and R regression)
         shell: bash
         run: |
           set -euo pipefail
@@ -80,7 +80,8 @@ jobs:
           PY
           for i in 1 2 3 4 5; do ./build/release/tests/osp-bench.exe --out "build/bench-$i.json" > /dev/null; done
           python tools/bench/median.py build/bench.json build/bench-[1-5].json
-          python tools/bench/check_budget.py build/bench.json --no-regression
+          python tools/bench/check_budget.py build/bench.json
+          python tools/bench/verify_gate.py build/bench.json
       - name: Upload test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4

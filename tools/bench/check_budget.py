@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -45,7 +46,9 @@ def main() -> int:
     results = json.loads(Path(args.results).read_text(encoding="utf-8"))["benchmarks"]
     tol = budget["regressionTolerance"]
     ceilings = budget["ceilings"]
-    failures = []
+    failures = [f"{name}: missing budget" for name in sorted(results.keys() - budget["benchmarks"].keys())]
+    if not math.isfinite(tol) or tol < 0:
+        raise SystemExit("budget: regressionTolerance must be finite and non-negative")
 
     for name, b in budget["benchmarks"].items():
         r = results.get(name)
@@ -58,11 +61,18 @@ def main() -> int:
             limit = min(limit, ceilings["fullChainCpuPercent"])
         elif b["kind"] == "nam":
             limit = min(limit, ceilings["namCpuPercent"])
+        if (
+            not all(math.isfinite(v) for v in (cpu, ratio, b["r0"], limit))
+            or cpu < 0 or ratio <= 0 or b["r0"] <= 0 or limit <= 0
+        ):
+            failures.append(f"{name}: invalid metrics or budget")
+            continue
         delta = ratio / b["r0"] - 1.0
         print(f"{name:20s} cpu {cpu:9.4f} % (max {limit:g})  R {ratio:.6f} (r0 {b['r0']:.6f}, {delta:+.1%})")
         if cpu >= limit:
             failures.append(f"{name}: {cpu:.4f} % CPU >= {limit:g} %")
-        if not args.no_regression and delta > tol:
+        # Compare the ratio directly so an exact +10% boundary is not rejected by subtraction rounding.
+        if not args.no_regression and ratio > b["r0"] * (1.0 + tol):
             failures.append(f"{name}: R regressed {delta:+.1%} (> {tol:.0%})")
 
     for f in failures:

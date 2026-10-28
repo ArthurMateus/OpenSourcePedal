@@ -2,23 +2,23 @@
   "benchmarks": {
     "delay_digital": {
       "kind": "block",
-      "r0": 0.1049,
+      "r0": 0.083871693,
       "maxCpuPercent": 3.0,
-      "baseline": "#71 part 2, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.0974-0.1456), T_ref about 19 ms on this machine",
+      "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.083871693 (range 0.082040127..0.086789760, spread 5.79%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
       "headroom": "about 15x the measured 0.20 %: digital ping-pong at the defaults, stereo; two Catmull-Rom reads, four TPT one-poles and two ring writes per sample. Parts 3-4 add the saturating voicings and the block"
     },
     "delay_tape": {
       "kind": "block",
-      "r0": 0.7514,
+      "r0": 0.500853548,
       "maxCpuPercent": 12.0,
-      "baseline": "#71 part 3, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.7293-0.7529), T_ref about 41 ms on a loaded machine (3.06 % CPU)",
+      "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.500853548 (range 0.492143095..0.521162569, spread 5.90%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
       "headroom": "about 4x the measured 3.06 %: tape ping-pong, modulation 50 %, stereo; per side a 2x IIR oversampler pair and ADAA1 tanh (double, two transcendentals per oversampled sample) inside the loop. The costliest delay voicing"
     },
     "delay_block": {
       "kind": "block",
-      "r0": 0.7708,
+      "r0": 0.483116407,
       "maxCpuPercent": 12.0,
-      "baseline": "#71 part 4, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (r 0.7650-0.7722), T_ref about 41.5 ms on a loaded machine (3.20 % CPU)",
+      "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.483116407 (range 0.475723865..0.494565912, spread 3.96%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
       "headroom": "about 4x the measured 3.2 %: ping-pong, ducking 6 dB, toggling digital <-> tape every 100 ms (30 % of the time two voices run in the 30 ms crossfade, and each toggle copies both 3 s delay lines)"
     }
   }
