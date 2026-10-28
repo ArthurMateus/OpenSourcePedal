@@ -14,6 +14,10 @@
         "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
           "r0": 0.730257756,
           "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.730257756, spread 0.39%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        },
+        "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel": {
+          "r0": 0.872914405,
+          "baseline": "bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001520, image 20261022.344.1; median of 5 R 0.872914405 (range 0.857633257..0.907802764, spread 5.85%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40761033116, head 189a950 (PR #187; bench code identical to main f9aa767)"
         }
       }
     },
@@ -31,6 +35,10 @@
         "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
           "r0": 0.137003413,
           "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.137003413, spread 1.41%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        },
+        "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel": {
+          "r0": 0.167543695,
+          "baseline": "bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001520, image 20261022.344.1; median of 5 R 0.167543695 (range 0.166416268..0.170873020, spread 2.68%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40761033116, head 189a950 (PR #187; bench code identical to main f9aa767)"
         }
       }
     },
@@ -48,6 +56,10 @@
         "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
           "r0": 1.272180451,
           "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 1.272180451, spread 0.74%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        },
+        "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel": {
+          "r0": 1.484292077,
+          "baseline": "bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001520, image 20261022.344.1; median of 5 R 1.484292077 (range 1.471771851..1.500736019, spread 1.97%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40761033116, head 189a950 (PR #187; bench code identical to main f9aa767)"
         }
       }
     },
@@ -65,6 +77,10 @@
         "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
           "r0": 0.810579641,
           "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.810579641, spread 1.46%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        },
+        "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel": {
+          "r0": 1.145154624,
+          "baseline": "bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001520, image 20261022.344.1; median of 5 R 1.145154624 (range 1.120056888..1.157026738, spread 3.30%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40761033116, head 189a950 (PR #187; bench code identical to main f9aa767)"
         }
       }
     },
@@ -82,6 +98,10 @@
         "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
           "r0": 0.769521921,
           "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.769521921, spread 0.42%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        },
+        "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel": {
+          "r0": 0.902990381,
+          "baseline": "bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001520, image 20261022.344.1; median of 5 R 0.902990381 (range 0.896261647..0.921114746, spread 2.77%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40761033116, head 189a950 (PR #187; bench code identical to main f9aa767)"
         }
       }
     },
@@ -99,6 +119,10 @@
         "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
           "r0": 1.310426464,
           "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 1.310426464, spread 0.64%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        },
+        "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel": {
+          "r0": 1.520631307,
+          "baseline": "bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001520, image 20261022.344.1; median of 5 R 1.520631307 (range 1.509788449..1.530703319, spread 1.39%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40761033116, head 189a950 (PR #187; bench code identical to main f9aa767)"
         }
       }
     }
