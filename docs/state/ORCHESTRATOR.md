@@ -1,23 +1,21 @@
 # Orchestrator state (LIVE, `state` branch)
 
-> **2026-10-28 ~03:22Z, Codex owner-session continuation ACTIVE.** Initial queues and #112 were already
-> merged. This session merged #150 and **#157 (#115)**; registry split landed at `db9a496` after all six CI jobs
-> passed. Local split verification: 252/252 tests, exact 31 bench/budget parity, CPU ceilings and discovery demo.
-> User's explicit #115-before-remaining-#95 order is now satisfied.
-> **Train ACTIVE** in exclusive `C:\osptrain`, scratch runner `C:\osptrain-control\merge_train.py`, durable log
-> `C:\osptrain-control\train.log`; queue `151 152 153 154 155 156 162 163 164`.
-> #151 manually resolved registry migration (keep the #115 test glob), pushed `d7d107b`, waiting fresh six-job CI.
-> Scratch runner carries the full PARENT map and the strict #115 conflict/check rules; it stops on source/CMake conflicts.
-> Independent work COMPLETE and ownership released: #155 at `66ce2db` (registry migration, exact 33 budgets;
-> Release/Debug RT engine tests: 33 cases / 594,789 assertions; CPU 0.8244% default / 3.9127% all blocks).
-> #156 at `016a906` (RT annotations, portable Graph constructor, ADR Accepted and acceptance coverage;
-> Release/Debug RT: 34 cases / 595,018 assertions each; Clang19 attribute syntax/type probes pass.
-> Full Clang >=20 static effect analysis / RTSan remains unverified). No further worker pushes are planned.
-> The train MUST carry final #154 into #155, then final #155 into #156; preserve all tests and annotations.
-> #154 correction is pushed at `fc82fd7`: actual Spring/Shimmer + amount/interval fan-out; Release and Debug
-> `/WX` engine tests passed (31 cases / 8,897 assertions each). Worker released ownership.
+> **2026-10-28 ~07:53Z, Codex continuation ACTIVE.** Completed this session: #150, #157 (#115, main
+> `db9a496`) and #151 (main `c07bff1`), each after all six CI jobs passed. Earlier queues and #112 were already merged.
+> **Train ACTIVE** in exclusive `C:\osptrain`: `C:\osptrain-control\merge_train.py`, queue
+> `152 153 154 155 156 162 163 164`, durable log `C:\osptrain-control\train.log`.
+> #152 synced/pushed at `c24fb49`, waiting fresh six-job CI. Source tree differs from main only by the intended
+> latency/clean-path implementation and test. Train uses strict six-required-SUCCESS checks and conservative
+> conflict rules. Added local sidecar `test_registry_migration.py`: resolves ONLY an exhaustive old test source list
+> against the exact #115 discovery block, validates all old files exist, and preserves non-conflict metadata.
+> Unknown edits are refused (probe passed). All other source conflicts still stop for explicit review.
+> `C:\osp115` worker is proactively carrying current #154 `fc82fd7` into #155 to preserve both mode and tail-idle
+> tests before train reaches it; wait for release/new head. #155's prior migration at `66ce2db` passed exact33
+> benchmark/budget parity and Release/Debug RT (33 cases / 594,789 assertions).
+> #156 released at `016a906`: RT annotations, portable Graph constructor, ADR Accepted; Release/Debug RT pass
+> 34 cases / 595,018 assertions each. Clang19 explicit-attribute syntax/type probes pass; full >=20 analysis/RTSan unverified.
 > QA baseline `C:\ospqa3`: Release app/VST3 build and 248/248 tests pass; 2,521 standalone checks reproduce only
-> known #145/#160/#161 failures. Final QA awaits merged main; resume agent after train. Handoff on `qa/95-post-merge-audit`.
+> known #145/#160/#161 failures. Final QA awaits train; resume agent `qa_audit`, handoff on `qa/95-post-merge-audit`.
 > #47/#94/#145/#146/#147 remain on hold; old Maestri workers remain stopped.
 > Follow owner-session-3 for baseline history, then this live entry for current progress.
 
