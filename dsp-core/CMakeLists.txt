@@ -1,33 +1,6 @@
-add_library(osp_dsp_core STATIC
-    src/Cab.cpp
-    src/ChorusFlanger.cpp
-    src/Compressor.cpp
-    src/Delay.cpp
-    src/delay/DelayVoice.cpp
-    src/delay/LoopSaturator.cpp
-    src/conv/IrLoader.cpp
-    src/conv/PartitionedConvolver.cpp
-    src/Drive.cpp
-    src/DriveRegion.cpp
-    src/Doubler.cpp
-    src/Eq.cpp
-    src/Gain.cpp
-    src/Gate.cpp
-    src/Reverb.cpp
-    src/reverb/DattorroTank.cpp
-    src/reverb/SpringTank.cpp
-    src/reverb/FdnTank.cpp
-    src/InputStage.cpp
-    src/OutputStage.cpp
-    src/Modulation.cpp
-    src/oversampling/Oversampler.cpp
-    src/reverb/FdnTank.cpp
-    src/tuner/PitchDetector.cpp
-    src/tuner/TunerTap.cpp
-    src/Phaser.cpp
-    src/Tremolo.cpp
-    src/util/DelayLine.cpp
-    src/rt/AudioThread.cpp)
+# Every .cpp under src/ is part of the library; adding a block adds a file, not a line here (#115).
+file(GLOB_RECURSE OSP_DSP_CORE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+add_library(osp_dsp_core STATIC ${OSP_DSP_CORE_SOURCES})
 add_library(osp::dsp_core ALIAS osp_dsp_core)
 
 target_include_directories(osp_dsp_core PUBLIC include)

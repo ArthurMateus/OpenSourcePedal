@@ -265,11 +265,12 @@ TEST_CASE("Oversampler: silence after noise decays to exactly 0, no limit cycle"
     CHECK(std::all_of(out.end() - kRate / 2, out.end(), [](float v) { return v == 0.0f; }));
 }
 
-TEST_CASE("Oversampler: each FIR halfband stage meets D3 + A2 (REQ-OS-002)", "[dsp][os][fir]")
+TEST_CASE("Oversampler: each FIR stage meets D3 + A2 + A3 (REQ-OS-002)", "[dsp][os][fir]")
 {
     constexpr double kFirTw[] = {0.03, 0.06, 0.06}; // A2: stage 0 transition 0.03, later stages 0.06
     const int stage = GENERATE(0, 1, 2);
     const double tw = kFirTw[stage];
+    const double downStop = stage == 0 ? 0.25 : 0.25 + tw; // A3: the stage-0 decimator stops from fs/2
     CAPTURE(stage);
     constexpr int kLen = 4096;
     std::vector<float> impulse(kLen, 0.0f), h(2 * kLen);
@@ -285,7 +286,7 @@ TEST_CASE("Oversampler: each FIR halfband stage meets D3 + A2 (REQ-OS-002)", "[d
             stop = std::max(stop, db[b]);
     }
     double worst = -400.0;
-    for (double f = 0.25 + tw; f < 0.4995; f += 0.0025)
+    for (double f = downStop; f < 0.4995; f += 0.0025)
         worst = std::max(worst, toneGainDb(f, 2, kLen, [&](const float* in, float* out) {
                              osp::dsp::detail::runFirStage(stage, false, in, out, kLen);
                          }));

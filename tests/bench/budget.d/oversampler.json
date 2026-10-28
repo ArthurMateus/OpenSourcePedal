@@ -1,0 +1,18 @@
+{
+  "benchmarks": {
+    "oversampler_iir_4x": {
+      "kind": "block",
+      "r0": 0.093383,
+      "maxCpuPercent": 1.0,
+      "baseline": "#63 part 2 (#96, HIIR FPU classes after review), 2026-10-26, local VS 2022 Release build (windows-msvc-ci), T_ref 10.50 ms",
+      "headroom": "about 10x the measured 0.098 %: HIIR FPU up + down at 4x (stages 0-1, 7/6 + 6/5 coefficients), identity processing; one OS region"
+    },
+    "oversampler_fir_8x": {
+      "kind": "block",
+      "r0": 1.29,
+      "maxCpuPercent": 5.0,
+      "baseline": "#112 part 1 (ADR-0005 A3), 2026-10-27, local VS 2022 Release build (windows-msvc-ci) on a loaded machine, median of 6 runs (R 1.08-1.45), T_ref 25-44 ms",
+      "headroom": "about 4x the measured 1.2-1.5 %: FIR up + down at 8x (HQ), 58/32/34 even-phase up taps, full-band 293-tap stage-0 decimator (A3, folded, 8 partial sums) + 30/32 down taps, identity processing; one HQ region"
+    }
+  }
+}

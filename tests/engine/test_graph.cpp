@@ -162,6 +162,43 @@ TEST_CASE("Graph: every block is reachable and parameter-addressable; disabled a
     }
 }
 
+TEST_CASE("Graph: spring, shimmer amount and every shimmer interval reach the reverb", "[engine][graph][reverb]")
+{
+    const double rate = GENERATE(44100.0, 48000.0, 96000.0);
+    constexpr int block = 127; // odd host blocks exercise the same fan-out used by the app
+    const int samples = static_cast<int>(3.0 * rate);
+    auto in = sine(rate, 440.0, 0.2f, samples);
+    std::fill(in.begin() + static_cast<int>(0.2 * rate), in.end(), 0.0f); // a note followed by its reverb tail
+    const auto render = [&](float mode, float amount, float interval) {
+        Rig rig(rate, block);
+        rig.set("input.enabled", 0.0f);
+        rig.set("output.limiter", 0.0f);
+        rig.set("reverb.enabled", 1.0f);
+        rig.set("reverb.mode", mode);
+        rig.set("reverb.mixPct", 100.0f);
+        rig.set("reverb.preDelayMs", 0.0f);
+        rig.set("reverb.shimmerPct", amount);
+        rig.set("reverb.shimmerInterval", interval);
+        rig.graph.reset(); // start in the requested mode, without a transition from the default hall
+        return rig.render(in, block).l;
+    };
+    const auto plate = render(2.0f, 0.0f, 0.0f);
+    const auto spring = render(3.0f, 0.0f, 0.0f);
+    const auto hall = render(1.0f, 0.0f, 0.0f);
+    const auto noShimmer = render(4.0f, 0.0f, 0.0f);
+    const auto octave = render(4.0f, 80.0f, 0.0f);
+    const auto fifth = render(4.0f, 80.0f, 1.0f);
+    const auto down = render(4.0f, 80.0f, 2.0f);
+    const auto tail = static_cast<std::size_t>(0.3 * rate);
+    // Each comparison fails if its selector/amount is ignored or spring/shimmer still use plate/hall fallbacks.
+    CHECK(rmsDiff(spring, plate, tail) > 1e-5);
+    CHECK(rmsDiff(octave, hall, tail) > 1e-5);
+    CHECK(rmsDiff(octave, noShimmer, tail) > 1e-5);
+    CHECK(rmsDiff(octave, fifth, tail) > 1e-5);
+    CHECK(rmsDiff(octave, down, tail) > 1e-5);
+    CHECK(rmsDiff(fifth, down, tail) > 1e-5);
+}
+
 TEST_CASE("Graph: amp.channel crossfades the strips over the ADR-0004 time, with no step", "[engine][graph]")
 {
     const double rate = 48000.0;

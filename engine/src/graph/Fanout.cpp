@@ -86,9 +86,8 @@ void Graph::applyParameters() noexcept OSP_RT_NONBLOCKING
 
     const auto& r = id.reverb;
     dsp::Reverb::Params rp;
-    // spring and shimmer fall back to plate and hall until the #73 modes land (parameters.md §3.5).
     constexpr dsp::Reverb::Mode kModes[] = {dsp::Reverb::Mode::Room, dsp::Reverb::Mode::Hall, dsp::Reverb::Mode::Plate,
-                                            dsp::Reverb::Mode::Plate, dsp::Reverb::Mode::Hall};
+                                            dsp::Reverb::Mode::Spring, dsp::Reverb::Mode::Shimmer};
     rp.mode = kModes[choice(r[kRevMode])];
     rp.decayS = value(r[kRevDecay]);
     rp.preDelayMs = value(r[kRevPreDelay]);
@@ -96,6 +95,8 @@ void Graph::applyParameters() noexcept OSP_RT_NONBLOCKING
     rp.lowCutHz = value(r[kRevLowCut]);
     rp.highCutHz = value(r[kRevHighCut]);
     rp.modPct = value(r[kRevMod]);
+    rp.shimmerPct = value(r[kRevShimmer]);
+    rp.shimmerInterval = static_cast<dsp::Reverb::ShimmerInterval>(choice(r[kRevShimmerInterval]));
     rp.freeze = on(r[kRevFreeze]);
     reverb_.setParameters(rp);
     reverb_.setEnabled(on(r[kRevEnabled])); // the reverb's enable is its soft bypass: trails (signal-flow §5)
