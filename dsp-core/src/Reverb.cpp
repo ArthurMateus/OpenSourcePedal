@@ -9,7 +9,19 @@ namespace {
 
 int engineFor(Reverb::Mode m) noexcept
 {
-    return m == Reverb::Mode::Room ? 0 : m == Reverb::Mode::Hall ? 1 : 2; // 2 = the plate
+    switch (m) {
+    case Reverb::Mode::Room:
+        return 0;
+    case Reverb::Mode::Plate:
+        return 2;
+    case Reverb::Mode::Spring:
+        return 3;
+    case Reverb::Mode::Shimmer:
+        return 4;
+    case Reverb::Mode::Hall:
+    default:
+        return 1;
+    }
 }
 
 // NaN-safe clamp: a NaN host value maps to `lo` (std::clamp passes NaN through).
@@ -32,6 +44,8 @@ void Reverb::prepare(double sampleRate, int maxBlockSize)
     engines_[0].prepare(sampleRate, FdnTank::kRoom);
     engines_[1].prepare(sampleRate, FdnTank::kHall);
     plate_.prepare(sampleRate);
+    spring_.prepare(sampleRate);
+    shimmer_.prepare(sampleRate);
     const auto preLen = static_cast<std::size_t>(0.200 * sampleRate) + 4;
     for (auto& p : pre_)
         p.assign(preLen, 0.0f);
@@ -75,6 +89,8 @@ void Reverb::setParameters(const Params& p) noexcept
     params_.lowCutHz = clampSafe(p.lowCutHz, 50.0f, 700.0f);
     params_.highCutHz = clampSafe(p.highCutHz, 1000.0f, 10000.0f);
     params_.modPct = clampSafe(p.modPct, 0.0f, 100.0f);
+    params_.shimmerPct = clampSafe(p.shimmerPct, 0.0f, 100.0f);
+    params_.shimmerInterval = p.shimmerInterval;
     params_.freeze = p.freeze;
     for (auto& e : engines_) {
         e.setDecaySeconds(params_.decayS);
@@ -84,6 +100,14 @@ void Reverb::setParameters(const Params& p) noexcept
     plate_.setDecaySeconds(params_.decayS);
     plate_.setModulation(params_.modPct / 100.0f);
     plate_.setFreeze(params_.freeze);
+    spring_.setDecaySeconds(params_.decayS);
+    spring_.setModulation(params_.modPct / 100.0f);
+    spring_.setFreeze(params_.freeze);
+    shimmer_.setDecaySeconds(params_.decayS);
+    shimmer_.setModulation(params_.modPct / 100.0f);
+    shimmer_.setFreeze(params_.freeze);
+    shimmer_.setShimmer(params_.shimmerPct / 100.0f);
+    shimmer_.setInterval(params_.shimmerInterval);
     preDelay_.setTarget(static_cast<float>(params_.preDelayMs * 1e-3 * sampleRate_));
     lowCut_.setTarget(params_.lowCutHz);
     highCut_.setTarget(params_.highCutHz);
@@ -110,18 +134,36 @@ void Reverb::startPendingModeFade() noexcept
 
 void Reverb::resetEngine(int engine) noexcept
 {
-    if (engine == 2)
+    switch (engine) {
+    case 2:
         plate_.reset();
-    else
+        break;
+    case 3:
+        spring_.reset();
+        break;
+    case 4:
+        shimmer_.reset();
+        break;
+    default:
         engines_[static_cast<std::size_t>(engine)].reset();
+    }
 }
 
 void Reverb::processEngine(int engine, const float* inL, const float* inR, float* outL, float* outR, int n) noexcept
 {
-    if (engine == 2)
+    switch (engine) {
+    case 2:
         plate_.process(inL, inR, outL, outR, n);
-    else
+        break;
+    case 3:
+        spring_.process(inL, inR, outL, outR, n);
+        break;
+    case 4:
+        shimmer_.process(inL, inR, outL, outR, n);
+        break;
+    default:
         engines_[static_cast<std::size_t>(engine)].process(inL, inR, outL, outR, n);
+    }
 }
 
 void Reverb::setEnabled(bool enabled) noexcept
