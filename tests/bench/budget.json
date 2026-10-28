@@ -59,6 +59,13 @@
       "baseline": "#67 part 2, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (1.15-1.20 %), T_ref 10.7-10.8 ms",
       "headroom": "about 3.4x the measured 1.19 %: OS-1 Live at 48 kHz (4x IIR up/down) with both slots enabled, mid into dist; the drive section of a stacked preset"
     },
+    "drive_region_hq": {
+      "kind": "block",
+      "r0": 2.883197,
+      "maxCpuPercent": 12.0,
+      "baseline": "#112 part 2, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), 3 runs on a loaded machine (T_ref 25-30 ms, raw R 3.52-5.91, drive_region_live R 1.53-2.26 against its r0 1.10), so r0 = drive_region_live r0 x the median HQ/Live time ratio 2.62 (2.31-2.62); re-baseline on an idle machine",
+      "headroom": "about 2.4x the estimated 5.0 % on the CI runner (drive_region_live 1.83-2.04 % there x 2.62) and 3.9x the estimated 3.1 % on an idle local machine: OS-1 HQ at 48 kHz (8x FIR, ADR-0005 A3, + 6-sample pad) with both slots enabled, mid into dist"
+    },
     "gate": {
       "kind": "block",
       "r0": 0.013424,
@@ -164,6 +171,13 @@
       "baseline": "#72 part 3, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 7 runs (R 0.135-0.143) on a lightly loaded machine, T_ref about 11 ms",
       "headroom": "about 6.5x the measured 0.155 %: Dattorro figure-eight tank, 4 input allpasses + 2 modulated allpasses + 2 allpasses + 4 delays, 14 output taps, one sin/cos LFO pair per sample; one plate per Reverb block"
     },
+    "shimmer_tank": {
+      "kind": "block",
+      "r0": 1.082,
+      "maxCpuPercent": 4.0,
+      "baseline": "#73 part 2, 2026-10-27, local VS 2022 Release build (windows-msvc-ci), 7 runs on a heavily loaded machine: r0 = fdn_hall r0 x the median per-run shimmer/fdn ratio 1.709 (1.27-3.06); raw R median 1.933",
+      "headroom": "about 3.7x the estimated 1.1 %: the hall FdnTank plus, per channel, a 2-tap grain shifter (2 Catmull-Rom reads, 2 sin, a coarse-to-fine WSOLA search of about 8 k multiply-adds per splice, 50 splices/s at an octave), 3 SVFs, 2 allpasses and a tanh; the splice search was 61 k multiply-adds before the coarse pass (3.3x the FDN)"
+    },
     "spring_tank": {
       "kind": "block",
       "r0": 0.694,
@@ -177,6 +191,13 @@
       "maxCpuPercent": 3.0,
       "baseline": "#72 part 2, 2026-10-26, local VS 2022 Release build (windows-msvc), median of 7 quiet runs (R 0.641-0.686), T_ref about 10.5 ms",
       "headroom": "about 4.3x the measured 0.70 %: the hall FdnTank (fdn_hall) plus fractional pre-delay, two TPT one-poles per channel, mix and enable ramps, stereo; the same 3 % ceiling as the tank, since the wrapper adds about 4 %"
+    },
+    "reverb_shimmer_block": {
+      "kind": "block",
+      "r0": 1.119,
+      "maxCpuPercent": 4.0,
+      "baseline": "#73 part 3, 2026-10-27, local VS 2022 Release build (windows-msvc-ci) on a heavily loaded machine: r0 = shimmer_tank r0 (1.082) + the block wrapper (reverb_block r0 - fdn_hall r0 = 0.037); the 2 quietest of 7 runs gave 1.07-1.13 against fdn_hall's r0",
+      "headroom": "the shimmer tank's 4 % ceiling: the wrapper adds about 3 % to the tank, as for reverb_block; shimmer is the heaviest mode (only the active engine runs, plus the outgoing one during a 50 ms fade)"
     },
     "cab_2x1s": {
       "kind": "block",
@@ -194,10 +215,10 @@
     },
     "oversampler_fir_8x": {
       "kind": "block",
-      "r0": 0.463274,
-      "maxCpuPercent": 2.0,
-      "baseline": "#63 part 3, 2026-10-26, local VS 2022 Release build (windows-msvc-ci), median of 3 runs (0.47-0.49 %), T_ref 10.4-10.5 ms",
-      "headroom": "about 4x the measured 0.48 %: FIR halfband up + down at 8x (HQ), 58/32/34 even-phase taps per stage, identity processing; one HQ region"
+      "r0": 1.29,
+      "maxCpuPercent": 5.0,
+      "baseline": "#112 part 1 (ADR-0005 A3), 2026-10-27, local VS 2022 Release build (windows-msvc-ci) on a loaded machine, median of 6 runs (R 1.08-1.45), T_ref 25-44 ms",
+      "headroom": "about 4x the measured 1.2-1.5 %: FIR up + down at 8x (HQ), 58/32/34 even-phase up taps, full-band 293-tap stage-0 decimator (A3, folded, 8 partial sums) + 30/32 down taps, identity processing; one HQ region"
     },
     "passthrough_chain": {
       "kind": "full_chain",

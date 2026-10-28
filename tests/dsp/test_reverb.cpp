@@ -1,5 +1,5 @@
-// Tests for the Reverb block wrapper (issue #72, part 2): pre-delay, input cuts, mix, enable with trails, hard
-// bypass, mode crossfade, and the RT fuzz. The tank itself is covered by test_fdn_tank.cpp.
+// Tests for the Reverb block wrapper (issue #72, part 2; spring and shimmer modes, #73 part 3): pre-delay, input cuts,
+// mix, enable with trails, hard bypass, mode crossfade, and the RT fuzz. The tanks have their own test files.
 
 #include "osp/dsp/Reverb.h"
 
@@ -305,7 +305,9 @@ TEST_CASE("Reverb: RT checker, 1000 random parameter vectors with NaN, full-scal
     const auto rt = osp::rt::test::runAsAudioThread([&] {
         for (int v = 0; v < 1000; ++v) {
             Reverb::Params p;
-            p.mode = static_cast<Reverb::Mode>(static_cast<int>(u(rng) * 2.999f));
+            p.mode = static_cast<Reverb::Mode>(static_cast<int>(u(rng) * 4.999f));
+            p.shimmerPct = maybeNan(-10.0f + 120.0f * u(rng));
+            p.shimmerInterval = static_cast<Reverb::ShimmerInterval>(static_cast<int>(u(rng) * 2.999f));
             p.decayS = maybeNan(-5.0f + 40.0f * u(rng));
             p.preDelayMs = maybeNan(-20.0f + 260.0f * u(rng));
             p.mixPct = maybeNan(-10.0f + 120.0f * u(rng));
@@ -345,4 +347,117 @@ TEST_CASE("Reverb: plate mode runs the Dattorro tank, not the hall", "[dsp][reve
     const auto plate = wet(Reverb::Mode::Plate), hall = wet(Reverb::Mode::Hall);
     REQUIRE(plate.l != hall.l);
     REQUIRE(energy(plate.l, 0, plate.l.size()) > 0.0);
+}
+
+// Issue #73: the spring and shimmer modes.
+TEST_CASE("Reverb: spring and shimmer run their own tanks; shimmer at 0 % is exactly the hall", "[dsp][reverb][spring]")
+{
+    const double fs = 48000.0;
+    std::vector<float> in(static_cast<std::size_t>(0.5 * fs), 0.0f);
+    in[0] = 1.0f;
+    auto wet = [&](Reverb::Mode mode, float shimmerPct) {
+        Reverb::Params p;
+        p.mode = mode;
+        p.mixPct = 100.0f;
+        p.shimmerPct = shimmerPct;
+        Reverb r = makeReverb(fs, p);
+        return render(r, in, in, 64);
+    };
+    const auto hall = wet(Reverb::Mode::Hall, 0.0f), plate = wet(Reverb::Mode::Plate, 0.0f);
+    const auto spring = wet(Reverb::Mode::Spring, 0.0f);
+    REQUIRE(spring.l != hall.l);
+    REQUIRE(spring.l != plate.l);
+    REQUIRE(energy(spring.l, 0, spring.l.size()) > 0.0);
+    REQUIRE(wet(Reverb::Mode::Shimmer, 0.0f).l == hall.l); // the shimmer loop adds nothing at 0 %
+    REQUIRE(wet(Reverb::Mode::Shimmer, 50.0f).l != hall.l);
+}
+
+TEST_CASE("Reverb: spring / shimmer: rate x odd blocks, mix 0 and disabled are exact dry, hard bypass exact",
+          "[dsp][reverb][spring]")
+{
+    const auto mode = GENERATE(Reverb::Mode::Spring, Reverb::Mode::Shimmer);
+    const double fs = GENERATE(44100.0, 48000.0, 88200.0, 96000.0);
+    CAPTURE(static_cast<int>(mode), fs);
+    Reverb::Params p;
+    p.mode = mode;
+    p.shimmerPct = 60.0f;
+    const auto n = static_cast<std::size_t>(0.25 * fs);
+    auto inL = noise(n, 11u), inR = noise(n, 12u);
+    std::fill(inL.begin() + static_cast<long>(n / 2), inL.end(), 0.0f);
+    std::fill(inR.begin() + static_cast<long>(n / 2), inR.end(), 0.0f);
+    Reverb ref = makeReverb(fs, p);
+    const auto expected = render(ref, inL, inR, 64);
+    for (int block : {0, 1, 127, 2047}) {
+        CAPTURE(block);
+        Reverb r = makeReverb(fs, p);
+        const auto y = render(r, inL, inR, block);
+        REQUIRE(y.l == expected.l);
+        REQUIRE(y.r == expected.r);
+    }
+
+    Reverb::Params dryP = p;
+    dryP.mixPct = 0.0f;
+    Reverb dry = makeReverb(fs, dryP);
+    const auto d = render(dry, inL, inR, 127);
+    REQUIRE(d.l == inL);
+    REQUIRE(d.r == inR);
+
+    Reverb off = makeReverb(fs, p);
+    off.setEnabled(false);
+    off.reset(); // settled disabled: no input reaches the tank, and the output is the input
+    const auto o = render(off, inL, inR, 127);
+    REQUIRE(o.l == inL);
+    REQUIRE(o.r == inR);
+
+    Reverb hard = makeReverb(fs, p);
+    hard.setHardBypass(true);
+    const auto h = render(hard, inL, inR, 127);
+    const auto settled = static_cast<std::size_t>(0.011 * fs);
+    REQUIRE(std::equal(h.l.begin() + static_cast<long>(settled), h.l.end(), inL.begin() + static_cast<long>(settled)));
+    REQUIRE(std::equal(h.r.begin() + static_cast<long>(settled), h.r.end(), inR.begin() + static_cast<long>(settled)));
+}
+
+TEST_CASE("Reverb: switching into and out of spring / shimmer fades over 50 ms without a click",
+          "[dsp][reverb][spring]")
+{
+    const auto [from, to] = GENERATE(table<Reverb::Mode, Reverb::Mode>({{Reverb::Mode::Hall, Reverb::Mode::Spring},
+                                                                        {Reverb::Mode::Spring, Reverb::Mode::Shimmer},
+                                                                        {Reverb::Mode::Shimmer, Reverb::Mode::Plate}}));
+    CAPTURE(static_cast<int>(from), static_cast<int>(to));
+    const double fs = 48000.0;
+    const auto n = static_cast<std::size_t>(1.0 * fs);
+    std::vector<float> in(n);
+    for (std::size_t i = 0; i < n; ++i)
+        in[i] = 0.3f * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 220.0 * double(i) / fs));
+    const int switchAt = static_cast<int>(0.5 * fs) / 64 * 64;
+    auto params = [&](Reverb::Mode m) {
+        Reverb::Params p;
+        p.mode = m;
+        p.mixPct = 100.0f;
+        p.shimmerPct = 50.0f;
+        return p;
+    };
+    Reverb r = makeReverb(fs, params(from));
+    const auto y = render(r, in, in, 64, [&](Reverb& rv, int pos) {
+        if (pos == switchAt)
+            rv.setParameters(params(to));
+    });
+    auto maxStep = [&](std::size_t a, std::size_t b) {
+        float m = 0.0f;
+        for (std::size_t i = a + 1; i < b; ++i)
+            m = std::max(m, std::abs(y.l[i] - y.l[i - 1]));
+        return m;
+    };
+    const auto at = static_cast<std::size_t>(switchAt);
+    const float before = maxStep(at - static_cast<std::size_t>(0.2 * fs), at);
+    const float during = maxStep(at, at + static_cast<std::size_t>(0.060 * fs));
+    WARN("mode switch: max sample step " << during << " during the fade vs " << before << " before");
+    REQUIRE(during <= 1.5f * before);
+    // The fade starts from a cold-reset engine, so the switch is deterministic: a second instance renders the same.
+    Reverb fresh = makeReverb(fs, params(from));
+    const auto z = render(fresh, in, in, 64, [&](Reverb& rv, int pos) {
+        if (pos == switchAt)
+            rv.setParameters(params(to));
+    });
+    REQUIRE(z.l == y.l);
 }
