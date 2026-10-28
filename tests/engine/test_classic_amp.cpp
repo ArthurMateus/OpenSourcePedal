@@ -4,6 +4,7 @@
 
 #include "../../engine/src/amp/ClassicAmpModel.h" // the concrete type (setParameters is non-virtual, ADR-0011 D2)
 #include "measure.hpp"
+#include "osp/dsp/oversampling/Oversampler.h"
 #include "rt_checker.hpp"
 
 #include <algorithm>
@@ -192,10 +193,14 @@ TEST_CASE("ClassicAmp: ASR within ADR-0005 D5 Live gates at every rate", "[engin
     CHECK(asr <= gate);
 }
 
-// ADR-0011 D6 / REQ-301: the reported delay is within +-1 sample of a measurement on the running model, at every rate
-// and quality. Measured as the 1 kHz group delay from the phase of two coherent tones (bins k and k + 2) at
-// -150 dBFS (small-signal: no stage reaches its grid onset even through lead_a's ~100 dB of gain).
-TEST_CASE("ClassicAmp: reported delay matches the running model's 1 kHz group delay", "[engine][amp][classic][latency]")
+// ADR-0011 D6 / REQ-301, with the orchestrator's decision on PR #191: the reported delay is the PROCESSING delay
+// (OS-2 round trip + ADAA), the DriveRegion/NAM convention. Measured on the running model as the 1 kHz group delay
+// from the phase of two coherent tones (bins k and k + 2) at -150 dBFS (small-signal: no stage reaches its grid onset
+// even through lead_a's ~100 dB of gain), minus the modelled filters' group delay (getFilterGroupDelaySamples, from
+// the stages' own small-signal analysis, each verified in the stage tests): within +-1 sample at every rate and
+// quality. The reported value must also equal a separately prepared Oversampler's measured delay plus the ADAA terms.
+// The full-model group delay is printed as a diagnostic only.
+TEST_CASE("ClassicAmp: reported delay is the processing delay of the running model", "[engine][amp][classic][latency]")
 {
     const auto id = GENERATE(ClassicAmpId::cleanA, ClassicAmpId::crunchA, ClassicAmpId::leadA);
     const double fs = GENERATE(44100.0, 48000.0, 88200.0, 96000.0);
@@ -215,11 +220,22 @@ TEST_CASE("ClassicAmp: reported delay matches the running model's 1 kHz group de
     };
     const std::size_t k = m::coherentTone(1000.0, fs).bin;
     const double dw = 2.0 * std::numbers::pi * 2.0 / m::kCoherentFftSize; // rad/sample between bins k and k + 2
-    const double measured = -std::remainder(phase(k + 2) - phase(k), 2.0 * std::numbers::pi) / dw;
-    std::printf("delay %-8s %5.0f Hz %s x%d: reported %8.3f, measured %8.3f, latency %d\n", name(id), fs,
-                q == OversamplingQuality::hq ? "HQ  " : "Live", amp->getFactor(), amp->getMeasuredDelaySamples(),
-                measured, amp->getLatencySamples());
+    const double full = -std::remainder(phase(k + 2) - phase(k), 2.0 * std::numbers::pi) / dw;
+    const double measured = full - amp->getFilterGroupDelaySamples();
+    osp::dsp::Oversampler os;
+    const int factor = amp->getFactor();
+    os.prepare(fs, 512, factor,
+               q == OversamplingQuality::hq ? osp::dsp::OversamplingFilter::fir : osp::dsp::OversamplingFilter::iir);
+    const auto& v = amp->voicing();
+    const double expected =
+        os.getMeasuredDelaySamples() +
+        (v.numStages * osp::dsp::amp::PreampStage::kDelaySamples + osp::dsp::amp::PowerAmp::kDelaySamples) / factor;
+    std::printf("delay %-8s %5.0f Hz %s x%d: reported %8.3f, measured processing %8.3f, latency %3d "
+                "(full-model 1 kHz group delay %8.3f, diagnostic)\n",
+                name(id), fs, q == OversamplingQuality::hq ? "HQ  " : "Live", factor, amp->getMeasuredDelaySamples(),
+                measured, amp->getLatencySamples(), full);
     CHECK(std::abs(measured - amp->getMeasuredDelaySamples()) <= 1.0);
+    CHECK(std::abs(expected - amp->getMeasuredDelaySamples()) <= 1e-9);
     CHECK(amp->getLatencySamples() >= amp->getMeasuredDelaySamples());
     CHECK(amp->getLatencySamples() < amp->getMeasuredDelaySamples() + 1.0);
 }

@@ -104,7 +104,11 @@ void ClassicAmpModel::prepare(double hostSampleRate, int maxBlockSize, dsp::Over
     defaults.gain = static_cast<float>(id_ == ClassicAmpId::cleanA ? 3 : id_ == ClassicAmpId::crunchA ? 5 : 6);
     params_ = defaults;
     applyParameters();
-    delay_ = os_.getMeasuredDelaySamples() + linearGroupDelay();
+    // Processing delay only (orchestrator decision on #191, the DriveRegion/NAM convention): the oversampler's measured
+    // round trip plus the ADAA terms. The modelled filters' phase is part of the sound and is kept as a diagnostic.
+    const double adaa = v.numStages * dsp::amp::PreampStage::kDelaySamples + dsp::amp::PowerAmp::kDelaySamples;
+    delay_ = os_.getMeasuredDelaySamples() + adaa / factor;
+    filterDelay_ = linearGroupDelay() - adaa / factor;
     latency_ = static_cast<int>(std::ceil(delay_ - 1e-9));
     params_ = current;
     applyParameters();
