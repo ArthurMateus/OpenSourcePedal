@@ -8,6 +8,8 @@
 // Every block is held by value; prepare() is the only call that allocates. Parameters are read from a ParamStore
 // once per block (threading.md §3) and fanned out to the block setters (ADR-0009 D8).
 
+#include "osp/rt/AudioThread.h"
+
 #include "osp/engine/AmpSlot.h"
 #include "osp/engine/Params.h"
 
@@ -43,7 +45,8 @@ public:
     };
 
     // Control thread. `params` must outlive the graph.
-    explicit Graph(const ParamStore& params, Options options = {});
+    explicit Graph(const ParamStore& params);
+    Graph(const ParamStore& params, Options options);
     ~Graph();
     Graph(const Graph&) = delete;
     Graph& operator=(const Graph&) = delete;
@@ -52,37 +55,37 @@ public:
     void
     prepare(double sampleRate, int maxBlockSize, dsp::OversamplingQuality quality = dsp::OversamplingQuality::live);
     // RT-safe. Two renders after reset() are bit-identical.
-    void reset() noexcept;
+    void reset() noexcept OSP_RT_NONBLOCKING;
     // RT-safe. Mono in, stereo out, 0 <= numSamples <= maxBlockSize. `in` may alias outL (not outR).
-    void process(const float* in, float* outL, float* outR, int numSamples) noexcept;
+    void process(const float* in, float* outL, float* outR, int numSamples) noexcept OSP_RT_NONBLOCKING;
 
     // RT-safe global settings (not presets, parameters.md §4).
-    void setTempoBpm(double bpm) noexcept { tempoBpm_ = bpm; }
-    void setMonoSum(bool on) noexcept { output_.setMonoSum(on); }
-    void setTunerMuted(bool muted) noexcept { tuner_.setMuted(muted); }
+    void setTempoBpm(double bpm) noexcept OSP_RT_NONBLOCKING { tempoBpm_ = bpm; }
+    void setMonoSum(bool on) noexcept OSP_RT_NONBLOCKING { output_.setMonoSum(on); }
+    void setTunerMuted(bool muted) noexcept OSP_RT_NONBLOCKING { tuner_.setMuted(muted); }
 
     // RT-safe. Installs a convolver prepared at this rate in cab.ch<channel+1>.ir<slot+1> (ADR-0004 §4); the graph
     // never deletes it. Drain popRetired() after each call and each process().
-    void setCabIr(int channel, int slot, dsp::PartitionedConvolver* ir) noexcept;
-    dsp::PartitionedConvolver* popRetired() noexcept;
+    void setCabIr(int channel, int slot, dsp::PartitionedConvolver* ir) noexcept OSP_RT_NONBLOCKING;
+    dsp::PartitionedConvolver* popRetired() noexcept OSP_RT_NONBLOCKING;
 
     // Hard bypass of every block (tests, signal-flow §5): the output is the input delayed by exactly
     // getLatencySamples() (REQ-TEST-004). RT-safe.
-    void setBypassedAll(bool bypassed) noexcept;
+    void setBypassedAll(bool bypassed) noexcept OSP_RT_NONBLOCKING;
 
     // L_total = round(D_os1 + D_slot + D_cab), rounded once (ADR-0009 D4). Fixed after prepare().
-    int getLatencySamples() const noexcept { return latency_; }
+    int getLatencySamples() const noexcept OSP_RT_NONBLOCKING { return latency_; }
     // The fractional sum it is rounded from, and the clean DI delay K_clean (ADR-0009 D4, D7).
-    double getMeasuredDelaySamples() const noexcept { return measuredDelay_; }
-    int getCleanDelaySamples() const noexcept { return clean_.getDelay(); }
+    double getMeasuredDelaySamples() const noexcept OSP_RT_NONBLOCKING { return measuredDelay_; }
+    int getCleanDelaySamples() const noexcept OSP_RT_NONBLOCKING { return clean_.getDelay(); }
     // The gate.postAmp gain delay K_gate = round(D_os1 + D_slot) (ADR-0009 D4, D6).
-    int getGateTapDelaySamples() const noexcept { return gatePost_.getDelay(); }
-    int activeChannel() const noexcept { return stripTo_; }
-    const dsp::OutputStage& output() const noexcept { return output_; }
+    int getGateTapDelaySamples() const noexcept OSP_RT_NONBLOCKING { return gatePost_.getDelay(); }
+    int activeChannel() const noexcept OSP_RT_NONBLOCKING { return stripTo_; }
+    const dsp::OutputStage& output() const noexcept OSP_RT_NONBLOCKING { return output_; }
     // A disabled delay or reverb whose tail has gone silent is not processed (see TailIdle).
-    bool isDelayIdle() const noexcept { return delayTail_.idle; }
-    bool isReverbIdle() const noexcept { return reverbTail_.idle; }
-    const dsp::TunerTap& tuner() const noexcept { return tuner_; }
+    bool isDelayIdle() const noexcept OSP_RT_NONBLOCKING { return delayTail_.idle; }
+    bool isReverbIdle() const noexcept OSP_RT_NONBLOCKING { return reverbTail_.idle; }
+    const dsp::TunerTap& tuner() const noexcept OSP_RT_NONBLOCKING { return tuner_; }
 
 private:
     struct Ids;
@@ -104,22 +107,23 @@ private:
         int silentSamples = 0;
     };
 
-    float value(int index) const noexcept
+    float value(int index) const noexcept OSP_RT_NONBLOCKING
     {
         return sanitize(table_[static_cast<std::size_t>(index)], store_.get(index));
     }
-    bool on(int index) const noexcept { return value(index) > 0.5f; }
-    int choice(int index) const noexcept { return static_cast<int>(value(index)); }
+    bool on(int index) const noexcept OSP_RT_NONBLOCKING { return value(index) > 0.5f; }
+    int choice(int index) const noexcept OSP_RT_NONBLOCKING { return static_cast<int>(value(index)); }
 
-    void applyParameters() noexcept; // Fanout.cpp
-    void applyStrip(int strip) noexcept; // Fanout.cpp
-    void applyChannelSwitch() noexcept;
-    void applyModPosition(int numSamples) noexcept;
-    void processGate(float* io, int n) noexcept;
+    void applyParameters() noexcept OSP_RT_NONBLOCKING; // Fanout.cpp
+    void applyStrip(int strip) noexcept OSP_RT_NONBLOCKING; // Fanout.cpp
+    void applyChannelSwitch() noexcept OSP_RT_NONBLOCKING;
+    void applyModPosition(int numSamples) noexcept OSP_RT_NONBLOCKING;
+    void processGate(float* io, int n) noexcept OSP_RT_NONBLOCKING;
     template <typename Run, typename Wake>
-    void processTail(TailIdle& t, bool enabled, float* l, float* r, int n, Run&& run, Wake&& wake) noexcept;
-    void processStrip(Strip& s, const float* in, float* outL, float* outR, int n) noexcept;
-    void processChunk(float* io, float* outL, float* outR, int n) noexcept;
+    void processTail(TailIdle& t, bool enabled, float* l, float* r, int n, Run&& run, Wake&& wake) noexcept
+        OSP_RT_NONBLOCKING;
+    void processStrip(Strip& s, const float* in, float* outL, float* outR, int n) noexcept OSP_RT_NONBLOCKING;
+    void processChunk(float* io, float* outL, float* outR, int n) noexcept OSP_RT_NONBLOCKING;
 
     const ParamStore& store_;
     std::span<const ParamInfo> table_;

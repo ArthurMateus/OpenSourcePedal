@@ -2,6 +2,8 @@
 
 // Public engine header: no JUCE, no NAM, no Eigen (ADR-0006 D3). Threading rules: ADR-0004, docs/spec/threading.md.
 
+#include "osp/rt/AudioThread.h"
+
 #include "osp/engine/Graph.h"
 #include "osp/engine/Params.h"
 
@@ -35,16 +37,16 @@ public:
     void prepare(double sampleRate, int maxBlockSize);
 
     // Audio thread. Clears internal state; repeat renders after reset() are bit-identical.
-    void reset() noexcept;
+    void reset() noexcept OSP_RT_NONBLOCKING;
 
     // Audio thread. In-place on `numChannels` (<= kMaxChannels) buffers, 0 <= numSamples <= getMaxBlockSize().
     // Before prepare() the buffers are zero-filled.
-    void process(float* const* channels, int numChannels, int numSamples) noexcept;
+    void process(float* const* channels, int numChannels, int numSamples) noexcept OSP_RT_NONBLOCKING;
 
     // L_total = round(sum of the measured delays), rounded once (ADR-0009 D4). The app reports it with
     // setLatencySamples after prepare().
-    int getLatencySamples() const noexcept { return graph_->getLatencySamples(); }
-    int getMaxBlockSize() const noexcept { return maxBlockSize_; }
+    int getLatencySamples() const noexcept OSP_RT_NONBLOCKING { return graph_->getLatencySamples(); }
+    int getMaxBlockSize() const noexcept OSP_RT_NONBLOCKING { return maxBlockSize_; }
 
 private:
     ParamStore params_;
@@ -59,6 +61,9 @@ private:
 
 // Audio thread. Splits a host block of any length into chunks of at most engine.getMaxBlockSize() (ADR-0004 rule 8,
 // pluginval level 8). The app calls this instead of Engine::process().
-void processChunked(Engine& engine, float* const* channels, int numChannels, int numSamples) noexcept;
+void processChunked(Engine& engine,
+                    float* const* channels,
+                    int numChannels,
+                    int numSamples) noexcept OSP_RT_NONBLOCKING;
 
 } // namespace osp::engine

@@ -29,6 +29,8 @@ target_include_directories(osp_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/tonema
 target_link_libraries(osp_tests PRIVATE osp_engine osp_measure osp_rt_checker osp_dr_wav Catch2::Catch2WithMain)
 # The asset tests read the bundled CC0 IRs and DI clips (Git LFS; CI checks them out with lfs: true).
 target_compile_definitions(osp_tests PRIVATE OSP_ASSET_DIR="${PROJECT_SOURCE_DIR}/assets")
+# REQ-PAR-001 compares the parameter table with tests/spec/parameters.json (ADR-0009 D8).
+target_compile_definitions(osp_tests PRIVATE OSP_SPEC_DIR="${PROJECT_SOURCE_DIR}/tests/spec")
 osp_apply_settings(osp_tests)
 # The RT checker is always compiled into the test binary (ADR-0006 D4).
 target_compile_definitions(osp_tests PRIVATE OSP_RT_CHECKER=1)
@@ -40,12 +42,12 @@ add_subdirectory(bench)
 
 # App-level tests link the plugin's shared-code target (JUCE), so they exist only with OSP_BUILD_APP.
 if(OSP_BUILD_APP)
-    add_executable(osp_app_tests app/test_state_roundtrip.cpp)
+    add_executable(osp_app_tests app/test_parameters.cpp app/test_state_roundtrip.cpp)
     # JUCE symbols come from the OpenSourcePedal library; only the module headers are needed here (as SYSTEM, so our
     # /W4 /WX does not apply to them). Linking juce:: module targets again would compile JUCE a second time.
     target_include_directories(osp_app_tests PRIVATE "${PROJECT_SOURCE_DIR}/app/src")
     target_include_directories(osp_app_tests SYSTEM PRIVATE "${JUCE_MODULES_DIR}")
     target_link_libraries(osp_app_tests PRIVATE OpenSourcePedal Catch2::Catch2WithMain)
-    osp_apply_settings(osp_app_tests WARNINGS_ON app/test_state_roundtrip.cpp)
+    osp_apply_settings(osp_app_tests WARNINGS_ON app/test_parameters.cpp app/test_state_roundtrip.cpp)
     catch_discover_tests(osp_app_tests DISCOVERY_MODE PRE_TEST)
 endif()

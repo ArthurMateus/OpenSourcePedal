@@ -8,6 +8,8 @@
 
 namespace osp::engine {
 
+Graph::Graph(const ParamStore& params) : Graph(params, Options{}) {}
+
 Graph::Graph(const ParamStore& params, Options options)
     : store_(params),
       table_(paramTable()),
@@ -81,7 +83,7 @@ void Graph::prepare(double sampleRate, int maxBlockSize, dsp::OversamplingQualit
     reset();
 }
 
-void Graph::reset() noexcept
+void Graph::reset() noexcept OSP_RT_NONBLOCKING
 {
     applyParameters();
     input_.reset();
@@ -116,7 +118,7 @@ void Graph::reset() noexcept
     stripFade_.reset(1.0f);
 }
 
-void Graph::setBypassedAll(bool bypassed) noexcept
+void Graph::setBypassedAll(bool bypassed) noexcept OSP_RT_NONBLOCKING
 {
     bypassedAll_ = bypassed;
     input_.setBypassed(bypassed);
@@ -134,13 +136,13 @@ void Graph::setBypassedAll(bool bypassed) noexcept
     output_.setBypassed(bypassed);
 }
 
-void Graph::setCabIr(int channel, int slot, dsp::PartitionedConvolver* ir) noexcept
+void Graph::setCabIr(int channel, int slot, dsp::PartitionedConvolver* ir) noexcept OSP_RT_NONBLOCKING
 {
     if (channel >= 0 && channel < kNumChannels)
         strips_[static_cast<std::size_t>(channel)].cab.setIr(slot, ir);
 }
 
-dsp::PartitionedConvolver* Graph::popRetired() noexcept
+dsp::PartitionedConvolver* Graph::popRetired() noexcept OSP_RT_NONBLOCKING
 {
     for (auto& s : strips_)
         if (auto* ir = s.cab.popRetired())
@@ -148,7 +150,7 @@ dsp::PartitionedConvolver* Graph::popRetired() noexcept
     return nullptr;
 }
 
-void Graph::applyChannelSwitch() noexcept
+void Graph::applyChannelSwitch() noexcept OSP_RT_NONBLOCKING
 {
     if (stripFade_.isRamping())
         return; // a change during a fade starts when it ends
@@ -165,7 +167,7 @@ void Graph::applyChannelSwitch() noexcept
     stripFade_.setTarget(1.0f);
 }
 
-void Graph::applyModPosition(int numSamples) noexcept
+void Graph::applyModPosition(int numSamples) noexcept OSP_RT_NONBLOCKING
 {
     const bool wantPre = choice(ids_->modPosition) == 1;
     if (modMoveLeft_ > 0) {
@@ -187,7 +189,7 @@ namespace {
 // Block enable for blocks without one (ADR-0009 D3): `dry` holds the block input, `io` the block output.
 // Returns true when the block must run this chunk; a block that comes back from idle is reset first.
 template <typename Block>
-bool startEnable(dsp::Crossfader& xf, bool& idle, Block& block) noexcept
+bool startEnable(dsp::Crossfader& xf, bool& idle, Block& block) noexcept OSP_RT_NONBLOCKING
 {
     if (xf.isSettledOnA() && !xf.target()) {
         idle = true;
@@ -206,7 +208,7 @@ bool startEnable(dsp::Crossfader& xf, bool& idle, Block& block) noexcept
 // with the signal, for any x, so moving the tap is level-neutral. Settled factors are exact (no pow), and a
 // disabled gate is exactly 1 on both sides. The delay line carries the attenuation 1 − h^x, so its cleared state
 // after reset() is a factor of exactly 1.
-void Graph::processGate(float* io, int n) noexcept
+void Graph::processGate(float* io, int n) noexcept OSP_RT_NONBLOCKING
 {
     float* const post = postGain_.data();
     if (bypassedAll_) { // the gate has no hard bypass of its own: both factors are 1
@@ -240,6 +242,7 @@ void Graph::processGate(float* io, int n) noexcept
 // kTailSilence for tailIdleSamples_, the block is skipped, which leaves exactly the dry signal it was producing.
 template <typename Run, typename Wake>
 void Graph::processTail(TailIdle& t, bool enabled, float* l, float* r, int n, Run&& run, Wake&& wake) noexcept
+    OSP_RT_NONBLOCKING
 {
     if (t.idle) {
         if (!enabled || bypassedAll_)
@@ -264,7 +267,7 @@ void Graph::processTail(TailIdle& t, bool enabled, float* l, float* r, int n, Ru
     t.idle = t.silentSamples >= tailIdleSamples_;
 }
 
-void Graph::processStrip(Strip& s, const float* in, float* outL, float* outR, int n) noexcept
+void Graph::processStrip(Strip& s, const float* in, float* outL, float* outR, int n) noexcept OSP_RT_NONBLOCKING
 {
     std::copy_n(in, n, outL);
     s.amp->process(outL, n);
@@ -281,7 +284,7 @@ void Graph::processStrip(Strip& s, const float* in, float* outL, float* outR, in
     s.eqOnR.process(dryR_.data(), outR, outR, n);
 }
 
-void Graph::processChunk(float* io, float* outL, float* outR, int n) noexcept
+void Graph::processChunk(float* io, float* outL, float* outR, int n) noexcept OSP_RT_NONBLOCKING
 {
     float* const dry = dry_.data();
     if (startEnable(inputOn_, inputIdle_, input_)) {
@@ -327,15 +330,17 @@ void Graph::processChunk(float* io, float* outL, float* outR, int n) noexcept
     if (!modPre_)
         mod_.processStereo(outL, outR, n);
     processTail(
-        delayTail_, on(ids_->delay[kDlyEnabled]), outL, outR, n, [&] { delay_.process(outL, outR, n); },
-        [&] { // reset with the send still muted, so it fades in over its own 10 ms
+        delayTail_, on(ids_->delay[kDlyEnabled]), outL, outR, n,
+        [&]() noexcept OSP_RT_NONBLOCKING { delay_.process(outL, outR, n); },
+        [&]() noexcept OSP_RT_NONBLOCKING { // reset with the send still muted, so it fades in over its own 10 ms
             delay_.setSoftBypass(true);
             delay_.reset();
             delay_.setSoftBypass(false);
         });
     processTail(
-        reverbTail_, on(ids_->reverb[kRevEnabled]), outL, outR, n, [&] { reverb_.process(outL, outR, outL, outR, n); },
-        [&] {
+        reverbTail_, on(ids_->reverb[kRevEnabled]), outL, outR, n,
+        [&]() noexcept OSP_RT_NONBLOCKING { reverb_.process(outL, outR, outL, outR, n); },
+        [&]() noexcept OSP_RT_NONBLOCKING {
             reverb_.setEnabled(false);
             reverb_.reset();
             reverb_.setEnabled(true);
@@ -352,7 +357,7 @@ void Graph::processChunk(float* io, float* outL, float* outR, int n) noexcept
     }
 }
 
-void Graph::process(const float* in, float* outL, float* outR, int numSamples) noexcept
+void Graph::process(const float* in, float* outL, float* outR, int numSamples) noexcept OSP_RT_NONBLOCKING
 {
     if (numSamples <= 0)
         return;
