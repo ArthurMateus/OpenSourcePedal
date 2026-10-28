@@ -26,6 +26,17 @@ Supersedes owner-session-4. Read AGENTS.md first.
 - `C:\ospprev`: local-only QA clone (preflight integration + `qa/final-main` at 38c3b06), reports in `.git\*.md`, nothing pushed.
 - `C:\osp115`, `C:\osp164review`: idle; their branches are merged/deleted.
 
+## Phase 5 plan (started after QA, same session)
+
+- Plan issue #166; PR #180 (`architect/166-phase5-amp-plan`, docs only): `docs/adr/0011-amp-models-v1.md` Proposed.
+  Clone `C:\osp5plan` (sole writer of that branch).
+- Slices opened: #167 research, #168 NAM deps + RtResampler, #169 NamAmpModel, #170 NAM rates, #171 preamp stage,
+  #172 tone stack, #173 power amp, #174 ClassicAmpModel, #175 ModelAmpChannel (+ `amp.ch<N>.lowCutHz`),
+  #176 load/hot-swap, #177 NAM calibration, #178 console/acoustic, #179 Phase 5 gate. File ownership per ADR-0011 D7.
+- Start now in parallel: #167 and #168. #169/#174/#179 are blocked by #83 (bench API).
+- #83 + #165 are assigned by the owner to ANOTHER account (bench/CI files only: `tests/bench/**`, `tools/bench/**`,
+  `.github/workflows/build.yml`, ADR-0007 amendment or ADR-0012). Do not edit those files from Phase 5 work.
+
 ## Next (not started; owner decides)
 
 - #165 bench ordering / r0 refresh (#83 CI baselines is related).

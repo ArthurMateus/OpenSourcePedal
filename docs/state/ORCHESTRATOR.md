@@ -2,7 +2,8 @@
 
 > **2026-10-28 ~10:30Z: owner session 5 DONE (Claude).** Read [owner-session-5.md](HANDOFF/owner-session-5.md) FIRST;
 > it supersedes everything below. Train 152-156 + 162-164 merged (main `38c3b06`), all six CI jobs green each time.
-> Final #95 QA passes 2/3 on exact main posted on #95: only deferred #145 fails. New #165 (bench ordering). Idle; no workers.
+> Final #95 QA passes 2/3 on exact main posted on #95: only deferred #145 fails. New #165 (bench ordering).
+> Phase 5 plan: ADR-0011 PR #180, slices #167-#179. #83+#165 on another account (bench/CI files only).
 
 > **2026-10-28 ~08:24Z: STOPPED at owner request.** Local train stopped safely while waiting for #152 CI.
 > Read [owner-session-4.md](HANDOFF/owner-session-4.md) on state FIRST; it supersedes all active entries below.
