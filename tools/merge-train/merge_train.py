@@ -10,11 +10,14 @@ branch to main, then delete its branch. Stops on anything it cannot resolve safe
 import json, os, re, subprocess, sys, time
 
 REPO = "ArthurMateus/OpenSourcePedal"
-REQUIRED = {"guard", "windows-msvc (Release, /WX)", "clang-format"}
+REQUIRED = {
+    "guard", "windows-msvc (Release, /WX)", "clang-format", "halfband-check",
+    "windows-msvc-debug (RT checker)", "pluginval (v1.0.4, strictness 9)",
+}
 # #115 removes shared source/benchmark append lists. Conflicts in CMake, benchmark bodies, or budget fragments
 # now need an explicit resolution: blindly keeping both can duplicate a target, benchmark, or JSON key.
 KEEP_BOTH_OK = re.compile(r"^(THIRD_PARTY\.md|assets/LICENSES\.md)$")
-TRAILER = "\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+TRAILER = ""
 os.environ["GIT_LFS_SKIP_SMUDGE"] = "1"
 
 
