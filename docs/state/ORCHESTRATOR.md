@@ -4,7 +4,9 @@
 > merged; this session merged #150. #151 is synced at `241dd7e`, CI running, but the local train was stopped
 > safely during its read-only CI wait to honor the current user's explicit **#115 before remaining #95** order
 > (this overrides owner-session-3's proposed last-in-train position for #115).
-> `C:\osp115` exclusively owns #157 resync to current main `faec4e7`, preserving 31 current benchmark entries.
+> `C:\osp115` exclusively owns #157, resynced/pushed at `106400e` against frozen main `faec4e7`.
+> Local Release `/WX`: 252/252 tests; exact 31-entry bench/budget parity and CPU ceilings pass.
+> Final six CI jobs are running; mark ready and merge only after all required conclusions are SUCCESS.
 > Once #157 is all-six-green and merged, manually resolve the registry migration in remaining #151-156
 > (especially #155 graph benches), then resume the train. Scratch runner `C:\osptrain-control\merge_train.py`
 > has the full PARENT map and six required job names; replace its broad conflict resolver with the #115 version
