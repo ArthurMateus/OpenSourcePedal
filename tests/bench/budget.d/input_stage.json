@@ -2,10 +2,20 @@
   "benchmarks": {
     "input_stage": {
       "kind": "block",
-      "r0": 0.0238,
+      "r0": 0.017818897,
       "maxCpuPercent": 1.0,
-      "baseline": "#74, 2026-10-26, local VS 2022 Release build, median of 3 runs (r 0.0234-0.0259), T_ref about 16 ms on this machine",
-      "headroom": "about 25x the measured 0.039 %: constant-gain trim (vectorised) + one-pole/one-zero DC blocker per sample"
+      "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.017818897 (range 0.017448134..0.018154477, spread 4.05%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
+      "headroom": "about 25x the measured 0.039 %: constant-gain trim (vectorised) + one-pole/one-zero DC blocker per sample",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.017818897,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.017818897, spread 4.05%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.026481941,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.026481941, spread 0.93%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     }
   }
 }

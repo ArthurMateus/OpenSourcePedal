@@ -80,6 +80,31 @@ Every block in `dsp-core/` implements `prepare(sampleRate, maxBlockSize)`, `rese
      - **Per-block budgets:** Individual DSP block ceilings are **not** hardcoded from unverified research estimates; instead, each block's initial budget (`max_cpu_percent` and baseline ratio $R_0$) is recorded in `tests/bench/budget.json` from its **first measured `osp-bench` run** (plus a documented headroom margin and justification in the PR that introduces the block).
      - **CI Regression Gate:** CI fails if the full chain exceeds $25\%$, if NAM exceeds $8\%$, or if any block/preset regresses by **$> 10\%$ on normalized ratio $R$** against its stored baseline in `tests/bench/budget.json`.
 
+- **CI calibration amendment (2026-10-28, #83 / #165):** `build.yml` uses the pinned `windows-2022` image.
+  Both per-block callable helpers are templates. Each nanobench kernel gets 100 ms of untimed warm-up, and nanobench
+  uses 21 epochs with a 10 ms minimum epoch duration; FTZ/DAZ matches the app. The `input_stage` unit call site
+  keeps MSVC inlining stable when graph benchmarks add other callers; full graph cases retain the Engine path.
+  The cab peak helper retains four warm-up periods and the worst phase's median over 200 measured periods.
+  CI runs the complete executable five times and takes the **per-case median of R** (not the ratio of two medians),
+  alongside median CPU and elapsed time. `tools/bench/median.py` records each case's max/min R spread.
+  Each entry in `tests/bench/budget.d/*.json` stores its measured r0, runner name, date and calibration run URL;
+  `build/bench-runner.json` records the image version, processor and source revision in the same uploaded artifact
+  as the five raw reports. Updating baselines requires an explained, measured change; CI never rewrites them.
+  Hosted Windows runners exposed two processor identifiers for identical benchmark C++ sources: AMD Family 26
+  Model 2 and Family 25 Model 1. Between their five-run medians, input_stage R changed +48.62%, doubler +20.62%
+  and FIR oversampling +27.68%; the fixed reference does not remove this instruction-mix dependence (both runs
+  and all medians are recorded in the handoff). Each budget fragment therefore has `processorBaselines`, keyed
+  by the exact `platform.processor()` identifier, with a separately measured r0 and provenance for every case.
+  CI supplies `--runner build/bench-runner.json`; an unknown processor or missing per-case profile fails closed
+  with a calibration instruction. New entries add these measured profiles in their own budget fragment, without
+  shared-file changes. The top-level r0/baseline remains the canonical first profile for legacy offline commands.
+  CPU-only `--no-regression` mode needs no processor profile. The gate uses the fixed **10% threshold within each
+  measured processor profile, with no additional noise allowance**. A boundary value of exactly +10%
+  passes. Missing/unbudgeted cases and non-finite/invalid metrics fail. `tools/bench/verify_gate.py` checks the real
+  report passes and independently injects a synthetic r0 × 1.20 timing fixture for every case, requiring an R-gate
+  rejection. These fixtures verify decision logic; they are not hardware slowdown measurements. Calibration noise
+  is recorded in `docs/state/HANDOFF/83.md`; independent head-run drift is recorded in the PR and issue comments.
+
 ---
 
 ### 6. Plugin Validation Gate (`pluginval` Strictness Level 9)
