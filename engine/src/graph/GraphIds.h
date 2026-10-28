@@ -73,6 +73,36 @@ enum EqKey {
     kEqCount
 };
 
+enum ModKey { kModEnabled, kModType, kModRate, kModSync, kModDepth, kModMix, kModFeedback, kModWidth, kModPosition };
+enum DelayKey {
+    kDlyEnabled,
+    kDlyMode,
+    kDlyTime,
+    kDlySync,
+    kDlyFeedback,
+    kDlyMix,
+    kDlyLowCut,
+    kDlyHighCut,
+    kDlyStereo,
+    kDlyModDepth,
+    kDlySaturation,
+    kDlyDuck
+};
+enum ReverbKey {
+    kRevEnabled,
+    kRevMode,
+    kRevDecay,
+    kRevPreDelay,
+    kRevMix,
+    kRevLowCut,
+    kRevHighCut,
+    kRevMod,
+    kRevShimmer,
+    kRevShimmerInterval,
+    kRevFreeze
+};
+enum DoublerKey { kDblEnabled, kDblAmount, kDblWidth, kDblDelay, kDblDetune };
+
 struct Graph::Ids {
     std::array<int, 2> input = resolve<2>("input.", {"enabled", "gainDb"});
     std::array<int, 9> gate = resolve<9>("gate.",
@@ -88,6 +118,16 @@ struct Graph::Ids {
     std::array<std::array<int, 2 * kCabKeysPerIr>, 3> cab{cabKeys(1), cabKeys(2), cabKeys(3)};
     int eqEnabled = find("eq.enabled"), eqFollow = find("eq.followChannel");
     std::array<std::array<int, kEqCount>, 3> eq{eqKeys(1), eqKeys(2), eqKeys(3)};
+    std::array<int, 9> mod = resolve<9>(
+        "mod.", {"enabled", "type", "rateHz", "sync", "depthPct", "mixPct", "feedbackPct", "widthPct", "position"});
+    int modEnabled = mod[kModEnabled], modPosition = mod[kModPosition];
+    std::array<int, 12> delay = resolve<12>("delay.",
+                                            {"enabled", "mode", "timeMs", "sync", "feedbackPct", "mixPct", "lowCutHz",
+                                             "highCutHz", "stereo", "modDepthPct", "saturationPct", "duckDb"});
+    std::array<int, 11> reverb = resolve<11>("reverb.",
+                                             {"enabled", "mode", "decayS", "preDelayMs", "mixPct", "lowCutHz",
+                                              "highCutHz", "modPct", "shimmerPct", "shimmerInterval", "freeze"});
+    std::array<int, 5> doubler = resolve<5>("doubler.", {"enabled", "amountPct", "widthPct", "delayMs", "detuneCents"});
     std::array<int, 2> output = resolve<2>("output.", {"levelDb", "limiter"});
 
     static int find(const std::string& id)

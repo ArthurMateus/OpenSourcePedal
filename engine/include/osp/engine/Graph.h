@@ -5,7 +5,6 @@
 // The v1 signal graph (ADR-0009, docs/spec/signal-flow.md §1):
 //   in (mono) → input → [tuner] → gate → comp → OS-1 {drive1 → drive2} → mod (pre, mono)
 //   → strip[amp.channel] {amp slot → cab (mono → stereo) → EQ} → mod (post) → delay → reverb → doubler → output.
-// The time-based blocks (mod, delay, reverb, doubler) are wired in #95 part 6; until then they are not in the path.
 // Every block is held by value; prepare() is the only call that allocates. Parameters are read from a ParamStore
 // once per block (threading.md §3) and fanned out to the block setters (ADR-0009 D8).
 
@@ -14,11 +13,15 @@
 
 #include "osp/dsp/Cab.h"
 #include "osp/dsp/Compressor.h"
+#include "osp/dsp/Delay.h"
+#include "osp/dsp/Doubler.h"
 #include "osp/dsp/DriveRegion.h"
 #include "osp/dsp/Eq.h"
 #include "osp/dsp/Gate.h"
 #include "osp/dsp/InputStage.h"
+#include "osp/dsp/Modulation.h"
 #include "osp/dsp/OutputStage.h"
+#include "osp/dsp/Reverb.h"
 #include "osp/dsp/tuner/TunerTap.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/DelayLine.h"
@@ -98,6 +101,7 @@ private:
     void applyParameters() noexcept; // Fanout.cpp
     void applyStrip(int strip) noexcept; // Fanout.cpp
     void applyChannelSwitch() noexcept;
+    void applyModPosition(int numSamples) noexcept;
     void processGate(float* io, int n) noexcept;
     void processStrip(Strip& s, const float* in, float* outL, float* outR, int n) noexcept;
     void processChunk(float* io, float* outL, float* outR, int n) noexcept;
@@ -118,7 +122,11 @@ private:
     dsp::Crossfader compOn_; // comp.enabled
     bool inputIdle_ = false, compIdle_ = false;
     dsp::DriveRegion drives_;
+    dsp::Modulation mod_;
     std::array<Strip, kNumChannels> strips_;
+    dsp::Delay delay_;
+    dsp::Reverb reverb_;
+    dsp::Doubler doubler_;
     dsp::OutputStage output_;
 
     // Clean DI (amp.cleanBlendPct, ADR-0009 D7): the amp input delayed by K_clean, mixed after the strips.
@@ -127,6 +135,10 @@ private:
     bool bypassedAll_ = false;
     int slotPad_ = 0; // the amp slot's hard-bypass pad, R(amp out) − R(amp in)
     double measuredDelay_ = 0.0;
+
+    // mod.position: the block's wet fades out, then it moves (ADR-0009 D1).
+    bool modPre_ = false;
+    int modMoveLeft_ = 0, modMoveSamples_ = 0;
 
     // amp.channel switch: strip stripFrom_ fades to stripTo_ over kSwapSeconds; a change during a fade waits.
     int stripFrom_ = 0, stripTo_ = 0;
