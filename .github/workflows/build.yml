@@ -63,6 +63,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python - <<'PY'
+          import json, os, platform
+          from datetime import datetime, timezone
+          from pathlib import Path
+          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
+          Path("build/bench-runner.json").write_text(json.dumps({
+              "runnerName": os.environ["RUNNER_NAME"],
+              "runnerImage": "windows-2022",
+              "imageVersion": os.environ.get("ImageVersion"),
+              "processor": platform.processor(),
+              "measuredAt": datetime.now(timezone.utc).isoformat(),
+              "runUrl": os.environ["GITHUB_SERVER_URL"] + "/" + os.environ["GITHUB_REPOSITORY"] + "/actions/runs/" + os.environ["GITHUB_RUN_ID"],
+              "headRevision": event.get("pull_request", {}).get("head", {}).get("sha", os.environ["GITHUB_SHA"]),
+          }, indent=2) + "\n", encoding="utf-8")
+          PY
           for i in 1 2 3 4 5; do ./build/release/tests/osp-bench.exe --out "build/bench-$i.json" > /dev/null; done
           python tools/bench/median.py build/bench.json build/bench-[1-5].json
           python tools/bench/check_budget.py build/bench.json --no-regression
