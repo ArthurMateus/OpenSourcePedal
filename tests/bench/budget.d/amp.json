@@ -1,0 +1,25 @@
+{
+  "benchmarks": {
+    "amp_classic_clean_a": {
+      "kind": "block",
+      "r0": 1.91,
+      "maxCpuPercent": 6.0,
+      "baseline": "PROVISIONAL local Ryzen 5 9600X, replaced by the CI five-run median before review",
+      "headroom": "maxCpuPercent 6 is the ADR-0011 D6 target for one classic amp at 48 kHz / 64 Live, not a measured margin"
+    },
+    "amp_classic_crunch_a": {
+      "kind": "block",
+      "r0": 1.19,
+      "maxCpuPercent": 6.0,
+      "baseline": "PROVISIONAL local Ryzen 5 9600X, replaced by the CI five-run median before review",
+      "headroom": "maxCpuPercent 6 is the ADR-0011 D6 target for one classic amp at 48 kHz / 64 Live, not a measured margin"
+    },
+    "amp_classic_lead_a": {
+      "kind": "block",
+      "r0": 1.63,
+      "maxCpuPercent": 6.0,
+      "baseline": "PROVISIONAL local Ryzen 5 9600X, replaced by the CI five-run median before review",
+      "headroom": "maxCpuPercent 6 is the ADR-0011 D6 target for one classic amp at 48 kHz / 64 Live, not a measured margin"
+    }
+  }
+}
