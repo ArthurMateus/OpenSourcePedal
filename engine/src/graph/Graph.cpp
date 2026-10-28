@@ -31,7 +31,7 @@ void Graph::prepare(double sampleRate, int maxBlockSize, dsp::OversamplingQualit
     sampleRate_ = sampleRate;
     maxBlock_ = std::max(1, maxBlockSize);
     const auto n = static_cast<std::size_t>(maxBlock_);
-    for (auto* b : {&mono_, &dry_, &dryR_, &stripL_, &stripR_, &cleanBuf_})
+    for (auto* b : {&mono_, &dry_, &dryR_, &stripL_, &stripR_, &cleanBuf_, &postGain_})
         b->assign(n, 0.0f); // pre-touched (realtime-rules RT-12)
 
     input_.prepare(sampleRate, maxBlock_);
@@ -51,6 +51,8 @@ void Graph::prepare(double sampleRate, int maxBlockSize, dsp::OversamplingQualit
     compOn_.prepare(sampleRate);
     stripFade_.prepare(sampleRate, kSwapSeconds);
     cleanBlend_.prepare(sampleRate, 0.020); // parameters.md §1.4: mix % is a 20 ms linear ramp
+    gateOn_.prepare(sampleRate, dsp::Crossfader::kBlockEnableSeconds);
+    gateTap_.prepare(sampleRate, 0.010); // parameters.md §2.2: gate.postAmp, xf 10
 
     // ADR-0009 D4: P(x) = the measured delay from the input to tap x; each tap gets R(x) = round(P(x)) and a
     // parallel path from a to b is delayed by R(b) − R(a), so every path adds up to exactly L_total.
@@ -66,6 +68,9 @@ void Graph::prepare(double sampleRate, int maxBlockSize, dsp::OversamplingQualit
     const int cleanDelay = latency_ - R(dOs1); // K_clean
     clean_.prepare(cleanDelay);
     clean_.setDelay(cleanDelay);
+    const int gateDelay = R(dOs1 + dSlot) - R(0.0); // K_gate: from the gate slot to the amp output
+    gatePost_.prepare(gateDelay);
+    gatePost_.setDelay(gateDelay);
     setBypassedAll(bypassedAll_); // hands the new pad to the amp slots
     reset();
 }
@@ -76,6 +81,9 @@ void Graph::reset() noexcept
     input_.reset();
     tuner_.reset();
     gate_.reset();
+    gateOn_.reset(gateOn_.target());
+    gateTap_.reset(gateTap_.target());
+    gatePost_.reset();
     comp_.reset();
     drives_.reset();
     for (auto& s : strips_) {
@@ -158,10 +166,47 @@ bool startEnable(dsp::Crossfader& xf, bool& idle, Block& block) noexcept
 
 } // namespace
 
+// ADR-0009 D6. The gate computes g from its own input (the key). With h = 1 − e·(1 − g), the factor h^(1 − x)
+// is applied here and h^x, delayed by K_gate, after the amp slot. Through a linear amp their product is h, aligned
+// with the signal, for any x, so moving the tap is level-neutral. Settled factors are exact (no pow), and a
+// disabled gate is exactly 1 on both sides. The delay line carries the attenuation 1 − h^x, so its cleared state
+// after reset() is a factor of exactly 1.
+void Graph::processGate(float* io, int n) noexcept
+{
+    float* const post = postGain_.data();
+    if (bypassedAll_) { // the gate has no hard bypass of its own: both factors are 1
+        std::fill_n(post, n, 0.0f);
+        gatePost_.process(post, post, n);
+        std::fill_n(post, n, 1.0f);
+        return;
+    }
+    float* const g = dry_.data();
+    gate_.computeGain(io, g, n);
+    for (int i = 0; i < n; ++i) {
+        const float e = gateOn_.next(), x = gateTap_.next();
+        const float h = std::max(1.0f - e * (1.0f - g[i]), 1.0e-6f);
+        float pre = h, postFactor = 1.0f;
+        if (x >= 1.0f) {
+            pre = 1.0f;
+            postFactor = h;
+        } else if (x > 0.0f) {
+            pre = std::pow(h, 1.0f - x);
+            postFactor = std::pow(h, x);
+        }
+        io[i] *= pre;
+        post[i] = 1.0f - postFactor;
+    }
+    gatePost_.process(post, post, n);
+    for (int i = 0; i < n; ++i)
+        post[i] = 1.0f - post[i];
+}
+
 void Graph::processStrip(Strip& s, const float* in, float* outL, float* outR, int n) noexcept
 {
     std::copy_n(in, n, outL);
     s.amp->process(outL, n);
+    for (int i = 0; i < n; ++i) // gate.postAmp factor, aligned with the amp output (K_gate)
+        outL[i] *= postGain_[static_cast<std::size_t>(i)];
     s.cab.process(outL, outL, outR, n);
     if (!startEnable(s.eqOnL, s.eqIdle, s.eq))
         return;
@@ -182,8 +227,7 @@ void Graph::processChunk(float* io, float* outL, float* outR, int n) noexcept
         inputOn_.process(dry, io, io, n);
     }
     tuner_.push(io, n);
-    if (!bypassedAll_) // the gate has no hard bypass of its own; it is skipped
-        gate_.process(io, io, n);
+    processGate(io, n);
     if (startEnable(compOn_, compIdle_, comp_)) {
         std::copy_n(io, n, dry);
         comp_.process(io, io, n);

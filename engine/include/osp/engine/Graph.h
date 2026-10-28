@@ -72,6 +72,8 @@ public:
     // The fractional sum it is rounded from, and the clean DI delay K_clean (ADR-0009 D4, D7).
     double getMeasuredDelaySamples() const noexcept { return measuredDelay_; }
     int getCleanDelaySamples() const noexcept { return clean_.getDelay(); }
+    // The gate.postAmp gain delay K_gate = round(D_os1 + D_slot) (ADR-0009 D4, D6).
+    int getGateTapDelaySamples() const noexcept { return gatePost_.getDelay(); }
     int activeChannel() const noexcept { return stripTo_; }
     const dsp::OutputStage& output() const noexcept { return output_; }
     const dsp::TunerTap& tuner() const noexcept { return tuner_; }
@@ -96,6 +98,7 @@ private:
     void applyParameters() noexcept; // Fanout.cpp
     void applyStrip(int strip) noexcept; // Fanout.cpp
     void applyChannelSwitch() noexcept;
+    void processGate(float* io, int n) noexcept;
     void processStrip(Strip& s, const float* in, float* outL, float* outR, int n) noexcept;
     void processChunk(float* io, float* outL, float* outR, int n) noexcept;
 
@@ -107,6 +110,10 @@ private:
     dsp::Crossfader inputOn_; // input.enabled
     dsp::TunerTap tuner_;
     dsp::Gate gate_;
+    // gate.enabled and gate.postAmp (ADR-0009 D6): 10 ms ramps e and x; the post-amp factor h^x is delayed by
+    // K_gate and applied after the amp slot.
+    dsp::LinearRamp gateOn_, gateTap_;
+    dsp::DelayLine gatePost_;
     dsp::Compressor comp_;
     dsp::Crossfader compOn_; // comp.enabled
     bool inputIdle_ = false, compIdle_ = false;
@@ -127,7 +134,7 @@ private:
 
     double sampleRate_ = 0.0, tempoBpm_ = 120.0;
     int maxBlock_ = 0, latency_ = 0;
-    std::vector<float> mono_, dry_, dryR_, stripL_, stripR_, cleanBuf_;
+    std::vector<float> mono_, dry_, dryR_, stripL_, stripR_, cleanBuf_, postGain_;
 };
 
 } // namespace osp::engine
