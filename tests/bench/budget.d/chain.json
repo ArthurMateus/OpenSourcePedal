@@ -1,0 +1,11 @@
+{
+  "benchmarks": {
+    "passthrough_chain": {
+      "kind": "full_chain",
+      "r0": 0.000486,
+      "maxCpuPercent": 25.0,
+      "baseline": "first osp-bench run, #46, 2026-10-25, local VS 2022 Release build, T_ref 10.45 ms",
+      "headroom": "full chain: the fixed 25 % ceiling (AGENTS.md section 4) applies"
+    }
+  }
+}

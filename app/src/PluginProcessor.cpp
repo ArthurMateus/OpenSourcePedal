@@ -2,11 +2,69 @@
 
 #include "osp/engine/State.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace osp::app {
 
 namespace {
 // Host-visible id = the preset parameter id `<block>.<key>` (preset-schema.md §3), so automation survives presets.
 constexpr auto kGainId = "output.levelDb";
+
+// Host values snap to 6 significant digits, never finer than 1e-4 of their unit, so save -> restore gives back the
+// stored value exactly (REQ-902, ADR-0009 D10). A fixed 1e-4 grid would be finer than a float above about 1000
+// (one float step at 6000 Hz is 4.9e-4), and a log-skew default would land a few ulps off.
+float snapToGrid(const osp::engine::ParamInfo& p, float plain)
+{
+    const double v = plain;
+    const double magnitude = std::abs(v) > 0.0 ? std::floor(std::log10(std::abs(v))) : 0.0;
+    const double step = std::max(1.0e-4, std::pow(10.0, magnitude - 5.0));
+    return osp::engine::sanitize(p, static_cast<float>(std::round(v / step) * step));
+}
+
+juce::String valueText(float plain, int)
+{
+    auto text = juce::String(plain, 4);
+    if (text.containsChar('.'))
+        text = text.trimCharactersAtEnd("0").trimCharactersAtEnd(".");
+    return text;
+}
+
+std::unique_ptr<juce::RangedAudioParameter> makeParameter(const osp::engine::ParamInfo& p)
+{
+    using namespace osp::engine;
+    // Display names are the ids until the Phase 6 UI (ADR-0009 D10).
+    const juce::ParameterID id{juce::String(p.id), 1};
+    const juce::String name(p.id);
+    switch (p.kind) {
+    case ParamKind::boolean:
+        return std::make_unique<juce::AudioParameterBool>(id, name, p.def > 0.5f);
+    case ParamKind::choice: {
+        juce::StringArray names;
+        for (const auto choice : p.choices)
+            names.add(juce::String(choice.data(), choice.size()));
+        return std::make_unique<juce::AudioParameterChoice>(id, name, names, static_cast<int>(p.def));
+    }
+    case ParamKind::integer:
+        return std::make_unique<juce::AudioParameterInt>(id, name, static_cast<int>(p.min), static_cast<int>(p.max),
+                                                         static_cast<int>(p.def));
+    case ParamKind::continuous:
+        break;
+    }
+    // The table's skew (parameters.md §1.3) drives the host mapping, so normalized <-> plain matches the engine.
+    // The table is immutable after first use, so capturing its entry by pointer is safe. The host -> plain mapping
+    // snaps too: JUCE sets the default through a normalized round trip.
+    const ParamInfo* info = &p;
+    juce::NormalisableRange<float> range{
+        p.min, p.max, [info](float, float, float x) { return snapToGrid(*info, fromNormalized(*info, x)); },
+        [info](float, float, float v) { return toNormalized(*info, v); },
+        [info](float, float, float v) { return snapToGrid(*info, v); }};
+    juce::AudioParameterFloatAttributes attributes;
+    attributes = attributes.withStringFromValueFunction(valueText);
+    if (!p.unit.empty())
+        attributes = attributes.withLabel(juce::String(p.unit.data(), p.unit.size()));
+    return std::make_unique<juce::AudioParameterFloat>(id, name, range, p.def, attributes);
+}
 } // namespace
 
 PluginProcessor::PluginProcessor()
@@ -16,18 +74,22 @@ PluginProcessor::PluginProcessor()
       parameters_(*this, nullptr, "OpenSourcePedal", createParameterLayout()),
       presetId_(juce::Uuid().toDashedString().toLowerCase().toStdString())
 {
-    // The engine reads the host-owned atomic once per block (ADR-0004 rule 3).
-    engine_.setOutputLevelParameter(parameters_.getRawParameterValue(kGainId));
+    // The engine reads every host-owned atomic once per block (ADR-0004 rule 3, ADR-0009 D8). The raw value is the
+    // plain value: a bool is 0/1 and a choice its index, as the ParamStore expects.
+    const auto table = osp::engine::paramTable();
+    for (std::size_t i = 0; i < table.size(); ++i)
+        if (table[i].vis == osp::engine::Visibility::host)
+            engine_.parameters().bind(static_cast<int>(i), parameters_.getRawParameterValue(juce::String(table[i].id)));
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParameterLayout()
 {
+    // Every host-visible entry of the v1 table (parameters.md §5: 226), in table order. Ranges come from the table, so
+    // a restore that clamps through convertTo0to1() keeps every value the spec allows.
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
-    // Range = parameters.md §3.6 (-60...+12 dB). Restore clamps through convertTo0to1(), so a narrower range here
-    // would silently change any valid blob outside it.
-    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{kGainId, 1}, "Output Level",
-                                                           juce::NormalisableRange<float>{-60.0f, 12.0f, 0.1f}, 0.0f,
-                                                           juce::AudioParameterFloatAttributes{}.withLabel("dB")));
+    for (const auto& p : osp::engine::paramTable())
+        if (p.vis == osp::engine::Visibility::host)
+            layout.add(makeParameter(p));
     return layout;
 }
 
