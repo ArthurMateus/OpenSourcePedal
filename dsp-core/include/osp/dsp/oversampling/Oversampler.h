@@ -12,8 +12,10 @@
 //
 // FIR (HQ): our own linear-phase equiripple halfbands (src/oversampling/HalfbandFir.h), coefficients from
 // tools/design/halfband_fir.py (scipy.signal.remez, Vaidyanathan & Nguyen halfband trick, IEEE Trans. CAS 34(3),
-// 1987). Specs: D3 FIR column + Amendment A2. Tap counts are chosen so the up + down delay is an integer number of
-// base-rate samples, so the FIR kind is an exact pure delay of getLatencySamples() (ADR-0005 D4, REQ-OS-001a).
+// 1987). Specs: D3 FIR column + Amendment A2; the stage-0 decimator is a full-band lowpass with its stopband from
+// fs/2 (Amendment A3), so no harmonic above fs/2 folds back unattenuated. Tap counts are chosen so the up + down
+// delay is an integer number of base-rate samples (101/116/124 at 2x/4x/8x), so the FIR kind is an exact pure delay
+// of getLatencySamples() (ADR-0005 D4, REQ-OS-001a).
 //
 // The factor is chosen in prepare(), never in process() (ADR-0005 D1, REQ-OS-006). Usage per block:
 //   float* os = oversampler.upsample(in, n);   // n * factor samples at the oversampled rate

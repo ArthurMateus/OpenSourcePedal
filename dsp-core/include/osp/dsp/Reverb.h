@@ -1,7 +1,9 @@
 #pragma once
 
-// Reverb block (issue #72): room and hall on FdnTank (part 1), plate on DattorroTank (part 3). Stereo in/out, zero
-// latency (the dry path is never delayed). Parameters per parameters.md §3.5.
+// Reverb block (issues #72, #73): room and hall on FdnTank, plate on DattorroTank, spring on SpringTank, shimmer on
+// ShimmerTank (the hall FDN with a pitch-shifted regeneration loop). Stereo in/out, zero latency (the dry path is
+// never delayed). Parameters per parameters.md §3.5. shimmerPct and shimmerInterval act in shimmer mode only; the
+// other tanks have no shimmer loop.
 //
 // Signal path: in → pre-delay (fractional, 80 ms glide) → low cut / high cut (TPT one-pole HP/LP on the reverb
 // input, cutoff smoothed 20 ms, coefficients per sample while moving) → tank (mode engine, 50 ms crossfade on a mode
@@ -17,6 +19,8 @@
 
 #include "osp/dsp/reverb/DattorroTank.h"
 #include "osp/dsp/reverb/FdnTank.h"
+#include "osp/dsp/reverb/ShimmerTank.h"
+#include "osp/dsp/reverb/SpringTank.h"
 #include "osp/dsp/util/Crossfader.h"
 #include "osp/dsp/util/Smoothers.h"
 
@@ -27,7 +31,8 @@ namespace osp::dsp {
 
 class Reverb {
 public:
-    enum class Mode { Room, Hall, Plate };
+    enum class Mode { Room, Hall, Plate, Spring, Shimmer };
+    using ShimmerInterval = ShimmerTank::Interval;
 
     struct Params {
         Mode mode = Mode::Hall;
@@ -37,6 +42,8 @@ public:
         float lowCutHz = 100.0f; // 50…700
         float highCutHz = 6000.0f; // 1000…10000
         float modPct = 20.0f; // 0…100
+        float shimmerPct = 0.0f; // 0…100
+        ShimmerInterval shimmerInterval = ShimmerInterval::OctUp;
         bool freeze = false;
     };
 
@@ -64,9 +71,11 @@ private:
 
     double sampleRate_ = 0.0;
     Params params_;
-    static constexpr int kNumEngines = 3;
+    static constexpr int kNumEngines = 5;
     std::array<FdnTank, 2> engines_; // 0 = room, 1 = hall
     DattorroTank plate_;             // 2 = plate
+    SpringTank spring_;              // 3 = spring
+    ShimmerTank shimmer_;            // 4 = shimmer
     int active_ = 1, previous_ = 1, pending_ = 1;
     LinearRamp modeFade_;
     std::array<std::vector<float>, 2> pre_; // pre-delay rings
