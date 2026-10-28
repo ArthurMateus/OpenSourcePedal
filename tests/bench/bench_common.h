@@ -63,11 +63,17 @@ template <typename PerBlock>
 double measure(ankerl::nanobench::Bench& bench, const char* name, const std::vector<float>& input, PerBlock&& perBlock)
 {
     std::vector<float> out(input.size());
-    bench.run(name, [&] {
+    const auto run = [&] {
         for (int pos = 0; pos < kSamples; pos += kBlock)
             perBlock(input.data() + pos, out.data() + pos, kBlock);
         ankerl::nanobench::doNotOptimizeAway(out[static_cast<std::size_t>(kSamples - 1)]);
-    });
+    };
+    // Warm the actual kernel for a fixed wall time; one iteration is too short for small entries (#165).
+    const auto warmUntil = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+    do {
+        run();
+    } while (std::chrono::steady_clock::now() < warmUntil);
+    bench.run(name, run);
     return bench.results().back().median(ankerl::nanobench::Result::Measure::elapsed);
 }
 
