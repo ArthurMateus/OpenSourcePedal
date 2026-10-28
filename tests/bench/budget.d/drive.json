@@ -5,21 +5,51 @@
       "r0": 0.65472446,
       "maxCpuPercent": 2.5,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.654724460 (range 0.630742064..0.672379279, spread 6.60%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 3.7x the measured 0.68 %: one drive slot (mid, defaults; ADAA2 in double, 3 SVFs, 3 one-poles per sample) at 192 kHz plus the 4x IIR up/down. OS-1 with both slots is about 1.4 %"
+      "headroom": "about 3.7x the measured 0.68 %: one drive slot (mid, defaults; ADAA2 in double, 3 SVFs, 3 one-poles per sample) at 192 kHz plus the 4x IIR up/down. OS-1 with both slots is about 1.4 %",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.65472446,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.654724460, spread 6.60%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.605647096,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.605647096, spread 0.72%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     },
     "drive_region_live": {
       "kind": "block",
       "r0": 1.151387291,
       "maxCpuPercent": 4.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 1.151387291 (range 1.111396249..1.205375318, spread 8.46%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 3.4x the measured 1.19 %: OS-1 Live at 48 kHz (4x IIR up/down) with both slots enabled, mid into dist; the drive section of a stacked preset"
+      "headroom": "about 3.4x the measured 1.19 %: OS-1 Live at 48 kHz (4x IIR up/down) with both slots enabled, mid into dist; the drive section of a stacked preset",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 1.151387291,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 1.151387291, spread 8.46%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 1.102413749,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 1.102413749, spread 0.39%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     },
     "drive_region_hq": {
       "kind": "block",
       "r0": 2.566491798,
       "maxCpuPercent": 12.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 2.566491798 (range 2.531186824..2.643036328, spread 4.42%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 2.4x the estimated 5.0 % on the CI runner (drive_region_live 1.83-2.04 % there x 2.62) and 3.9x the estimated 3.1 % on an idle local machine: OS-1 HQ at 48 kHz (8x FIR, ADR-0005 A3, + 6-sample pad) with both slots enabled, mid into dist"
+      "headroom": "about 2.4x the estimated 5.0 % on the CI runner (drive_region_live 1.83-2.04 % there x 2.62) and 3.9x the estimated 3.1 % on an idle local machine: OS-1 HQ at 48 kHz (8x FIR, ADR-0005 A3, + 6-sample pad) with both slots enabled, mid into dist",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 2.566491798,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 2.566491798, spread 4.42%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 2.779027356,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 2.779027356, spread 0.56%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     }
   }
 }

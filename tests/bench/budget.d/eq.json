@@ -5,7 +5,17 @@
       "r0": 0.165060434,
       "maxCpuPercent": 0.5,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.165060434 (range 0.158519613..0.218377872, spread 37.76%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 3x the measured 0.167 %: graphic9 with all bands at +-6 dB and both cuts on, mono (linked stereo is about 2x)"
+      "headroom": "about 3x the measured 0.167 %: graphic9 with all bands at +-6 dB and both cuts on, mono (linked stereo is about 2x)",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.165060434,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.165060434, spread 37.76%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.163739322,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.163739322, spread 1.42%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     }
   }
 }

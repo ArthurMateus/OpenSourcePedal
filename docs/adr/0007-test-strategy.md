@@ -90,7 +90,16 @@ Every block in `dsp-core/` implements `prepare(sampleRate, maxBlockSize)`, `rese
   Each entry in `tests/bench/budget.d/*.json` stores its measured r0, runner name, date and calibration run URL;
   `build/bench-runner.json` records the image version, processor and source revision in the same uploaded artifact
   as the five raw reports. Updating baselines requires an explained, measured change; CI never rewrites them.
-  The gate uses the fixed **10% threshold with no additional noise allowance**. A boundary value of exactly +10%
+  Hosted Windows runners exposed two processor identifiers for identical benchmark C++ sources: AMD Family 26
+  Model 2 and Family 25 Model 1. Between their five-run medians, input_stage R changed +48.62%, doubler +20.62%
+  and FIR oversampling +27.68%; the fixed reference does not remove this instruction-mix dependence (both runs
+  and all medians are recorded in the handoff). Each budget fragment therefore has `processorBaselines`, keyed
+  by the exact `platform.processor()` identifier, with a separately measured r0 and provenance for every case.
+  CI supplies `--runner build/bench-runner.json`; an unknown processor or missing per-case profile fails closed
+  with a calibration instruction. New entries add these measured profiles in their own budget fragment, without
+  shared-file changes. The top-level r0/baseline remains the canonical first profile for legacy offline commands.
+  CPU-only `--no-regression` mode needs no processor profile. The gate uses the fixed **10% threshold within each
+  measured processor profile, with no additional noise allowance**. A boundary value of exactly +10%
   passes. Missing/unbudgeted cases and non-finite/invalid metrics fail. `tools/bench/verify_gate.py` checks the real
   report passes and independently injects a synthetic r0 × 1.20 timing fixture for every case, requiring an R-gate
   rejection. These fixtures verify decision logic; they are not hardware slowdown measurements. Calibration noise

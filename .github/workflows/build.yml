@@ -58,7 +58,7 @@ jobs:
           pip install jsonschema==4.23.0
           python tools/tonematch/check_preset.py build/release/tools/osp-tonematch.exe
       # REQ-TEST-007. 5 runs, gated on the per-benchmark median (tools/bench/median.py), so one noisy run cannot fail
-      # the job. The strict >10% R gate uses runner-derived r0 in budget.d (#83); no extra noise allowance.
+      # the job. The strict >10% R gate uses processor-specific r0 in budget.d (#83); no extra noise allowance.
       - name: Benchmarks (CPU ceilings and R regression)
         shell: bash
         run: |
@@ -76,12 +76,13 @@ jobs:
               "measuredAt": datetime.now(timezone.utc).isoformat(),
               "runUrl": os.environ["GITHUB_SERVER_URL"] + "/" + os.environ["GITHUB_REPOSITORY"] + "/actions/runs/" + os.environ["GITHUB_RUN_ID"],
               "headRevision": event.get("pull_request", {}).get("head", {}).get("sha", os.environ["GITHUB_SHA"]),
+              "testRevision": os.environ["GITHUB_SHA"],
           }, indent=2) + "\n", encoding="utf-8")
           PY
           for i in 1 2 3 4 5; do ./build/release/tests/osp-bench.exe --out "build/bench-$i.json" > /dev/null; done
           python tools/bench/median.py build/bench.json build/bench-[1-5].json
-          python tools/bench/check_budget.py build/bench.json
-          python tools/bench/verify_gate.py build/bench.json
+          python tools/bench/check_budget.py build/bench.json --runner build/bench-runner.json
+          python tools/bench/verify_gate.py build/bench.json --runner build/bench-runner.json
       - name: Upload test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4

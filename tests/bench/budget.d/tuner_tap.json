@@ -5,7 +5,17 @@
       "r0": 0.024557196,
       "maxCpuPercent": 1.5,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.024557196 (range 0.023802490..0.024960058, spread 4.86%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 30x the measured 0.050 %: 4th-order SVF low pass + decimation + atomic ring store per sample, and the unmuted mute pass (an early return); the YIN detector runs on a worker"
+      "headroom": "about 30x the measured 0.050 %: 4th-order SVF low pass + decimation + atomic ring store per sample, and the unmuted mute pass (an early return); the YIN detector runs on a worker",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.024557196,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.024557196, spread 4.86%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.02319295,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.023192950, spread 0.72%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     }
   }
 }

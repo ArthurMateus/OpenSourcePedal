@@ -5,7 +5,17 @@
       "r0": 0.091167515,
       "maxCpuPercent": 4.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.091167515 (range 0.087886108..0.092746648, spread 5.53%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 19x the measured 0.21 %: stereo, limiter engaged; NaN guard, level, 4x interpolated true-peak detector (3 phases x 12 taps x 2 channels), gain and meters per sample"
+      "headroom": "about 19x the measured 0.21 %: stereo, limiter engaged; NaN guard, level, 4x interpolated true-peak detector (3 phases x 12 taps x 2 channels), gain and meters per sample",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.091167515,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.091167515, spread 5.53%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.101115186,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.101115186, spread 1.75%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     }
   }
 }

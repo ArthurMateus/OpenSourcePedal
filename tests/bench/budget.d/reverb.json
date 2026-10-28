@@ -5,42 +5,102 @@
       "r0": 0.64959077,
       "maxCpuPercent": 3.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.649590770 (range 0.631517712..0.651843328, spread 3.22%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 4.4x the measured 0.68 %: 8-line FDN, 4 diffuser stages (32 delay taps + 4 Hadamard), 8 modulated linear-interpolated reads with std::sin LFOs, stereo; reverb is one of the heavier non-amp blocks, so the ceiling leaves room for the block wrapper (pre-delay, filters, mix) in part 2"
+      "headroom": "about 4.4x the measured 0.68 %: 8-line FDN, 4 diffuser stages (32 delay taps + 4 Hadamard), 8 modulated linear-interpolated reads with std::sin LFOs, stereo; reverb is one of the heavier non-amp blocks, so the ceiling leaves room for the block wrapper (pre-delay, filters, mix) in part 2",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.64959077,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.649590770, spread 3.22%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.730257756,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.730257756, spread 0.39%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     },
     "plate_tank": {
       "kind": "block",
       "r0": 0.131285513,
       "maxCpuPercent": 1.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.131285513 (range 0.129018074..0.133783891, spread 3.69%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 6.5x the measured 0.155 %: Dattorro figure-eight tank, 4 input allpasses + 2 modulated allpasses + 2 allpasses + 4 delays, 14 output taps, one sin/cos LFO pair per sample; one plate per Reverb block"
+      "headroom": "about 6.5x the measured 0.155 %: Dattorro figure-eight tank, 4 input allpasses + 2 modulated allpasses + 2 allpasses + 4 delays, 14 output taps, one sin/cos LFO pair per sample; one plate per Reverb block",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.131285513,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.131285513, spread 3.69%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.137003413,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.137003413, spread 1.41%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     },
     "shimmer_tank": {
       "kind": "block",
       "r0": 1.096559763,
       "maxCpuPercent": 4.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 1.096559763 (range 1.090288723..1.159152709, spread 6.32%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 3.7x the estimated 1.1 %: the hall FdnTank plus, per channel, a 2-tap grain shifter (2 Catmull-Rom reads, 2 sin, a coarse-to-fine WSOLA search of about 8 k multiply-adds per splice, 50 splices/s at an octave), 3 SVFs, 2 allpasses and a tanh; the splice search was 61 k multiply-adds before the coarse pass (3.3x the FDN)"
+      "headroom": "about 3.7x the estimated 1.1 %: the hall FdnTank plus, per channel, a 2-tap grain shifter (2 Catmull-Rom reads, 2 sin, a coarse-to-fine WSOLA search of about 8 k multiply-adds per splice, 50 splices/s at an octave), 3 SVFs, 2 allpasses and a tanh; the splice search was 61 k multiply-adds before the coarse pass (3.3x the FDN)",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 1.096559763,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 1.096559763, spread 6.32%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 1.272180451,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 1.272180451, spread 0.74%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     },
     "spring_tank": {
       "kind": "block",
       "r0": 0.811815359,
       "maxCpuPercent": 3.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.811815359 (range 0.788957117..0.896300182, spread 13.61%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "the same 3 % ceiling as fdn_hall, which it costs about the same as: 2 springs x (100 stretched + 40 plain allpasses), 4 interleaved serial chains, 4 modulated linear reads, one 2-pole SVF per spring; interleaving the chains cut it 2.2x (from 2.5x the FDN)"
+      "headroom": "the same 3 % ceiling as fdn_hall, which it costs about the same as: 2 springs x (100 stretched + 40 plain allpasses), 4 interleaved serial chains, 4 modulated linear reads, one 2-pole SVF per spring; interleaving the chains cut it 2.2x (from 2.5x the FDN)",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.811815359,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.811815359, spread 13.61%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.810579641,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.810579641, spread 1.46%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     },
     "reverb_block": {
       "kind": "block",
       "r0": 0.673358685,
       "maxCpuPercent": 3.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.673358685 (range 0.656322587..0.691880834, spread 5.42%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 4.3x the measured 0.70 %: the hall FdnTank (fdn_hall) plus fractional pre-delay, two TPT one-poles per channel, mix and enable ramps, stereo; the same 3 % ceiling as the tank, since the wrapper adds about 4 %"
+      "headroom": "about 4.3x the measured 0.70 %: the hall FdnTank (fdn_hall) plus fractional pre-delay, two TPT one-poles per channel, mix and enable ramps, stereo; the same 3 % ceiling as the tank, since the wrapper adds about 4 %",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.673358685,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.673358685, spread 5.42%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.769521921,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.769521921, spread 0.42%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     },
     "reverb_shimmer_block": {
       "kind": "block",
       "r0": 1.120715797,
       "maxCpuPercent": 4.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 1.120715797 (range 1.085756759..1.198380429, spread 10.37%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "the shimmer tank's 4 % ceiling: the wrapper adds about 3 % to the tank, as for reverb_block; shimmer is the heaviest mode (only the active engine runs, plus the outgoing one during a 50 ms fade)"
+      "headroom": "the shimmer tank's 4 % ceiling: the wrapper adds about 3 % to the tank, as for reverb_block; shimmer is the heaviest mode (only the active engine runs, plus the outgoing one during a 50 ms fade)",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 1.120715797,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 1.120715797, spread 10.37%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 1.310426464,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 1.310426464, spread 0.64%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     }
   }
 }

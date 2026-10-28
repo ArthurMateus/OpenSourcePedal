@@ -5,28 +5,68 @@
       "r0": 0.234544539,
       "maxCpuPercent": 8.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.234544539 (range 0.227325247..0.237418489, spread 4.44%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 16x the measured 0.50 %: chorusWide (the costliest modulation type), stereo, two ring writes, four Catmull-Rom reads and three sin() per sample"
+      "headroom": "about 16x the measured 0.50 %: chorusWide (the costliest modulation type), stereo, two ring writes, four Catmull-Rom reads and three sin() per sample",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.234544539,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.234544539, spread 4.44%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.244537224,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.244537224, spread 0.65%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     },
     "mod_vibe": {
       "kind": "block",
       "r0": 0.365618463,
       "maxCpuPercent": 12.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.365618463 (range 0.358558135..0.374217562, spread 4.37%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 13x the measured 0.93 %: vibe (the costliest allpass type), stereo, 2 x 4 TPT allpass stages with a tan() each, two pow() and the LFO sines per sample; the tan() calls dominate and could become a polynomial if needed"
+      "headroom": "about 13x the measured 0.93 %: vibe (the costliest allpass type), stereo, 2 x 4 TPT allpass stages with a tan() each, two pow() and the LFO sines per sample; the tan() calls dominate and could become a polynomial if needed",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.365618463,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.365618463, spread 4.37%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.388310802,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.388310802, spread 1.77%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     },
     "mod_tremolo": {
       "kind": "block",
       "r0": 0.06905122,
       "maxCpuPercent": 3.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.069051220 (range 0.067214013..0.072390584, spread 7.70%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 18x the measured 0.16 %: harmonic tremolo, stereo, two cascaded TPT one-poles, two band gains and one LFO sine per side per sample"
+      "headroom": "about 18x the measured 0.16 %: harmonic tremolo, stereo, two cascaded TPT one-poles, two band gains and one LFO sine per side per sample",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.06905122,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.069051220, spread 7.70%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.081440684,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.081440684, spread 0.29%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     },
     "mod_block": {
       "kind": "block",
       "r0": 0.332805938,
       "maxCpuPercent": 12.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.332805938 (range 0.323692610..0.343638921, spread 6.16%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 14x the measured 0.87 %: the mod block, stereo, toggling chorusWide <-> phaser every 100 ms, so 30 % of the time both slots and the 30 ms type crossfade run"
+      "headroom": "about 14x the measured 0.87 %: the mod block, stereo, toggling chorusWide <-> phaser every 100 ms, so 30 % of the time both slots and the 30 ms type crossfade run",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.332805938,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.332805938, spread 6.16%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.383777401,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.383777401, spread 1.33%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     }
   }
 }

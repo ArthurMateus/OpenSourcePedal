@@ -5,14 +5,34 @@
       "r0": 0.85935197,
       "maxCpuPercent": 25.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.859351970 (range 0.840176362..0.872935434, spread 3.90%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "the v1 graph's default preset (most blocks off; the disabled delay and reverb idle once silent); the fixed 25 % ceiling applies"
+      "headroom": "the v1 graph's default preset (most blocks off; the disabled delay and reverb idle once silent); the fixed 25 % ceiling applies",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.85935197,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.859351970, spread 3.90%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.939677598,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.939677598, spread 0.31%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     },
     "graph_all_blocks": {
       "kind": "full_chain",
       "r0": 4.074962319,
       "maxCpuPercent": 25.0,
       "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 4.074962319 (range 4.027822591..4.157004646, spread 3.21%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "every v1 block on, tape delay, both cab slots on 1 s IRs (the ceiling case): the fixed 25 % ceiling applies; the amp slot is still the identity stub, so Phase 5 amps add to it"
+      "headroom": "every v1 block on, tape delay, both cab slots on 1 s IRs (the ceiling case): the fixed 25 % ceiling applies; the amp slot is still the identity stub, so Phase 5 amps add to it",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 4.074962319,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 4.074962319, spread 3.21%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 4.213186063,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 4.213186063, spread 0.39%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     }
   }
 }
