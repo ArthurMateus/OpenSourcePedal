@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -80,9 +79,8 @@ double measure(ankerl::nanobench::Bench& bench, const char* name, const std::vec
 // Costliest callback of a block whose work repeats every `period` samples (the cab's 1024 stage): every block is timed
 // over kPeakCycles periods, the median is taken per block phase (robust to preemption), and the worst phase wins.
 // Returned as the time for 1 s of audio if every block cost that much, so CPU % reads as the peak share of a block.
-inline double peakCallback(const std::vector<float>& input,
-                           int period,
-                           const std::function<void(const float*, float*, int)>& perBlock)
+template <typename PerBlock>
+double peakCallback(const std::vector<float>& input, int period, PerBlock&& perBlock)
 {
     constexpr int kPeakCycles = 200;
     const int phases = period / kBlock;

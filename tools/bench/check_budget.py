@@ -9,19 +9,23 @@ Per-benchmark entries live in tests/bench/budget.d/<block>.json ({"benchmarks": 
 reference/ceilings/tolerance in budget.json, so a block PR adds a file instead of editing a shared one (#115). The files
 are merged in name order; a benchmark named twice is an error.
 
-usage: check_budget.py <results.json> [--budget tests/bench/budget.json] [--no-regression]
+CI supplies --runner bench-runner.json to select a measured processor profile. Unknown processors fail closed;
+without --runner, r0 is the canonical profile for backwards-compatible offline use. CPU-only mode needs no profile.
+
+usage: check_budget.py <results.json> [--budget tests/bench/budget.json] [--runner runner.json] [--no-regression]
 """
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def load_budget(path: Path) -> dict:
+def load_budget(path: Path, runner: Path | None = None) -> dict:
     """budget.json plus every budget.d/*.json beside it (benchmarks merged, duplicates rejected)."""
     budget = json.loads(path.read_text(encoding="utf-8"))
     merged = dict(budget.get("benchmarks", {}))
@@ -31,6 +35,14 @@ def load_budget(path: Path) -> dict:
                 raise SystemExit(f"budget: benchmark '{name}' defined twice (again in {part.name})")
             merged[name] = entry
     budget["benchmarks"] = merged
+    if runner is not None:
+        processor = json.loads(runner.read_text(encoding="utf-8"))["processor"]
+        for name, entry in merged.items():
+            profile = entry.get("processorBaselines", {}).get(processor)
+            if profile is None:
+                raise SystemExit(f"budget: uncalibrated processor '{processor}' for {name}; "
+                                 "record a five-run CI median in processorBaselines")
+            entry["r0"] = profile["r0"]
     return budget
 
 
@@ -39,13 +51,17 @@ def main() -> int:
     ap.add_argument("results")
     ap.add_argument("--budget", default=str(ROOT / "tests" / "bench" / "budget.json"))
     ap.add_argument("--no-regression", action="store_true")
+    ap.add_argument("--runner", help="bench-runner.json processor provenance (required by CI)")
     args = ap.parse_args()
 
-    budget = load_budget(Path(args.budget))
+    runner = Path(args.runner) if args.runner and not args.no_regression else None
+    budget = load_budget(Path(args.budget), runner)
     results = json.loads(Path(args.results).read_text(encoding="utf-8"))["benchmarks"]
     tol = budget["regressionTolerance"]
     ceilings = budget["ceilings"]
-    failures = []
+    failures = [f"{name}: missing budget" for name in sorted(results.keys() - budget["benchmarks"].keys())]
+    if not math.isfinite(tol) or tol < 0:
+        raise SystemExit("budget: regressionTolerance must be finite and non-negative")
 
     for name, b in budget["benchmarks"].items():
         r = results.get(name)
@@ -58,11 +74,18 @@ def main() -> int:
             limit = min(limit, ceilings["fullChainCpuPercent"])
         elif b["kind"] == "nam":
             limit = min(limit, ceilings["namCpuPercent"])
+        if (
+            not all(math.isfinite(v) for v in (cpu, ratio, b["r0"], limit))
+            or cpu < 0 or ratio <= 0 or b["r0"] <= 0 or limit <= 0
+        ):
+            failures.append(f"{name}: invalid metrics or budget")
+            continue
         delta = ratio / b["r0"] - 1.0
         print(f"{name:20s} cpu {cpu:9.4f} % (max {limit:g})  R {ratio:.6f} (r0 {b['r0']:.6f}, {delta:+.1%})")
         if cpu >= limit:
             failures.append(f"{name}: {cpu:.4f} % CPU >= {limit:g} %")
-        if not args.no_regression and delta > tol:
+        # Compare the ratio directly so an exact +10% boundary is not rejected by subtraction rounding.
+        if not args.no_regression and ratio > b["r0"] * (1.0 + tol):
             failures.append(f"{name}: R regressed {delta:+.1%} (> {tol:.0%})")
 
     for f in failures:
