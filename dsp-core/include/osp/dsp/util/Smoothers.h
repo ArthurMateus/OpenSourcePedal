@@ -90,8 +90,14 @@ public:
         deviation_ = 0.0f;
     }
 
+    // Idempotent (#161): re-sending the current target is a no-op, as in LinearRamp. Without the early return,
+    // deviation_ = current() − target re-rounds a small deviation to the float ULP of a large target on every call,
+    // so a glide that is re-sent every block (the engine fans out every parameter every block) stalls or jitters
+    // by an amount that depends on the block size.
     void setTarget(float target) noexcept
     {
+        if (target == target_)
+            return;
         deviation_ = prepared_ ? current() - target : 0.0f;
         target_ = target;
     }
