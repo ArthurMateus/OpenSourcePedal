@@ -2,17 +2,37 @@
   "benchmarks": {
     "oversampler_iir_4x": {
       "kind": "block",
-      "r0": 0.093383,
+      "r0": 0.103542499,
       "maxCpuPercent": 1.0,
-      "baseline": "#63 part 2 (#96, HIIR FPU classes after review), 2026-10-26, local VS 2022 Release build (windows-msvc-ci), T_ref 10.50 ms",
-      "headroom": "about 10x the measured 0.098 %: HIIR FPU up + down at 4x (stages 0-1, 7/6 + 6/5 coefficients), identity processing; one OS region"
+      "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.103542499 (range 0.099788182..0.105801072, spread 6.03%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
+      "headroom": "about 10x the measured 0.098 %: HIIR FPU up + down at 4x (stages 0-1, 7/6 + 6/5 coefficients), identity processing; one OS region",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.103542499,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.103542499, spread 6.03%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.091296883,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.091296883, spread 0.51%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     },
     "oversampler_fir_8x": {
       "kind": "block",
-      "r0": 1.29,
+      "r0": 0.635147851,
       "maxCpuPercent": 5.0,
-      "baseline": "#112 part 1 (ADR-0005 A3), 2026-10-27, local VS 2022 Release build (windows-msvc-ci) on a loaded machine, median of 6 runs (R 1.08-1.45), T_ref 25-44 ms",
-      "headroom": "about 4x the measured 1.2-1.5 %: FIR up + down at 8x (HQ), 58/32/34 even-phase up taps, full-band 293-tap stage-0 decimator (A3, folded, 8 partial sums) + 30/32 down taps, identity processing; one HQ region"
+      "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.635147851 (range 0.620855963..0.673018138, spread 8.40%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
+      "headroom": "about 4x the measured 1.2-1.5 %: FIR up + down at 8x (HQ), 58/32/34 even-phase up taps, full-band 293-tap stage-0 decimator (A3, folded, 8 partial sums) + 30/32 down taps, identity processing; one HQ region",
+      "processorBaselines": {
+        "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
+          "r0": 0.635147851,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.635147851, spread 8.40%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+        },
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.810986339,
+          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.810986339, spread 0.25%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        }
+      }
     }
   }
 }
