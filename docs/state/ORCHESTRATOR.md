@@ -1,5 +1,15 @@
 # Orchestrator state (LIVE, `state` branch)
 
+> **2026-10-28 ~02:40Z, Codex owner-session continuation ACTIVE.** The requested older queues
+> #144/#143/#148/#142 and #139/#140 are already merged. #150 is merged; #151 is synced at
+> `241dd7e` and waiting for all six CI jobs. Sole train writer: `C:\osptrain`, scratch runner
+> `C:\osptrain-control\merge_train.py`, command `139 140 150 151 152 153 154 155 156 162 163 164`.
+> Independent writers: `C:\osp115` (#157 registry split, final resync after train),
+> `C:\osp164review` (#154 reverb Spring/Shimmer fan-out correction, release ownership before train reaches #154),
+> `C:\ospqa3` (QA pass 2 then merged-main pass 3; harness copies under `.git/qa-*`).
+> #47/#94/#145/#146/#147 remain on hold. Do not revive the old Maestri workers; CLI is unavailable here.
+> Follow owner-session-3 for baseline history, then this live entry for current progress.
+
 > **2026-10-28 ~00:05Z, owner session part 3 stopped (account switch).** Read
 > [`docs/state/HANDOFF/owner-session-3.md`](https://github.com/ArthurMateus/OpenSourcePedal/blob/state/docs/state/HANDOFF/owner-session-3.md)
 > (on this branch) first; it is the newest state. In short: #139/#140/#142/#143/#144/#148/#149 merged. Next: train
