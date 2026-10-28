@@ -14,7 +14,7 @@ For each block ticket:
   - bypass that nulls against the input (residual ≤ -120 dBFS unless latency is compensated);
   - every sample rate (44.1/48/88.2/96 kHz) × block sizes (1, 32, 64, 127, 512, 2048);
   - NaN/Inf fuzz.
-- Add a benchmark in `tests/bench/` and update `tests/bench/budget.json` with a justification.
+- Add a benchmark as a new `tests/bench/entries/<block>.cpp` (self-registering, `OSP_BENCH(name)`) and its budget as a new `tests/bench/budget.d/<block>.json` with a justification. Sources under `dsp-core/src/` and `tests/<area>/test_*.cpp` are globbed: add files, never edit a shared list.
 - Report latency through `getLatencySamples()`.
 - Cite the algorithm's source (a paper, a book, or an open-source reference with a compatible license) in a header comment and in the PR.
 - You cannot listen, so you measure. Put the measured numbers in the PR description.
