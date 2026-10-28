@@ -71,7 +71,11 @@ void PowerAmp::prepare(double sampleRate, int /*maxBlockSize*/) noexcept
     const auto& v = voicing_;
     beam_ = v.shape == PowerAmpShape::beam;
     n_ = std::pow(10.0, std::clamp(v.nfbDb, 6.0, 20.0) / 20.0);
-    l_ = v.ceiling > 1e-3 ? v.ceiling : 1e-3;
+    l0_ = v.ceiling > 1e-3 ? v.ceiling : 1e-3;
+    sag_ = std::clamp(v.sagAmount, 0.0, 0.5);
+    auto coeff = [&](double ms) { return 1.0 - std::exp(-1.0 / (std::max(ms, 0.1) * 1e-3 * fs_)); };
+    sagAttack_ = coeff(v.sagAttackMs);
+    sagRelease_ = coeff(v.sagReleaseMs);
     iterations_ = std::clamp(v.maxNewtonIterations, 1, 64);
     auto warp = [&](double hz) { return 1.0 / std::tan(std::numbers::pi * std::min(hz, 0.45 * fs_) / fs_); };
     warpP_ = warp(kPresenceHz);
@@ -106,8 +110,10 @@ void PowerAmp::reset() noexcept
     updateMaster(masterK_.current());
     postHp_ = {};
     postLp_ = {};
+    l_ = l0_;
     gamma1_ = g1_ = phi1_ = 0.0; // Φ(0) = 0, G(0) = 0
     k1_ = n_ * hp_.b0 * presence_.b0 * depth_.b0;
+    droop_ = 0.0;
 }
 
 void PowerAmp::setPresence(float knob) noexcept
@@ -129,6 +135,15 @@ void PowerAmp::updateMaster(float knob) noexcept
 {
     const double db = voicing_.masterDbAt5 + (knob - 5.0) * voicing_.masterDbPerKnob;
     gIn_ = std::pow(10.0, db / 20.0) * (1.0 + n_) / n_;
+}
+
+// The history γ1 is stored in units of L. A new L moves it to γ1·L/L'; G there is G(γ1) + Φ(γ1)·Δγ to first order.
+void PowerAmp::setCeiling(double l) noexcept
+{
+    const double moved = gamma1_ * l_ / l;
+    g1_ += phi1_ * (moved - gamma1_);
+    gamma1_ = moved;
+    l_ = l;
 }
 
 void PowerAmp::loopMap(double gamma, double k, double& phi, double& g) const noexcept
@@ -190,11 +205,17 @@ void PowerAmp::process(float* io, int numSamples) noexcept
         gamma1_ = gamma;
         g1_ = g;
         phi1_ = phi;
-        if (!(std::abs(v) <= 2.0 * l_)) // unreachable in exact arithmetic (|v| < L); keeps RT-9 if it ever is
+        if (!(std::abs(v) <= 2.0 * l0_)) // unreachable in exact arithmetic (|v| < L); keeps RT-9 if it ever is
             v = 0.0;
 
         depth_.tick(presence_.tick(hp_.tick(l_ * phi))); // the loop runs on the instantaneous solution
         const double y = hpOut_.tick(v);                  // the output tap takes the ADAA1 output
+
+        if (sag_ > 0.0) { // supply rail RC: droop toward S·i under load, recharge otherwise
+            const double target = sag_ * std::min(std::abs(v) / l0_, 1.0);
+            droop_ += (target - droop_) * (target > droop_ ? sagAttack_ : sagRelease_);
+            setCeiling(l0_ * (1.0 - droop_));
+        }
 
         float out = static_cast<float>(y);
         if (postHpOn_)
