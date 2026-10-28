@@ -79,6 +79,9 @@ public:
     int getGateTapDelaySamples() const noexcept { return gatePost_.getDelay(); }
     int activeChannel() const noexcept { return stripTo_; }
     const dsp::OutputStage& output() const noexcept { return output_; }
+    // A disabled delay or reverb whose tail has gone silent is not processed (see TailIdle).
+    bool isDelayIdle() const noexcept { return delayTail_.idle; }
+    bool isReverbIdle() const noexcept { return reverbTail_.idle; }
     const dsp::TunerTap& tuner() const noexcept { return tuner_; }
 
 private:
@@ -89,6 +92,16 @@ private:
         dsp::Eq eq;
         dsp::Crossfader eqOnL, eqOnR; // eq.enabled (the Eq block has no enable of its own, ADR-0009 D3)
         bool eqIdle = false;
+    };
+
+    // A disabled delay or reverb (trails) stops being processed once its wet has been silent for kTailIdleSeconds:
+    // longer than the 3 s maximum delay time plus the 200 ms maximum pre-delay, so a tail between two echoes is
+    // never cut. It is reset and faded back in when enabled again.
+    static constexpr double kTailIdleSeconds = 3.5;
+    static constexpr float kTailSilence = 1.0e-7f; // −140 dBFS
+    struct TailIdle {
+        bool idle = false;
+        int silentSamples = 0;
     };
 
     float value(int index) const noexcept
@@ -103,6 +116,8 @@ private:
     void applyChannelSwitch() noexcept;
     void applyModPosition(int numSamples) noexcept;
     void processGate(float* io, int n) noexcept;
+    template <typename Run, typename Wake>
+    void processTail(TailIdle& t, bool enabled, float* l, float* r, int n, Run&& run, Wake&& wake) noexcept;
     void processStrip(Strip& s, const float* in, float* outL, float* outR, int n) noexcept;
     void processChunk(float* io, float* outL, float* outR, int n) noexcept;
 
@@ -133,6 +148,9 @@ private:
     dsp::DelayLine clean_;
     dsp::LinearRamp cleanBlend_; // 0…1, 20 ms
     bool bypassedAll_ = false;
+
+    TailIdle delayTail_, reverbTail_;
+    int tailIdleSamples_ = 0;
     int slotPad_ = 0; // the amp slot's hard-bypass pad, R(amp out) − R(amp in)
     double measuredDelay_ = 0.0;
 
