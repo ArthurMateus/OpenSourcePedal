@@ -11,7 +11,9 @@ import json, os, re, subprocess, sys, time
 
 REPO = "ArthurMateus/OpenSourcePedal"
 REQUIRED = {"guard", "windows-msvc (Release, /WX)", "clang-format"}
-KEEP_BOTH_OK = re.compile(r"(CMakeLists\.txt$|^tests/bench/|^docs/state/|^THIRD_PARTY\.md$|^assets/LICENSES\.md$)")
+# #115 removes shared source/benchmark append lists. Conflicts in CMake, benchmark bodies, or budget fragments
+# now need an explicit resolution: blindly keeping both can duplicate a target, benchmark, or JSON key.
+KEEP_BOTH_OK = re.compile(r"^(THIRD_PARTY\.md|assets/LICENSES\.md)$")
 TRAILER = "\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 os.environ["GIT_LFS_SKIP_SMUDGE"] = "1"
 
