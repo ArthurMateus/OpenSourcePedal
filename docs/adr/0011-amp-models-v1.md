@@ -177,6 +177,22 @@ in P5-6; the original row is retained as part of the plan's history.
   This records the [#174 source-discovery decision](https://github.com/ArthurMateus/OpenSourcePedal/issues/174#issuecomment-6479574275),
   not a claim that the still-active implementation has already merged.
 
+### Amendment A2 (2026-10-28): the slot delay is the processing delay
+
+D2's "1 kHz group delay" means the 1 kHz group delay of the **processing path**: for a classic amp, the OS-2 up/down
+round trip measured as in `DriveRegion` (ADR-0005 A1) plus the ADAA half-sample terms of its stages, in base-rate
+samples. It does **not** include the modelled filters' own phase (coupling, cathode, tone stack, transformer). That
+phase is part of the amp's sound, which an analog amp also has, so the host must not compensate it. NAM models already
+follow this convention: their delay is the resampler's.
+
+- `D_slot`, the per-model padding and `K_clean` (ADR-0009 D4) use this value. The clean DI blend therefore sees the
+  amp's natural filter phase, as a real parallel blend would; no null applies to a nonlinear amp path (ADR-0005).
+- Measured on PR #191 before this decision: the full-model group delay of `lead_a` at 48 kHz Live is 12.56 samples,
+  of which about 5.1 is processing, so the Live chain would have reported 4 + 13 = 17 samples, over REQ-302's 16.
+  With the processing delay, `lead_a` reports 6 and the Live chain 10. The full-model group delay stays a test
+  diagnostic only.
+- Sources: [#191 review](https://github.com/ArthurMateus/OpenSourcePedal/pull/191) and the note on #175.
+
 ## Consequences
 
 - + One interface for the graph (`AmpChannel`) and one for model kinds (`IAmpModel`); NAM and classic models swap with
