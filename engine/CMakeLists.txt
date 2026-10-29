@@ -1,15 +1,6 @@
-add_library(osp_engine STATIC
-    src/Chain.cpp
-    src/Engine.cpp
-    src/Params.cpp
-    src/State.cpp
-    src/ToneMatch.cpp
-    src/ToneProfile.cpp
-    src/ToneSections.cpp
-    src/Version.cpp
-    src/graph/AmpSlot.cpp
-    src/graph/Fanout.cpp
-    src/graph/Graph.cpp)
+# Every .cpp under src/ is part of the library; adding a file adds no line here (#115).
+file(GLOB_RECURSE OSP_ENGINE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+add_library(osp_engine STATIC ${OSP_ENGINE_SOURCES})
 add_library(osp::engine ALIAS osp_engine)
 
 target_include_directories(osp_engine PUBLIC include)
