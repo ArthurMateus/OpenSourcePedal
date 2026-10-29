@@ -3,15 +3,17 @@
 // Public engine header: no JUCE, no NAM, no Eigen, no nlohmann (ADR-0002 REQ-NAM-009, ADR-0006 D3).
 //
 // One amp model behind an amp channel (ADR-0002 D2 as amended by ADR-0011 D2): a classic-DSP amp
-// (makeClassicAmp, #174) or, later, a NAM capture (#169 adds loadNamModel and may only extend this header).
+// (makeClassicAmp, #174) or a NAM capture (loadNamModel, #169).
 // ModelAmpChannel (#175) owns the models, the scratch buffers and the slot padding to D_slot.
 
 #include "osp/rt/AudioThread.h"
 
 #include "osp/dsp/DriveRegion.h" // dsp::OversamplingQuality
 
+#include <filesystem>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
@@ -56,5 +58,21 @@ std::string_view classicAmpModelId(ClassicAmpId id) noexcept;
 
 // Worker thread; allocates. The concrete type has a non-virtual setParameters(const AmpParams&) (ADR-0011 D2).
 std::unique_ptr<IAmpModel> makeClassicAmp(ClassicAmpId id);
+
+// NAM load options (ADR-0002 D9): applied by the worker at load time, never on the audio thread.
+struct AmpLoadOptions {
+    float quality01 = 1.0f; // slimmable (A2) models: network size, 0..1 ("Amp CPU quality"); ignored otherwise
+};
+
+// Thrown by loadNamModel() and by a NAM model's prepare(); what() is a user-readable message.
+class ModelLoadError : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
+};
+
+// Worker thread; allocates and may throw ModelLoadError (ADR-0002 D2, D3). Accepts .nam versions 0.5.0-0.7.x as
+// NAM core's version checker does, mono (1 in, 1 out) only. The model must be prepare()d at its training rate (48 kHz
+// when the file has none); other host rates throw ModelLoadError until resampling lands (#170).
+std::unique_ptr<IAmpModel> loadNamModel(const std::filesystem::path& path, const AmpLoadOptions& options = {});
 
 } // namespace osp::engine
