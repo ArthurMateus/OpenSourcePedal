@@ -13,12 +13,12 @@
 //   Both filters always run; the switches move their mix amounts over a 10 ms linear ramp (parameters.md "xf 10"),
 //   so a toggle never steps the signal or the ADAA state downstream (research Q12). The bright amount follows the
 //   gain knob through the same ramp.
-// - Delay (ADR-0011 D2, ADR-0005 D4): measured in prepare() at the parameters.md defaults (knobs 5, bright/tight off)
-//   as the 1 kHz group delay: the oversampler's measured up/down delay plus the small-signal group delays the stages
-//   report (PreampStage::groupDelaySamples, ToneStack's designed coefficients, PowerAmp::response), divided by the
-//   factor. Group delays of a cascade add, so this is exact for the linearised chain; tests compare it with an
-//   impulse measurement. getLatencySamples() = ceil(D). Tone settings move the 1 kHz phase (that is the sound, not
-//   latency); the reported value stays fixed after prepare().
+// - Delay (ADR-0011 D2, ADR-0005 D4; orchestrator decision on PR #191): the PROCESSING delay only, as DriveRegion
+//   and NAM report it: the oversampler's 1 kHz round trip measured in prepare() plus the ADAA terms (1 stage-rate
+//   sample per preamp stage, 0.5 for the power amp), in host-rate samples. getLatencySamples() = ceil(D). The
+//   modelled filters' 1 kHz group delay (coupling, Miller, cathode, tone stack, NFB loop, transformer) is the sound,
+//   not latency; getFilterGroupDelaySamples() reports it at the parameters.md defaults as a diagnostic (from
+//   PreampStage::groupDelaySamples, the designed ToneStack coefficients and PowerAmp::response, ADAA terms removed).
 
 #include "osp/dsp/amp/Voicings.h"
 #include "osp/dsp/oversampling/Oversampler.h"
@@ -41,6 +41,8 @@ public:
     void process(const float* in, float* out, int numSamples) noexcept OSP_RT_NONBLOCKING override;
     void reset() noexcept OSP_RT_NONBLOCKING override;
     double getMeasuredDelaySamples() const noexcept override { return delay_; }
+    // Diagnostic: the modelled filters' small-signal 1 kHz group delay at the defaults, host-rate samples.
+    double getFilterGroupDelaySamples() const noexcept { return filterDelay_; }
     int getLatencySamples() const noexcept override { return latency_; }
     const AmpModelInfo& info() const noexcept override { return info_; }
 
@@ -70,7 +72,7 @@ private:
     double brightG_ = 0.0, tightG_ = 0.0; // TPT one-pole G = g/(1 + g) at brightHz / tightHz
     double brightState_ = 0.0, tightState_ = 0.0;
     dsp::LinearRamp brightMix_{0.0f}, tightMix_{0.0f}, level_{1.0f};
-    double delay_ = 0.0;
+    double delay_ = 0.0, filterDelay_ = 0.0;
     int latency_ = 0;
 };
 
