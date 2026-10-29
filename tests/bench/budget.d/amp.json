@@ -1,0 +1,55 @@
+{
+  "benchmarks": {
+    "amp_classic_clean_a": {
+      "kind": "block",
+      "r0": 1.815058048,
+      "maxCpuPercent": 6.0,
+      "baseline": "#174, 2026-10-29, windows-2022, runner GitHub Actions 1000001654, image 20261026.347.1, AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 1.815058048 (range 1.811654073..1.815604874, spread 0.22%), CPU 3.41 %; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40802075528, head 7c37d61. Intel64 Family 6 Model 106 is profiled too (run 40804191135); the canonical Family 26 Model 2 profile is not yet measured",
+      "headroom": "maxCpuPercent 6 is the ADR-0011 D6 target for one classic amp at 48 kHz / 64 Live; measured 3.41 % on CI",
+      "processorBaselines": {
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 1.815058048,
+          "baseline": "#174, 2026-10-29, windows-2022, runner GitHub Actions 1000001654, image 20261026.347.1; median of 5 R 1.815058048, spread 0.22%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40802075528, head 7c37d61"
+        },
+        "Intel64 Family 6 Model 106 Stepping 6, GenuineIntel": {
+          "r0": 2.142357118,
+          "baseline": "#174, 2026-10-29, windows-2022, runner GitHub Actions 1000001671, image 20261026.347.1; median of 5 R 2.142357118, spread 0.72%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40804191135, head 8be5a1d"
+        }
+      }
+    },
+    "amp_classic_crunch_a": {
+      "kind": "block",
+      "r0": 1.220461731,
+      "maxCpuPercent": 6.0,
+      "baseline": "#174, 2026-10-29, windows-2022, runner GitHub Actions 1000001654, image 20261026.347.1, AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 1.220461731 (range 1.218437427..1.223019745, spread 0.38%), CPU 2.30 %; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40802075528, head 7c37d61. Intel64 Family 6 Model 106 is profiled too (run 40804191135); the canonical Family 26 Model 2 profile is not yet measured",
+      "headroom": "maxCpuPercent 6 is the ADR-0011 D6 target for one classic amp at 48 kHz / 64 Live; measured 2.30 % on CI",
+      "processorBaselines": {
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 1.220461731,
+          "baseline": "#174, 2026-10-29, windows-2022, runner GitHub Actions 1000001654, image 20261026.347.1; median of 5 R 1.220461731, spread 0.38%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40802075528, head 7c37d61"
+        },
+        "Intel64 Family 6 Model 106 Stepping 6, GenuineIntel": {
+          "r0": 1.359036068,
+          "baseline": "#174, 2026-10-29, windows-2022, runner GitHub Actions 1000001671, image 20261026.347.1; median of 5 R 1.359036068, spread 0.46%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40804191135, head 8be5a1d"
+        }
+      }
+    },
+    "amp_classic_lead_a": {
+      "kind": "block",
+      "r0": 1.729267982,
+      "maxCpuPercent": 6.0,
+      "baseline": "#174, 2026-10-29, windows-2022, runner GitHub Actions 1000001654, image 20261026.347.1, AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 1.729267982 (range 1.727121155..1.730476793, spread 0.19%), CPU 3.25 %; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40802075528, head 7c37d61. Intel64 Family 6 Model 106 is profiled too (run 40804191135); the canonical Family 26 Model 2 profile is not yet measured",
+      "headroom": "maxCpuPercent 6 is the ADR-0011 D6 target for one classic amp at 48 kHz / 64 Live; measured 3.25 % on CI",
+      "processorBaselines": {
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 1.729267982,
+          "baseline": "#174, 2026-10-29, windows-2022, runner GitHub Actions 1000001654, image 20261026.347.1; median of 5 R 1.729267982, spread 0.19%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40802075528, head 7c37d61"
+        },
+        "Intel64 Family 6 Model 106 Stepping 6, GenuineIntel": {
+          "r0": 1.907416065,
+          "baseline": "#174, 2026-10-29, windows-2022, runner GitHub Actions 1000001671, image 20261026.347.1; median of 5 R 1.907416065, spread 0.41%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40804191135, head 8be5a1d"
+        }
+      }
+    }
+  }
+}
