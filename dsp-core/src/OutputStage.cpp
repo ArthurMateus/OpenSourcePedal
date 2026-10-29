@@ -7,7 +7,7 @@ namespace osp::dsp {
 
 OutputStage::OutputStage() noexcept
 {
-    ceiling_ = std::pow(10.0f, kCeilingDb / 20.0f);
+    ceiling_ = std::pow(10.0f, (kCeilingDb - kTpMarginDb) / 20.0f);
     // 4x interpolation between hist[c - 1] and hist[c], c = kTpTaps / 2: tap k sits at offset k - (c - 1) samples
     // from the left point, so phase p/4 weighs it by sinc(p/4 - (k - c + 1)), Hann-windowed over the span, and each
     // phase is normalised to unity DC gain.
@@ -23,7 +23,7 @@ OutputStage::OutputStage() noexcept
             sum += h[static_cast<std::size_t>(k)];
         }
         for (int k = 0; k < kTpTaps; ++k)
-            tp_[static_cast<std::size_t>(p - 1)][static_cast<std::size_t>(k)] =
+            tp_[static_cast<std::size_t>(k)][static_cast<std::size_t>(p - 1)] =
                 static_cast<float>(h[static_cast<std::size_t>(k)] / sum);
     }
 }
@@ -31,10 +31,11 @@ OutputStage::OutputStage() noexcept
 void OutputStage::prepare(double sampleRate, int /*maxBlockSize*/) noexcept
 {
     sampleRate_ = sampleRate;
+    holdSamples_ = std::max(1, static_cast<int>(std::lround(kHoldSeconds * sampleRate)));
     level_.prepare(sampleRate, 0.020);
     limiterMix_.prepare(sampleRate, kSwitchSeconds);
     monoMix_.prepare(sampleRate, kSwitchSeconds);
-    release_ = static_cast<float>(std::exp(-1.0 / (kReleaseSeconds * sampleRate)));
+    release_ = static_cast<float>(std::exp(1.0 / (kReleaseSeconds * sampleRate)));
     reset();
 }
 
@@ -44,6 +45,7 @@ void OutputStage::reset() noexcept
     limiterMix_.reset(limiterMix_.target());
     monoMix_.reset(monoMix_.target());
     gain_ = 1.0f;
+    holdRemaining_ = 0;
     hist_ = {};
     peak_ = {};
     rms_ = {};
@@ -102,17 +104,20 @@ void OutputStage::process(float* left, float* right, int numSamples) noexcept
                 auto& h = hist_[c];
                 std::copy(h.begin() + 1, h.end(), h.begin());
                 h.back() = in[c];
-                for (const auto& phase : tp_) {
-                    float v = 0.0f;
-                    for (std::size_t k = 0; k < h.size(); ++k)
-                        v += phase[k] * h[k];
-                    e = std::max(e, std::abs(v));
-                }
+                std::array<float, 4> values{};
+                // Independent phase accumulators retain each sum's order and let the compiler pack four lanes.
+                // The fourth coefficient lane is zero; only the three fractional phases enter the detector.
+                for (std::size_t k = 0; k < h.size(); ++k)
+                    for (std::size_t p = 0; p < values.size(); ++p)
+                        values[p] += tp_[k][p] * h[k];
+                for (std::size_t p = 0; p < 3; ++p)
+                    e = std::max(e, std::abs(values[p]));
             }
-            const float target = e > ceiling_ ? ceiling_ / e : 1.0f;
-            float released = 1.0f - (1.0f - gain_) * release_;
-            if (1.0f - released < 1.0e-7f)
-                released = 1.0f; // exactly 1 again, so the limiter is bit-exact below the ceiling
+            const float target = ceiling_ / std::max(e, ceiling_);
+            holdRemaining_ = target < 1.0f && target <= gain_ ? holdSamples_ : std::max(0, holdRemaining_ - 1);
+            const float release = holdRemaining_ > 0 ? 1.0f : release_;
+            // A floor lets a gain flushed to zero by FTZ recover; normal gain reaches exactly unity.
+            const float released = std::min(1.0f, std::max(gain_, 1.0e-12f) * release);
             gain_ = std::min(target, released);
             const float mix = limiterMix_.next();
             l += mix * (l * gain_ - l); // gain_ == 1: l + mix * 0 == l exactly
