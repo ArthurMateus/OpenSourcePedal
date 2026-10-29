@@ -68,3 +68,22 @@ Supersedes owner-session-4. Read AGENTS.md first.
   it). The decision is in the comments on #174/#169, and an ADR-0011 D7 wording fix is pending (do it in the docs PR
   with the parameters.md §1.4 reconciliation).
 - New bench entries need CI-runner processorBaselines (amp.json, nam.json) calibrated from CI artifacts.
+
+## Minimum product track (owner request 2026-10-28, evening)
+
+Owner: "minimum product + the auto tones (from the youtube link), then I will test it". Owner lifted the
+"no custom UI yet" hold for this minimal editor. Skipped for the MVP: #176 hot-swap, #177, #178 (other account may
+still do it), #179 full gate, goldens/demos, sag, #47, #146, installer. NAM (#169/#170) continues but does not block.
+
+Merged since the last note: #187 (sag, default 0), #188 (#168 p1), #190 (docs A1), #191 (#174 p1, classic amps, slot
+delay = processing delay), #192 (bench gate warns on uncalibrated processors, ADR-0007 A2), #193 (#147), #194 (#145),
+#195 (ADR-0011 A2).
+
+Running subagents (one clone each, disjoint files):
+- #175 classic-first ModelAmpChannel (C:\osp175)   -> then #200 factory presets
+- #197 tone match fits amps + app API (C:\osp197)
+- #198 minimal editor (C:\osp198)                   -> then #199 preset menu, then tone-match panel (needs #197)
+- #169 NamAmpModel (C:\osp169), #168 part 2 RtResampler (C:\osp168), #174 part 2 amp bench (C:\osp174)
+- Other account: #178 console/acoustic + guard notice allowlist (prompt given to owner).
+Merge rule unchanged: all six CI jobs green. Watcher: docs/state/HANDOFF/mergewatch.sh <PR> <head-sha>.
+Before the owner's tone-match test: walk them through docs/guides/recording-a-di.md (AGENTS §9).

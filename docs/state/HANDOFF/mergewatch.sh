@@ -1,6 +1,12 @@
 #!/bin/bash
-# usage: mergewatch.sh <pr> ; merges after all six required checks SUCCESS on the current head, stops on failure
+# usage: mergewatch.sh <pr> [expected-head-sha] ; merges after all six required checks SUCCESS on the current head, stops on failure
 pr=$1
+want=$2
+if [ -n "$want" ]; then
+  for k in $(seq 1 30); do h=$(gh pr view $pr --json headRefOid --jq .headRefOid); case "$h" in $want*) break;; esac; sleep 20; done
+  case "$h" in $want*) ;; *) echo "head never became $want (is $h)"; exit 4;; esac
+  sleep 90  # let GitHub register the new head's check runs
+fi
 req=("windows-msvc (Release, /WX)" "windows-msvc-debug (RT checker)" "pluginval (v1.0.4, strictness 9)" "guard" "clang-format" "halfband-check")
 for i in $(seq 1 150); do
   j=$(gh pr view $pr --json state,title,statusCheckRollup)
