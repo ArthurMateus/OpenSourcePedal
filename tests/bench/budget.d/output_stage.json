@@ -2,20 +2,35 @@
   "benchmarks": {
     "output_stage": {
       "kind": "block",
-      "r0": 0.091167515,
+      "r0": 0.114161671,
       "maxCpuPercent": 4.0,
-      "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.091167515 (range 0.087886108..0.092746648, spread 5.53%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "about 19x the measured 0.21 %: stereo, limiter engaged; NaN guard, level, 4x interpolated true-peak detector (3 phases x 12 taps x 2 channels), gain and meters per sample",
-      "processorBaselines": {
+      "baseline": "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD; #145, 2026-10-28T22:48:05.394151+00:00, windows-2022, runner GitHub Actions 1000001620, image 20261022.344.1; MSVC Release /WX, median of 5 R 0.114161671 (range 0.113304063..0.117020153, spread 3.26%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40780295118, head d56a7eeed2fe8eefca18fc918a2ecf72ea6d964c; 100 ms bounded hold, 1.25 dB headroom, 0 added latency",
+      "headroom": "CI median 0.214044% of one core against the unchanged 4% ceiling; stereo limiter engaged, 4x/12-tap detector, 100 ms bounded hold, 50 ms exponential gain recovery, 1.25 dB internal headroom",
+      "previousProcessorBaselines": {
         "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
           "r0": 0.091167515,
-          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.091167515, spread 5.53%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+          "baseline": "Historical before #145; unverified for the new limiter. #83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.091167515, spread 5.53%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
         },
         "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
           "r0": 0.101115186,
-          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.101115186, spread 1.75%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+          "baseline": "Historical before #145; unverified for the new limiter. #83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.101115186, spread 1.75%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+        },
+        "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel": {
+          "r0": 0.114818552,
+          "baseline": "Historical before #145; unverified for the new limiter. bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001520, image 20261022.344.1; median of 5 R 0.114818552 (range 0.112242962..0.116441481, spread 3.74%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40761033116, head 189a950 (PR #187; bench code identical to main f9aa767)"
+        },
+        "AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD": {
+          "r0": 0.090908446,
+          "baseline": "Historical before #145; unverified for the new limiter. bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001547, image 20261022.344.1; median of 5 R 0.090908446 (range 0.090815127..0.091733915, spread 1.01%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40767060990, head 1547a0f (PR #187; bench code identical to main)"
         }
-      }
+      },
+      "processorBaselines": {
+        "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
+          "r0": 0.114161671,
+          "baseline": "#145, 2026-10-28T22:48:05.394151+00:00, windows-2022, runner GitHub Actions 1000001620, image 20261022.344.1; MSVC Release /WX, median of 5 R 0.114161671 (range 0.113304063..0.117020153, spread 3.26%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40780295118, head d56a7eeed2fe8eefca18fc918a2ecf72ea6d964c; 100 ms bounded hold, 1.25 dB headroom, 0 added latency"
+        }
+      },
+      "calibrationNote": "Only processorBaselines contains measurements for the #145 implementation. previousProcessorBaselines is historical provenance, never selected by the gate. Unmeasured processors follow ADR-0007 A2; calibrate from five raw CI reports without cross-processor extrapolation. The final #145 CI head must use a measured current profile and pass its strict >10% R gate."
     }
   }
 }

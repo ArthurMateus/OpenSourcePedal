@@ -105,6 +105,24 @@ Every block in `dsp-core/` implements `prepare(sampleRate, maxBlockSize)`, `rese
   rejection. These fixtures verify decision logic; they are not hardware slowdown measurements. Calibration noise
   is recorded in `docs/state/HANDOFF/83.md`; independent head-run drift is recorded in the PR and issue comments.
 
+- **Uncalibrated-runner amendment A2 (2026-10-28, orchestrator; follow-up to #83):** within a day of the gate going
+  live, the `windows-2022` pool handed PR #187 two further processors, Intel64 Family 6 Model 207 and AMD64
+  Family 25 Model 17 (runs 40761033116 and 40767060990). Both runs passed all 309 tests and failed only with
+  "uncalibrated processor". A fail-closed gate on an open-ended runner pool turns every PR into a lottery, and a
+  calibration PR can itself land on an unseen processor. Decision:
+  - CI calls `check_budget.py` and `verify_gate.py` with **`--uncalibrated warn`**. For a case with no profile for
+    the runner's processor, the R gate is **skipped** with a `::warning::` annotation naming the processor. The CPU
+    ceilings (per-block `maxCpuPercent`, full chain 25%, NAM 8%) are **still enforced**. Profiles are never borrowed
+    across processors.
+  - On such a runner, `verify_gate.py` checks the decision logic on a synthetic report at the canonical r0
+    (the +20% fixtures, the +10% boundary, missing/unbudgeted/non-finite data). It also checks that `fail` mode still
+    rejects an unknown processor, and that `warn` mode still fails a CPU-ceiling breach.
+  - The default stays `fail`, for offline use. Whoever sees the warning records the processor's five-run median from
+    that run's artifact in `processorBaselines`, as #83 did. The Intel Family 6 Model 207 profile was added
+    by #189, and the AMD Family 25 Model 17 profile is added with this amendment.
+  - Cost: a regression is caught only on a runner whose processor has a profile. The gate keeps the 10% threshold
+    and no noise allowance where it applies.
+
 ---
 
 ### 6. Plugin Validation Gate (`pluginval` Strictness Level 9)

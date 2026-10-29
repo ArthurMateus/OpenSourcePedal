@@ -10,7 +10,9 @@
 #include <catch2/generators/catch_generators.hpp>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <numbers>
 #include <random>
@@ -160,13 +162,14 @@ TEST_CASE("TunerTap: a worker reading while the audio thread pushes never gets a
     for (std::size_t i = 0; i < rampIn.size(); ++i)
         rampIn[i] = 1e-6f * static_cast<float>(i);
     std::atomic<bool> done{false};
-    int good = 0, torn = 0;
+    std::atomic<int> good{0};
+    int torn = 0;
+    std::array<osp::rt::test::RtRunResult, 4> rtRuns{};
     std::thread worker([&] {
         std::vector<float> w(2048);
         while (!done.load()) {
             if (!tap.readLatest(w.data(), static_cast<int>(w.size())))
                 continue;
-            ++good;
             if (w.front() < 1e-3f) // still inside the filter's start-up
                 continue;
             for (std::size_t i = 1; i < w.size(); ++i)
@@ -174,14 +177,40 @@ TEST_CASE("TunerTap: a worker reading while the audio thread pushes never gets a
                     ++torn;
                     break;
                 }
+            ++good; // publish only after checking a complete, post-start-up window
         }
     });
-    for (std::size_t pos = 0; pos < rampIn.size(); pos += 64)
-        tap.push(rampIn.data() + pos, 64);
+    // Each two-second burst writes 48000 decimated samples: nearly three complete ring wraps, so the worker
+    // still races overwrites. Between bursts, give it a bounded opportunity to complete a checked read, as it
+    // can between real callbacks. The wait belongs to the test harness, outside the audio-thread scope.
+    constexpr std::size_t kBurst = 48000 * 2;
+    int checkpoints = 0;
+    int bursts = 0;
+    bool timedOut = false;
+    for (std::size_t start = 0; start < rampIn.size(); start += kBurst) {
+        rtRuns[static_cast<std::size_t>(bursts++)] = osp::rt::test::runAsAudioThread([&] {
+            for (std::size_t pos = start; pos < start + kBurst; pos += 64)
+                tap.push(rampIn.data() + pos, 64);
+        });
+        const int before = good.load();
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        while (good.load() == before && std::chrono::steady_clock::now() < deadline)
+            std::this_thread::yield();
+        if (good.load() == before) {
+            timedOut = true;
+            break;
+        }
+        ++checkpoints;
+    }
     done = true;
     worker.join();
-    WARN("worker reads accepted while pushing: " << good);
-    CHECK(good > 0);
+    for (int i = 0; i < bursts; ++i)
+        OSP_REQUIRE_RT_CLEAN(rtRuns[static_cast<std::size_t>(i)]);
+    WARN("worker reads accepted while pushing: " << good.load() << ", checkpoints: " << checkpoints);
+    CHECK_FALSE(timedOut);
+    CHECK(checkpoints == 4);
+    CHECK(good.load() >= checkpoints);
+    CHECK(good.load() > 0);
     CHECK(torn == 0);
 }
 

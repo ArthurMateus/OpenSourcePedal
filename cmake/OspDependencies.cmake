@@ -32,6 +32,38 @@ FetchContent_Declare(signalsmith_dsp
     SYSTEM)
 FetchContent_MakeAvailable(signalsmith_dsp)
 
+# NeuralAmpModelerCore v0.6.0 (MIT) and Eigen 5.0.1 (MPL-2.0), the NAM runtime (ADR-0002 D1, ADR-0006 D2). Both are
+# download-only: NAM core's own CMakeLists.txt builds its tools and uses CMAKE_SOURCE_DIR, so we compile its sources
+# into osp_nam_core below. Its git submodules are not cloned (GIT_SUBMODULES ""): Eigen is pinned here at the commit
+# of NAM core's `Dependencies/eigen` gitlink, and AudioDSPTools is not needed (the resampler is forked into
+# engine/src/nam/RtResampler, ADR-0002 D4). NAM core's vendored `Dependencies/nlohmann/json.hpp` is nlohmann/json
+# 3.12.0, the same release as our pin above. Tag → commit and gitlinks read via the GitHub/GitLab APIs on 2026-10-28.
+FetchContent_Declare(nam_core
+    GIT_REPOSITORY https://github.com/sdatkinson/NeuralAmpModelerCore.git
+    GIT_TAG        0b3d3c97b0859a3a8c92a8628c4dd89a25eb5842 # v0.6.0
+    GIT_SHALLOW    OFF
+    GIT_SUBMODULES ""
+    SOURCE_SUBDIR  osp-no-build)
+FetchContent_Declare(eigen
+    GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+    GIT_TAG        bc3b39870ecb690a623a3f49149a358b95c5781d # 5.0.1 (NAM core v0.6.0 Dependencies/eigen)
+    GIT_SHALLOW    OFF
+    SOURCE_SUBDIR  osp-no-build)
+FetchContent_MakeAvailable(nam_core eigen)
+file(GLOB OSP_NAM_CORE_SOURCES CONFIGURE_DEPENDS "${nam_core_SOURCE_DIR}/NAM/*.cpp" "${nam_core_SOURCE_DIR}/NAM/*/*.cpp")
+add_library(osp_nam_core STATIC ${OSP_NAM_CORE_SOURCES})
+target_include_directories(osp_nam_core SYSTEM PUBLIC
+    "${nam_core_SOURCE_DIR}" "${nam_core_SOURCE_DIR}/NAM" "${nam_core_SOURCE_DIR}/Dependencies/nlohmann"
+    "${eigen_SOURCE_DIR}")
+# PUBLIC, so every TU that sees NAM or Eigen agrees (ADR-0006 D2). Float samples like the rest of the engine; the
+# A2 fast path is NAM core's own default. EIGEN_MPL2_ONLY is kept as ADR-0006 asks, but Eigen 5 removed its LGPL code
+# and no file references the macro at this commit (grep, 2026-10-28).
+target_compile_definitions(osp_nam_core PUBLIC NAM_SAMPLE_FLOAT NAM_ENABLE_A2_FAST EIGEN_MPL2_ONLY
+    $<$<CXX_COMPILER_ID:MSVC>:NOMINMAX _CRT_SECURE_NO_WARNINGS>)
+if(MSVC)
+    target_compile_options(osp_nam_core PRIVATE /utf-8 /fp:precise /bigobj $<$<CONFIG:Release>:/O2>)
+endif()
+
 if(OSP_BUILD_APP)
     # JUCE 9.0.4 (AGPLv3 option of the dual licence). Bundles the VST3 SDK (MIT) and ASIO headers (GPL-3.0). ADR-0006 D2.
     FetchContent_Declare(JUCE

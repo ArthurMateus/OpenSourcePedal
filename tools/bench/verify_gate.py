@@ -25,19 +25,26 @@ def main() -> int:
     ap.add_argument("results")
     ap.add_argument("--budget", default=str(ROOT / "tests/bench/budget.json"))
     ap.add_argument("--runner", help="bench-runner.json for this report's processor profile")
+    ap.add_argument("--uncalibrated", choices=("fail", "warn"), default="fail",
+                    help="as check_budget.py; with warn on an uncalibrated runner, the decision-logic fixtures are "
+                         "built on the canonical profile instead of the real timings")
     args = ap.parse_args()
     budget_path = Path(args.budget).resolve()
     runner_path = Path(args.runner).resolve() if args.runner else None
-    budget = load_budget(budget_path, runner_path)
+    budget = load_budget(budget_path, runner_path, args.uncalibrated)
     measured = json.loads(Path(args.results).read_text(encoding="utf-8"))
+    uncalibrated = any("uncalibrated" in b for b in budget["benchmarks"].values())
 
     with tempfile.TemporaryDirectory(prefix="osp-gate-") as directory:
         probe_path = Path(directory) / "probe.json"
+        current = {"runner": runner_path}  # switched to the canonical profile (None) on an uncalibrated runner
 
-        def check(doc: dict, expected: int, message: str = "", runner: Path | None = runner_path) -> None:
+        def check(doc: dict, expected: int, message: str = "", runner: Path | None | str = "current",
+                  mode: str = args.uncalibrated) -> None:
+            runner = current["runner"] if runner == "current" else runner
             probe_path.write_text(json.dumps(doc), encoding="utf-8")
             command = [sys.executable, str(ROOT / "tools/bench/check_budget.py"), str(probe_path),
-                       "--budget", str(budget_path)]
+                       "--budget", str(budget_path), "--uncalibrated", mode]
             if runner is not None:
                 command += ["--runner", str(runner)]
             result = subprocess.run(command, capture_output=True, text=True, timeout=30)
@@ -47,6 +54,20 @@ def main() -> int:
 
         check(measured, 0)
         print("PASS measured report and CPU ceilings")
+        if uncalibrated:
+            # The real timings have no baseline on this processor, so test the decision logic on the canonical
+            # profile: a synthetic report sitting exactly at canonical r0, checked without --runner.
+            canonical = load_budget(budget_path)
+            synthetic = copy.deepcopy(measured)
+            for name, row in synthetic["benchmarks"].items():
+                factor = canonical["benchmarks"][name]["r0"] / row["r"]
+                row["r"] = canonical["benchmarks"][name]["r0"]
+                for metric in ("tMedianSeconds", "cpuPercent"):
+                    row[metric] *= factor
+            measured, budget = synthetic, canonical
+            current["runner"] = None
+            check(measured, 0)
+            print("PASS uncalibrated runner: R gate skipped with a warning; logic checks use the canonical profile")
         for name, row in measured["benchmarks"].items():
             slow = copy.deepcopy(measured)
             target = budget["benchmarks"][name]["r0"] * 1.20
@@ -73,8 +94,13 @@ def main() -> int:
         print("PASS +10% boundary; missing, unbudgeted and non-finite data rejected")
         unknown_path = Path(directory) / "unknown-runner.json"
         unknown_path.write_text(json.dumps({"processor": "__uncalibrated_probe__"}), encoding="utf-8")
-        check(measured, 1, "uncalibrated processor", unknown_path)
-        print("PASS unknown processor rejected; no cross-architecture fallback")
+        check(measured, 1, "uncalibrated processor", unknown_path, mode="fail")
+        check(measured, 0, "R gate skipped", unknown_path, mode="warn")
+        over = copy.deepcopy(measured)
+        over["benchmarks"][name]["cpuPercent"] = budget["benchmarks"][name]["maxCpuPercent"] * 2.0
+        check(over, 1, f"FAIL {name}:", unknown_path, mode="warn")
+        print("PASS unknown processor: rejected in fail mode; in warn mode R is skipped but CPU ceilings still fail; "
+              "no cross-architecture fallback")
     return 0
 
 
