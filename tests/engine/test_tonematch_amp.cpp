@@ -53,6 +53,18 @@ float peakDb(const std::vector<float>& x)
     return 20.0f * std::log10(p);
 }
 
+// Debug builds (the RT-checker CI job) run the renders about 20x slower, so they check one case on a short DI; the full
+// matrix and the 30 s timing are Release checks. Define OSP_TONEMATCH_TEST_FAST to try the short form in Release.
+// A function, not a constant: MSVC warns (C4127, an error under /WX) about a constant condition.
+bool fastMode()
+{
+#if defined(NDEBUG) && !defined(OSP_TONEMATCH_TEST_FAST)
+    return false;
+#else
+    return true;
+#endif
+}
+
 // Bounds of the amendment: the match's profile against the reference (robust spectral residual, flatness).
 constexpr double kMaxResidualDb = 0.5;
 constexpr double kMaxFlatnessDb = 0.5;
@@ -63,7 +75,9 @@ constexpr float kMaxGainError = 2.0f; // knob units
 TEST_CASE("tonematch amps: recovers the model of a known amp setting", "[tonematch][slow]")
 {
     unsigned rate = 0;
-    const auto di = readMono(std::string(OSP_ASSET_DIR) + "/di/strum-arp-01.wav", rate);
+    auto di = readMono(std::string(OSP_ASSET_DIR) + "/di/strum-arp-01.wav", rate);
+    if (fastMode())
+        di.resize(std::min(di.size(), static_cast<std::size_t>(4.0 * rate)));
     const auto cabs = loadCabs(rate, {"112-a", "412-a", "412-c", "412-f"});
 
     struct Case {
@@ -81,6 +95,8 @@ TEST_CASE("tonematch amps: recovers the model of a known amp setting", "[tonemat
     tmatch::MatchOptions opt;
     opt.searchAmps = true;
     for (const auto& c : cases) {
+        if (fastMode() && c.model != tmatch::AmpKind::crunchA)
+            continue;
         DYNAMIC_SECTION(c.name)
         {
             tmatch::Setting hidden;
@@ -113,6 +129,8 @@ TEST_CASE("tonematch amps: recovers the model of a known amp setting", "[tonemat
 
 TEST_CASE("tonematch amps: a full match on a 30 s DI stays in minutes", "[tonematch][slow]")
 {
+    if (fastMode())
+        SKIP("the 30 s runtime is a Release measurement");
     unsigned rate = 0;
     auto di = readMono(std::string(OSP_ASSET_DIR) + "/di/strum-arp-01.wav", rate);
     const auto one = di;
