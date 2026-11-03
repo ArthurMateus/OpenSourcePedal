@@ -40,6 +40,17 @@ constexpr float kGainTrim = 1.5f;    // the gain trim tries gain +- this, after 
 constexpr int kRefineCandidates = 3;
 constexpr int kRankingSize = 5;
 
+// Calls the progress hook (serialised: workers share it) and turns a false return into Cancelled.
+void checkpoint(const MatchOptions& o, double fraction, const char* stage)
+{
+    if (!o.progress)
+        return;
+    static std::mutex hookMutex;
+    const std::lock_guard lock(hookMutex);
+    if (!o.progress(fraction, stage))
+        throw Cancelled();
+}
+
 // Runs f(0) ... f(n-1) on up to `threads` threads (0 = hardware concurrency); the first exception is rethrown.
 template <typename F>
 void parallelFor(std::size_t n, int threads, F&& f)
@@ -479,6 +490,7 @@ Setting refineAmp(const Setting& start,
     using Knob = float AmpSetting::*;
     constexpr std::array<Knob, 5> knobs{&AmpSetting::bass, &AmpSetting::mid, &AmpSetting::treble, &AmpSetting::presence,
                                         &AmpSetting::depth};
+    checkpoint(o, -1.0, "amp tone");
     const Scored base = score(start);
 
     std::array<Bands, knobs.size()> basis{};
@@ -509,6 +521,7 @@ Setting refineAmp(const Setting& start,
         bestEq = tunedScore.eq;
     }
 
+    checkpoint(o, -1.0, "amp gain");
     std::array<Scored, 2> trims;
     std::array<Setting, 2> trimmed{best, best};
     trimmed[0].amp.gain = std::clamp(best.amp.gain - kGainTrim, 0.0f, 10.0f);
@@ -631,9 +644,11 @@ Matcher::Matcher(std::vector<float> di, double fs, std::vector<CabIr> cabs, Matc
                 }
     }
     st.driveProfiles.resize(st.drives.size());
+    std::atomic<std::size_t> profiled{0};
     parallelFor(st.drives.size(), o.threads, [&](std::size_t i) {
         st.driveProfiles[i] =
             analyse(renderStages(st.search, fs, st.drives[i], st.cabs, kDriveOnly, 256), fs, o.analysis);
+        checkpoint(o, static_cast<double>(++profiled) / static_cast<double>(st.drives.size()), "candidates");
     });
     st.untouched = analyse(renderStages(st.di, fs, defaultChain, st.cabs, kFull, 256), fs, o.analysis);
     st.treble = diTrebleDb(analyse(st.di, fs, o.analysis));
@@ -643,7 +658,7 @@ Matcher::~Matcher() = default;
 Matcher::Matcher(Matcher&&) noexcept = default;
 Matcher& Matcher::operator=(Matcher&&) noexcept = default;
 
-MatchResult Matcher::match(const Profile& ref) const
+MatchResult Matcher::match(const Profile& ref, std::function<bool(double, const char*)> progress) const
 {
     if (!s_)
         throw std::logic_error("tonematch: Matcher used after being moved from");
@@ -651,7 +666,10 @@ MatchResult Matcher::match(const Profile& ref) const
     const auto& di = st.di;
     const double fs = st.fs;
     const auto& cabs = st.cabs;
-    const auto& o = st.o;
+    MatchOptions callOptions = st.o;
+    if (progress)
+        callOptions.progress = std::move(progress);
+    const auto& o = callOptions;
     const auto& eqModel = st.eqModel;
     const auto& cabBands = st.cabBands;
     if (ref.sampleRate > 0.0 && ref.sampleRate != fs) // the profile is not rate-exact (ToneProfile.h)
@@ -694,6 +712,8 @@ MatchResult Matcher::match(const Profile& ref) const
     // The candidates are refined independently (each amp refinement is a handful of renders), so they run in parallel.
     std::vector<Refined> refined(
         static_cast<std::size_t>(std::min<int>(kRefineCandidates, static_cast<int>(all.size()))));
+    std::atomic<std::size_t> refinedCount{0};
+    checkpoint(o, 0.0, "refine");
     parallelFor(refined.size(), o.threads, [&](std::size_t i) {
         Setting s = all[i].setting;
         if (o.searchAmps)
@@ -728,6 +748,7 @@ MatchResult Matcher::match(const Profile& ref) const
                   o.spectrumWeight * r.robust * r.robust;
         s.outputDb = static_cast<float>(std::clamp(-18.0 - rmsDb(out), -60.0, 12.0));
         r.setting = s;
+        checkpoint(o, static_cast<double>(++refinedCount) / static_cast<double>(refined.size()), "refine");
     });
     double bestScore = HUGE_VAL;
     int winner = 0;

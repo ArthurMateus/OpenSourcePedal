@@ -20,7 +20,9 @@
 
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -30,6 +32,11 @@ namespace osp::engine::tonematch {
 
 enum class DriveKind { clean, mid, transparent, dist, fuzz };
 const char* toString(DriveKind k) noexcept;
+
+// Thrown by the Matcher when MatchOptions::progress returns false.
+struct Cancelled : std::runtime_error {
+    Cancelled() : std::runtime_error("tonematch: cancelled") {}
+};
 
 // The classic amp channel models (ADR-0011 D3), rendered through ClassicAmpModel. none = no amp in the render (the
 // original drive + cab + EQ search; the plugin's amp block is then left out of the preset).
@@ -82,7 +89,12 @@ struct MatchOptions {
     // Amp search only: the candidate and amp-knob renders (the bulk of the cost) use the first searchSeconds of the DI;
     // the final render of each refined candidate uses all of it.
     double searchSeconds = 15.0;
-    int threads = 0; // worker threads for the candidate renders, 0 = hardware concurrency
+    int threads = 0;
+    // Progress and cancel (ToneMatchApi.h wraps this for the app). Called with a stage name and the fraction 0...1 of
+    // the current Matcher step that is done (negative: unchanged), from any worker thread but one call at a time.
+    // Returning false cancels: the Matcher constructor or match() then throws Cancelled within about one render.
+    std::function<bool(double fraction, const char* stage)>
+        progress; // worker threads for the candidate renders, 0 = hardware concurrency
 };
 
 struct Candidate {
@@ -114,7 +126,9 @@ public:
     ~Matcher();
     Matcher(Matcher&&) noexcept;
     Matcher& operator=(Matcher&&) noexcept;
-    MatchResult match(const Profile& reference) const;
+    // `progress` replaces MatchOptions::progress for this call (the match step reports separately from the candidates).
+    MatchResult match(const Profile& reference,
+                      std::function<bool(double fraction, const char* stage)> progress = {}) const;
 
 private:
     struct State;
