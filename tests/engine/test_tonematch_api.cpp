@@ -38,7 +38,13 @@ struct Fixture {
     Fixture()
     {
         di = readMono(std::string(OSP_ASSET_DIR) + "/di/strum-arp-01.wav", rate);
-        di.resize(std::min(di.size(), static_cast<std::size_t>(5.0 * rate))); // keeps the test short
+        // Debug builds (the RT-checker job) are about 20x slower: a shorter DI there.
+#ifdef NDEBUG
+        constexpr double kSeconds = 5.0;
+#else
+        constexpr double kSeconds = 3.0;
+#endif
+        di.resize(std::min(di.size(), static_cast<std::size_t>(kSeconds * rate)));
         for (const char* n : {"112-a", "412-c"}) {
             unsigned r = 0;
             const auto raw = readMono(std::string(OSP_ASSET_DIR) + "/cab/" + n + ".wav", r);
@@ -90,7 +96,7 @@ TEST_CASE("tonematch api: returns an amp preset and reports monotonic progress",
     CHECK(std::is_sorted(seen.begin(), seen.end()));
     CHECK(seen.front() >= 0.0);
     CHECK(seen.back() == 1.0);
-    WARN("API run on a 5 s DI: " << r.seconds << " s, " << seen.size() << " progress calls");
+    WARN("API run on a short DI: " << r.seconds << " s, " << seen.size() << " progress calls");
 }
 
 TEST_CASE("tonematch api: the callback can cancel, without an exception", "[tonematch][slow]")
