@@ -14,9 +14,15 @@ juce_add_plugin(OpenSourcePedal
     NEEDS_CURL FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE)
 
+include(${PROJECT_SOURCE_DIR}/ui/sources.cmake) # osp_ui_sources: the editor (ui/)
 set(osp_app_sources
-    src/PluginProcessor.cpp)
+    src/PluginProcessor.cpp
+    ${osp_ui_sources})
 target_sources(OpenSourcePedal PRIVATE ${osp_app_sources})
+
+target_include_directories(OpenSourcePedal
+    PUBLIC ${PROJECT_SOURCE_DIR}/ui/src
+    PRIVATE src)
 
 target_compile_definitions(OpenSourcePedal
     PUBLIC
