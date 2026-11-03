@@ -31,11 +31,22 @@ namespace osp::engine::tonematch {
 enum class DriveKind { clean, mid, transparent, dist, fuzz };
 const char* toString(DriveKind k) noexcept;
 
+// The classic amp channel models (ADR-0011 D3), rendered through ClassicAmpModel. none = no amp in the render (the
+// original drive + cab + EQ search; the plugin's amp block is then left out of the preset).
+enum class AmpKind { none, cleanA, crunchA, leadA };
+const char* toString(AmpKind k) noexcept; // the model id, "osp.amp.clean_a" ..., or "none"
+
+struct AmpSetting { // amp.ch1.* (parameters.md §2.5), 0…10 knobs
+    AmpKind model = AmpKind::none;
+    float gain = 5.0f, bass = 5.0f, mid = 5.0f, treble = 5.0f, presence = 5.0f, depth = 5.0f, master = 5.0f;
+};
+
 struct Setting {
     float inputGainDb = 0.0f; // brings the DI's peak to kDiPeakDb
     DriveKind drive = DriveKind::clean;
     float driveKnob = 0.0f;   // 0…10
     float tightHz = 20.0f;    // drive1.lowCutHz, 20 = off
+    AmpSetting amp;           // after the drive, before the cab (signal-flow §1)
     int cab = 0;              // index into the IR list
     std::array<float, 9> eqDb{}; // eq.g63Db … g16kDb
     float eqLowCutHz = 20.0f;    // 20 = off
@@ -65,26 +76,33 @@ struct MatchOptions {
     double flatnessWeight = 1.0; // per dB² of flatness difference
     double spectrumWeight = 0.5; // per dB² of weighted spectral residual
     double spreadWeight = 0.5;   // per dB² of envelope-spread difference (the gain on single-note playing)
+    // Search the classic amps (model, gain, bass/mid/treble/presence/depth/master) instead of the drive pedal. The
+    // chain always has an amp (parameters.md §2), so the amp search leaves the pedal off.
+    bool searchAmps = false;
+    // Amp search only: the candidate and amp-knob renders (the bulk of the cost) use the first searchSeconds of the DI;
+    // the final render of each refined candidate uses all of it.
+    double searchSeconds = 15.0;
+    int threads = 0; // worker threads for the candidate renders, 0 = hardware concurrency
 };
 
 struct Candidate {
     Setting setting;
     double flatnessDistance = 0.0; // RMS dB over the flatness bands
-    double spreadDistance = 0.0;   // RMS dB over the envelope-spread bands
-    double residualDb = 0.0;       // robust (Huber) residual in dB, predicted (additive model)
+    double spreadDistance = 0.0; // RMS dB over the envelope-spread bands
+    double residualDb = 0.0; // robust (Huber) residual in dB, predicted (additive model)
     double score = 0.0;
 };
 
 struct MatchResult {
     Setting setting;
     Profile reference;
-    Profile matched;              // profile of the final end-to-end render
-    double residualDb = 0.0;      // weighted RMS spectral difference, measured on the final render
+    Profile matched; // profile of the final end-to-end render
+    double residualDb = 0.0; // weighted RMS spectral difference, measured on the final render
     double robustResidualDb = 0.0; // the same with Huber weights: leakage bands count less (used for the choice)
     double flatnessDistance = 0.0;
     double spreadDistance = 0.0;
     double unmatchedResidualDb = 0.0; // the DI through the default chain (clean, cab 0, flat EQ), for comparison
-    double diTrebleDb = 0.0;          // diTrebleDb() of the DI: below kDarkDiDb, clean matches come out dull
+    double diTrebleDb = 0.0; // diTrebleDb() of the DI: below kDarkDiDb, clean matches come out dull
     std::vector<Candidate> ranking; // the chosen setting's candidate first, then the next best by predicted score
 };
 

@@ -2,6 +2,7 @@
 
 #include "osp/engine/ToneMatch.h"
 
+#include "amp/ClassicAmpModel.h"
 #include "osp/engine/Version.h"
 
 #include "osp/dsp/Cab.h"
@@ -10,10 +11,14 @@
 #include "osp/dsp/conv/PartitionedConvolver.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdio>
+#include <exception>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
+#include <thread>
 
 namespace osp::engine::tonematch {
 
@@ -27,8 +32,50 @@ constexpr std::array<float, 6> kDriveKnobs{0.0f, 2.0f, 4.0f, 6.0f, 8.0f, 10.0f};
 constexpr std::array<float, 2> kTightHz{20.0f, 100.0f};
 constexpr std::array<float, 7> kLowCutHz{20.0f, 60.0f, 80.0f, 100.0f, 120.0f, 150.0f, 200.0f};
 constexpr std::array<float, 6> kHighCutHz{20000.0f, 12000.0f, 9000.0f, 7000.0f, 5500.0f, 4500.0f};
+constexpr std::array<float, 6> kAmpGains{0.0f, 2.0f, 4.0f, 6.0f, 8.0f, 10.0f};
+constexpr double kKnobRidge = 0.02;  // per dB² of the shift per knob unit, keeps the amp tone knobs near their basis
+constexpr float kKnobProbe = 3.0f;   // finite-difference step of a tone knob
+constexpr float kKnobMaxStep = 5.0f; // largest knob move per linearised step
+constexpr float kGainTrim = 1.5f;    // the gain trim tries gain +- this, after the coarse 2-unit grid
 constexpr int kRefineCandidates = 3;
 constexpr int kRankingSize = 5;
+
+// Runs f(0) ... f(n-1) on up to `threads` threads (0 = hardware concurrency); the first exception is rethrown.
+template <typename F>
+void parallelFor(std::size_t n, int threads, F&& f)
+{
+    const std::size_t hw =
+        threads > 0 ? static_cast<std::size_t>(threads) : std::max<std::size_t>(1, std::thread::hardware_concurrency());
+    const std::size_t nt = std::min(hw, n);
+    if (nt <= 1) {
+        for (std::size_t i = 0; i < n; ++i)
+            f(i);
+        return;
+    }
+    std::atomic<std::size_t> next{0};
+    std::exception_ptr err;
+    std::mutex errMutex;
+    const auto work = [&] {
+        for (std::size_t i = next++; i < n; i = next++) {
+            try {
+                f(i);
+            } catch (...) {
+                const std::lock_guard lock(errMutex);
+                if (!err)
+                    err = std::current_exception();
+                next = n;
+            }
+        }
+    };
+    std::vector<std::thread> pool;
+    for (std::size_t t = 1; t < nt; ++t)
+        pool.emplace_back(work);
+    work();
+    for (auto& t : pool)
+        t.join();
+    if (err)
+        std::rethrow_exception(err);
+}
 
 // Solves the dense system A x = b in place (Gaussian elimination with partial pivoting). A is n x n, row-major.
 std::vector<double> solve(std::vector<double> A, std::vector<double> b)
@@ -290,7 +337,29 @@ std::vector<float> renderStages(
             drive.process(x.data() + pos, x.data() + pos, len);
         }
     }
-    if (stages == kDriveOnly)
+    if (s.amp.model != AmpKind::none) {
+        const auto id = s.amp.model == AmpKind::cleanA    ? ClassicAmpId::cleanA
+                        : s.amp.model == AmpKind::crunchA ? ClassicAmpId::crunchA
+                                                          : ClassicAmpId::leadA;
+        auto amp = std::make_unique<ClassicAmpModel>(id);
+        AmpParams p;
+        p.gain = s.amp.gain;
+        p.bass = s.amp.bass;
+        p.mid = s.amp.mid;
+        p.treble = s.amp.treble;
+        p.presence = s.amp.presence;
+        p.depth = s.amp.depth;
+        p.master = s.amp.master;
+        amp->setParameters(p);
+        amp->prepare(fs, block, osp::dsp::OversamplingQuality::live);
+        std::vector<float> y(static_cast<std::size_t>(block));
+        for (std::size_t pos = 0; pos < n; pos += static_cast<std::size_t>(block)) {
+            const int len = static_cast<int>(std::min<std::size_t>(static_cast<std::size_t>(block), n - pos));
+            amp->process(x.data() + pos, y.data(), len);
+            std::copy_n(y.begin(), len, x.begin() + static_cast<std::ptrdiff_t>(pos));
+        }
+    }
+    if (stages == kDriveOnly) // everything before the cab: drive and amp
         return x;
 
     if (!cabs.empty()) {
@@ -327,7 +396,151 @@ std::vector<float> renderStages(
     return x;
 }
 
+struct Scored {
+    Profile profile;
+    EqFit eq;
+    double score = 0.0;
+};
+
+// The coarse score of a drive/amp render (before the cab): flatness and spread of its profile plus the robust residual
+// of the best EQ over the cab, the same terms as the candidate ranking.
+Scored scoreAmpRender(const Setting& t,
+                      const std::vector<float>& di,
+                      double fs,
+                      const std::vector<CabIr>& cabs,
+                      const MatchOptions& o,
+                      const EqModel& eqm,
+                      const Bands& cabBands,
+                      const Profile& ref)
+{
+    Scored r;
+    r.profile = analyse(renderStages(di, fs, t, cabs, kDriveOnly, 256), fs, o.analysis);
+    Bands need{};
+    for (int k = 0; k < kBands; ++k)
+        need[k] = ref.levelDb[k] - r.profile.levelDb[k] - cabBands[k];
+    r.eq = fitEq(eqm, normalised(need));
+    const double flat = flatnessDistance(ref, r.profile), spread = spreadDistance(ref, r.profile);
+    r.score = o.flatnessWeight * flat * flat + o.spreadWeight * spread * spread +
+              o.spectrumWeight * r.eq.residualDb * r.eq.residualDb;
+    return r;
+}
+
+// Weighted ridge fit of `target` ~ Σ x_j basis_j + offset under Huber IRLS (the EQ fit's robustness, for the amp
+// knobs).
+std::vector<double> fitKnobs(const std::vector<Bands>& basis, const Bands& target)
+{
+    const std::size_t n = basis.size() + 1;
+    Bands w = defaultWeights();
+    std::vector<double> x(n, 0.0);
+    for (int it = 0; it < kHuberIterations; ++it) {
+        std::vector<double> A(n * n, 0.0), b(n, 0.0);
+        double wSum = 0.0;
+        for (int k = 0; k < kBands; ++k) {
+            if (w[k] == 0.0)
+                continue;
+            std::vector<double> row(n, 1.0);
+            for (std::size_t j = 0; j + 1 < n; ++j)
+                row[j] = basis[j][k];
+            for (std::size_t r = 0; r < n; ++r) {
+                b[r] += w[k] * row[r] * target[k];
+                for (std::size_t c = 0; c < n; ++c)
+                    A[r * n + c] += w[k] * row[r] * row[c];
+            }
+            wSum += fitWeight(k);
+        }
+        for (std::size_t j = 0; j + 1 < n; ++j)
+            A[j * n + j] += kKnobRidge * wSum;
+        x = solve(A, b);
+        for (int k = 0; k < kBands; ++k) {
+            double pred = x[n - 1];
+            for (std::size_t j = 0; j + 1 < n; ++j)
+                pred += x[j] * basis[j][k];
+            const double a = std::abs(target[k] - pred);
+            w[k] = fitWeight(k) * (a > kHuberDb ? kHuberDb / a : 1.0);
+        }
+    }
+    return x;
+}
+
+// The amp search's second stage for one candidate (model and gain from the coarse grid): one linearised step on the
+// tone knobs, then a gain trim, each checked with real renders because the amp is nonlinear. Returns the setting
+// with the EQ fit of the chosen render, so the caller's refinement starts from it. Cost: 5 + 1 + 2 amp renders.
+Setting refineAmp(const Setting& start,
+                  const std::vector<float>& di,
+                  double fs,
+                  const std::vector<CabIr>& cabs,
+                  const MatchOptions& o,
+                  const EqModel& eqm,
+                  const std::vector<Bands>& cabBands,
+                  const Profile& ref)
+{
+    const Bands& cb = cabBands[static_cast<std::size_t>(start.cab)];
+    const auto score = [&](const Setting& t) { return scoreAmpRender(t, di, fs, cabs, o, eqm, cb, ref); };
+    using Knob = float AmpSetting::*;
+    constexpr std::array<Knob, 5> knobs{&AmpSetting::bass, &AmpSetting::mid, &AmpSetting::treble, &AmpSetting::presence,
+                                        &AmpSetting::depth};
+    const Scored base = score(start);
+
+    std::array<Bands, knobs.size()> basis{};
+    parallelFor(knobs.size(), o.threads, [&](std::size_t j) {
+        Setting t = start;
+        const float step = t.amp.*knobs[j] <= 6.0f ? kKnobProbe : -kKnobProbe;
+        t.amp.*knobs[j] += step;
+        const Profile p = analyse(renderStages(di, fs, t, cabs, kDriveOnly, 256), fs, o.analysis);
+        for (int k = 0; k < kBands; ++k)
+            basis[j][k] = (p.levelDb[k] - base.profile.levelDb[k]) / step;
+    });
+    Bands target{};
+    for (int k = 0; k < kBands; ++k)
+        target[k] = ref.levelDb[k] - base.profile.levelDb[k] - cb[k];
+    const auto x = fitKnobs({basis.begin(), basis.end()}, target);
+
+    Setting best = start;
+    double bestScore = base.score;
+    EqFit bestEq = base.eq;
+    Setting tuned = start;
+    for (std::size_t j = 0; j < knobs.size(); ++j)
+        tuned.amp.*knobs[j] = std::clamp(
+            start.amp.*knobs[j] + std::clamp(static_cast<float>(x[j]), -kKnobMaxStep, kKnobMaxStep), 0.0f, 10.0f);
+    const Scored tunedScore = score(tuned);
+    if (tunedScore.score < bestScore) {
+        best = tuned;
+        bestScore = tunedScore.score;
+        bestEq = tunedScore.eq;
+    }
+
+    std::array<Scored, 2> trims;
+    std::array<Setting, 2> trimmed{best, best};
+    trimmed[0].amp.gain = std::clamp(best.amp.gain - kGainTrim, 0.0f, 10.0f);
+    trimmed[1].amp.gain = std::clamp(best.amp.gain + kGainTrim, 0.0f, 10.0f);
+    parallelFor(trims.size(), o.threads, [&](std::size_t i) { trims[i] = score(trimmed[i]); });
+    for (std::size_t i = 0; i < trims.size(); ++i)
+        if (trims[i].score < bestScore) {
+            best = trimmed[i];
+            bestScore = trims[i].score;
+            bestEq = trims[i].eq;
+        }
+    best.eqDb = bestEq.gains;
+    best.eqLowCutHz = kLowCutHz[bestEq.lowCut];
+    best.eqHighCutHz = kHighCutHz[bestEq.highCut];
+    return best;
+}
+
 } // namespace
+
+const char* toString(AmpKind k) noexcept
+{
+    switch (k) {
+    case AmpKind::cleanA:
+        return "osp.amp.clean_a";
+    case AmpKind::crunchA:
+        return "osp.amp.crunch_a";
+    case AmpKind::leadA:
+        return "osp.amp.lead_a";
+    default:
+        return "none";
+    }
+}
 
 const char* toString(DriveKind k) noexcept
 {
@@ -353,6 +566,7 @@ render(const std::vector<float>& di, double fs, const Setting& s, const std::vec
 
 struct Matcher::State {
     std::vector<float> di;
+    std::vector<float> search; // the first MatchOptions::searchSeconds of the DI: the candidate and amp-knob renders
     double fs = 0.0;
     std::vector<CabIr> cabs;
     MatchOptions o;
@@ -375,6 +589,11 @@ Matcher::Matcher(std::vector<float> di, double fs, std::vector<CabIr> cabs, Matc
         throw std::invalid_argument("tonematch: DI is silent");
     State& st = *s_;
     st.di = std::move(di);
+    // Only the amp search trims the DI; the pedal search keeps its full-length candidate profiles (ADR-0008 D3).
+    const auto searchLen = o.searchAmps
+                               ? std::min(st.di.size(), static_cast<std::size_t>(std::max(1.0, o.searchSeconds * fs)))
+                               : st.di.size();
+    st.search.assign(st.di.begin(), st.di.begin() + static_cast<std::ptrdiff_t>(searchLen));
     st.fs = fs;
     st.cabs = std::move(cabs);
     st.o = o;
@@ -386,19 +605,37 @@ Matcher::Matcher(std::vector<float> di, double fs, std::vector<CabIr> cabs, Matc
     st.base.inputGainDb = static_cast<float>(std::clamp(kDiPeakDb - diPeak, -24.0, 24.0));
 
     // Drive candidates: each is rendered and profiled once; cab and EQ are scored on top of it per reference.
-    st.drives.push_back(st.base);
-    for (DriveKind k : {DriveKind::mid, DriveKind::transparent, DriveKind::dist, DriveKind::fuzz})
-        for (float knob : kDriveKnobs)
-            for (float tight : kTightHz) {
+    // With the amp search the amp is the gain stage (the chain always has one): model x gain, pedal off, tone knobs
+    // at 5; match() then tunes the knobs and the gain of the best few.
+    Setting defaultChain = st.base;
+    if (o.searchAmps) {
+        for (AmpKind k : {AmpKind::cleanA, AmpKind::crunchA, AmpKind::leadA})
+            for (float gain : kAmpGains) {
                 Setting d = st.base;
-                d.drive = k;
-                d.driveKnob = knob;
-                d.tightHz = tight;
+                d.amp.model = k;
+                d.amp.gain = gain;
                 st.drives.push_back(d);
             }
-    for (const Setting& d : st.drives)
-        st.driveProfiles.push_back(analyse(renderStages(st.di, fs, d, st.cabs, kDriveOnly, 256), fs, o.analysis));
-    st.untouched = analyse(renderStages(st.di, fs, st.base, st.cabs, kFull, 256), fs, o.analysis);
+        defaultChain.amp.model = AmpKind::cleanA; // channel 1 at its parameters.md default
+        defaultChain.amp.gain = 3.0f;
+    } else {
+        st.drives.push_back(st.base);
+        for (DriveKind k : {DriveKind::mid, DriveKind::transparent, DriveKind::dist, DriveKind::fuzz})
+            for (float knob : kDriveKnobs)
+                for (float tight : kTightHz) {
+                    Setting d = st.base;
+                    d.drive = k;
+                    d.driveKnob = knob;
+                    d.tightHz = tight;
+                    st.drives.push_back(d);
+                }
+    }
+    st.driveProfiles.resize(st.drives.size());
+    parallelFor(st.drives.size(), o.threads, [&](std::size_t i) {
+        st.driveProfiles[i] =
+            analyse(renderStages(st.search, fs, st.drives[i], st.cabs, kDriveOnly, 256), fs, o.analysis);
+    });
+    st.untouched = analyse(renderStages(st.di, fs, defaultChain, st.cabs, kFull, 256), fs, o.analysis);
     st.treble = diTrebleDb(analyse(st.di, fs, o.analysis));
 }
 
@@ -449,22 +686,24 @@ MatchResult Matcher::match(const Profile& ref) const
     MatchResult result;
     result.reference = ref;
     result.setting = all.front().setting; // defined even if every refined score is NaN
-    double bestScore = HUGE_VAL;
-    int winner = 0;
-    for (int i = 0; i < std::min<int>(kRefineCandidates, static_cast<int>(all.size())); ++i) {
-        Setting s = all[static_cast<std::size_t>(i)].setting;
+    struct Refined {
+        Setting setting;
+        Profile got;
+        double residual = 0.0, robust = 0.0, flat = 0.0, spread = 0.0, score = HUGE_VAL;
+    };
+    // The candidates are refined independently (each amp refinement is a handful of renders), so they run in parallel.
+    std::vector<Refined> refined(
+        static_cast<std::size_t>(std::min<int>(kRefineCandidates, static_cast<int>(all.size()))));
+    parallelFor(refined.size(), o.threads, [&](std::size_t i) {
+        Setting s = all[i].setting;
+        if (o.searchAmps)
+            s = refineAmp(s, st.search, fs, cabs, o, eqModel, cabBands, ref);
         // Refine the gains against the real Eq's response: the additive model's bell shapes are approximate.
-        const Profile pre = analyse(renderStages(
-                                        di, fs,
-                                        [&] {
-                                            Setting flat = s;
-                                            flat.eqDb = {};
-                                            flat.eqLowCutHz = 20.0f;
-                                            flat.eqHighCutHz = 20000.0f;
-                                            return flat;
-                                        }(),
-                                        cabs, kFull, 256),
-                                    fs, o.analysis);
+        Setting noEq = s;
+        noEq.eqDb = {};
+        noEq.eqLowCutHz = 20.0f;
+        noEq.eqHighCutHz = 20000.0f;
+        const Profile pre = analyse(renderStages(di, fs, noEq, cabs, kFull, 256), fs, o.analysis);
         Bands need{};
         for (int k = 0; k < kBands; ++k)
             need[k] = ref.levelDb[k] - pre.levelDb[k];
@@ -479,22 +718,30 @@ MatchResult Matcher::match(const Profile& ref) const
                 s.eqDb[j] = std::clamp(s.eqDb[j] + delta[j], -12.0f, 12.0f);
         }
         const auto out = renderStages(di, fs, s, cabs, kFull, 256);
-        const Profile got = analyse(out, fs, o.analysis);
-        const double res = residualDb(ref.levelDb, got.levelDb);
-        const double robust = robustResidualDb(ref.levelDb, got.levelDb);
-        const double flat = flatnessDistance(ref, got), spread = spreadDistance(ref, got);
-        const double score =
-            o.flatnessWeight * flat * flat + o.spreadWeight * spread * spread + o.spectrumWeight * robust * robust;
-        if (score < bestScore) {
-            bestScore = score;
-            winner = i;
-            result.robustResidualDb = robust;
-            s.outputDb = static_cast<float>(std::clamp(-18.0 - rmsDb(out), -60.0, 12.0));
-            result.setting = s;
-            result.matched = got;
-            result.residualDb = res;
-            result.flatnessDistance = flat;
-            result.spreadDistance = spread;
+        Refined& r = refined[i];
+        r.got = analyse(out, fs, o.analysis);
+        r.residual = residualDb(ref.levelDb, r.got.levelDb);
+        r.robust = robustResidualDb(ref.levelDb, r.got.levelDb);
+        r.flat = flatnessDistance(ref, r.got);
+        r.spread = spreadDistance(ref, r.got);
+        r.score = o.flatnessWeight * r.flat * r.flat + o.spreadWeight * r.spread * r.spread +
+                  o.spectrumWeight * r.robust * r.robust;
+        s.outputDb = static_cast<float>(std::clamp(-18.0 - rmsDb(out), -60.0, 12.0));
+        r.setting = s;
+    });
+    double bestScore = HUGE_VAL;
+    int winner = 0;
+    for (std::size_t i = 0; i < refined.size(); ++i) {
+        const Refined& r = refined[i];
+        if (r.score < bestScore) {
+            bestScore = r.score;
+            winner = static_cast<int>(i);
+            result.robustResidualDb = r.robust;
+            result.setting = r.setting;
+            result.matched = r.got;
+            result.residualDb = r.residual;
+            result.flatnessDistance = r.flat;
+            result.spreadDistance = r.spread;
         }
     }
     // The refined winner first, then the next best by predicted score (#119 review: it could be 2nd or 3rd).
@@ -606,6 +853,14 @@ toPresetJson(const MatchResult& r, const std::vector<CabIr>& cabs, const std::st
     j += std::string("    { \"enabled\": ") + (driveOn ? "true" : "false") +
          ", \"id\": \"drive1\", \"params\": { \"drive\": " + num(s.driveKnob) + ", \"lowCutHz\": " + num(s.tightHz) +
          ", \"type\": \"" + (driveOn ? toString(s.drive) : "mid") + "\" }, \"type\": \"drive\" },\n";
+    if (s.amp.model != AmpKind::none) {
+        const AmpSetting& a = s.amp;
+        j += "    { \"activeChannel\": 0, \"channels\": [ { \"model\": { \"id\": \"" + std::string(toString(a.model)) +
+             "\", \"kind\": \"builtin\" }, \"name\": \"Tone match\", \"params\": { \"bass\": " + num(a.bass) +
+             ", \"depth\": " + num(a.depth) + ", \"gain\": " + num(a.gain) + ", \"master\": " + num(a.master) +
+             ", \"mid\": " + num(a.mid) + ", \"presence\": " + num(a.presence) + ", \"treble\": " + num(a.treble) +
+             " } } ], \"enabled\": true, \"id\": \"amp\", \"type\": \"amp\" },\n";
+    }
     j += "    { \"channels\": [ { \"params\": { \"ir1.levelDb\": 0.00 }, \"resources\": { \"ir1\": { \"uri\": \"" +
          esc(cab.uri) + "\"" + hash +
          " } } } ], \"enabled\": true, \"id\": \"cab\", \"perChannel\": true, \"type\": \"cab\" },\n";
