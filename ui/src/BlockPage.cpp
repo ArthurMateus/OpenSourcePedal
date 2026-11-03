@@ -35,6 +35,9 @@ void BlockPage::rebuild()
                         juce::String(spec.key).replace("{ch}", juce::String(channel_));
         std::unique_ptr<juce::Component> control;
         switch (spec.kind) {
+        case ControlKind::note:
+            control = std::make_unique<ModelNote>(channel_);
+            break;
         case ControlKind::knob:
             control = std::make_unique<KnobControl>(state_, id, spec.label);
             break;

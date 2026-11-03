@@ -42,4 +42,15 @@ private:
     std::unique_ptr<Apvts::ComboBoxAttachment> attachment_;
 };
 
+// The built-in model of an amp channel, as the v1 defaults name it (parameters.md §2.5). Models are preset-only, so
+// this is a read-only note until the preset menu (#199) can change them.
+class ModelNote final : public juce::Component {
+public:
+    explicit ModelNote(int channel);
+    void paint(juce::Graphics&) override;
+
+private:
+    juce::String text_;
+};
+
 } // namespace osp::ui

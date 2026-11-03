@@ -72,6 +72,8 @@ TEST_CASE("Editor: every control of every block maps to an existing host paramet
     osp::app::PluginProcessor p;
     for (std::size_t block = 0; block < kBlocks.size(); ++block) {
         for (const auto& spec : controlsFor(static_cast<int>(block))) {
+            if (spec.kind == ControlKind::note)
+                continue;
             for (int channel = 1; channel <= 3; ++channel) {
                 const auto id = juce::String(kBlocks[block].id) + "." +
                                 juce::String(spec.key).replace("{ch}", juce::String(channel));
