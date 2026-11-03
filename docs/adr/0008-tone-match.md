@@ -126,9 +126,8 @@ the stand-in DI's playing, effects the chain does not model, and stem bleed; unv
 
 ## Consequences and limits
 
-- **No amp block yet** (Phase 5): the drive slot is the only gain stage, so high-gain references are approximated
-  by drive + cab + EQ. When the amp lands, its channels/models join the candidate list in D3 step 2 and the
-  additive cab/EQ stage stays as is.
+- **Amp search** (A1 below): the classic amps are searched by default. With `--no-amps` (or `searchAmps = false`) the
+  drive slot is the only gain stage and high-gain references are approximated by drive + cab + EQ.
 - A full mix leaks bass, keys and vocals into the profile. The side-channel pick, HPSS, the fit weights and the
   robust fit reduce this, but a Demucs stem (`--stem`) or a solo-guitar section (`--start/--end`) is better.
 - Time-based effects (delay, reverb, modulation) and the compressor are not matched in v1.
@@ -149,3 +148,77 @@ the stand-in DI's playing, effects the chain does not model, and stem bleed; unv
   non-ASCII paths and names, not length.
 - Follow-ups: a DI per tone section, UI (worker thread, progress, A/B with the reference), the amp candidates above, golden tests for the
   CLI output once the preset loader lands.
+
+## A1. Amp search (2026-11-03, #197)
+
+The classic amps (`ClassicAmpModel`, ADR-0011) are now part of the search. `osp-tonematch` and `runToneMatch` search them by
+default; `--no-amps` / `searchAmps = false` keeps the pedal search of D3.
+
+### What the search does
+
+1. **Candidates.** `osp.amp.clean_a`, `crunch_a`, `lead_a` x gain {0, 2, 4, 6, 8, 10}, bass/mid/treble/presence/depth/master
+   at 5, rendered through `ClassicAmpModel` at the Live OS-2 quality. The pedal is off: the chain always has an amp
+   (parameters.md §2), and pedal-in-front-of-amp combinations are not searched. Candidates are profiled and scored exactly
+   as in D3 (flatness + 0.5 spread + 0.5 robust spectral residual of the best cab/EQ over them).
+2. **Tone knobs.** For each of the best 3, the effect of bass, mid, treble, presence and depth on the LTAS is measured with
+   a +-3 step on real renders (the amp is nonlinear, so the basis belongs to the candidate's gain), and a Huber-robust
+   ridge least-squares step moves the knobs towards the reference (at most 5 units, kept in 0...10). A render checks that
+   the step improved the score; if not it is dropped. Master stays at 5: it shifts level and saturation, which the gain
+   already covers.
+3. **Gain trim.** gain -1.5 and +1.5 are rendered and the best score wins (the coarse grid is 2 units).
+4. **Cab and EQ.** The refinement of D3 step 4 runs on top, and the best of the 3 end-to-end renders is the result.
+5. **Cost.** The candidate and knob renders use the first 15 s of the DI (`searchSeconds`); the final renders use all of it.
+   Candidate renders and the 3 refinements run on worker threads.
+
+The preset gets an `amp` block (channel 0, built-in model, the 7 knobs) before the cab. The input is still normalised to
+-12 dBFS peak (D3), so the gain knob absorbs the player's level.
+
+### API
+
+`engine/include/osp/engine/ToneMatchApi.h`: `runToneMatch(request, progress)`: reference buffer (mono or stereo) + DI buffer +
+conditioned cab IRs in, preset JSON + the match + warnings out. `progress(fraction, stage)` returns false to cancel
+(response `cancelled`, no exception). It is called from internal worker threads, one call at a time; run the whole
+thing on a worker thread, never the audio or message thread. No JUCE and no I/O in the header: decoding audio
+(WAV/MP3, or YouTube through the user's own yt-dlp + ffmpeg) stays in `tools/tonematch`.
+
+### Measurements (2026-11-03, MSVC 19.44 Release, 8 hardware threads, bundled CC0 DI and IRs)
+
+Synthetic round trips (`tests/engine/test_tonematch_amp.cpp`): the DI through a hidden amp + cab, then matched from the same DI.
+
+| Hidden | Matched | Robust residual | Flatness |
+|---|---|---|---|
+| clean_a gain 2, treble 6.5, 112-a | clean_a gain 0.5, same cab | 0.05 dB | 0.01 dB |
+| clean_a gain 4, bass 3, treble 7.5, 412-a | clean_a gain 2.5 (bass 3.5, treble 7.7), same cab | 0.05 dB | 0.05 dB |
+| crunch_a gain 5, bass 6, mid 4, treble 6, 412-c | crunch_a gain 4.5 (6.5 / 4.2 / 5.8), same cab | 0.08 dB | 0.13 dB |
+| lead_a gain 7, 412-f | lead_a gain 6.5, same cab | 0.13 dB | 0.22 dB |
+
+The test bounds are: model and cab correct, gain within 2 units, robust residual <= 0.5 dB, flatness <= 0.5 dB. Every
+run is at least 10x better than the unmatched chain (1.0-7.8 dB).
+
+Runtime: **56.7 s** for a 30 s DI with 4 cabs (the bundled DI looped; 18 amp candidates + refinement; 8 threads). It was
+193 s before the 15 s search excerpt and the parallel refinement. The API on a 5 s DI with 2 cabs takes 10.3 s. Not
+measured on fewer cores or on CI-class machines: expect roughly the single-thread time divided by the cores you have.
+
+### What this does and does not recover (be honest with users)
+
+- **Recovers well:** the amp model and the cab when the reference is the same signal chain as the candidates, and the
+  overall spectrum (residuals above are before any mix leakage). The tone knobs came back close in the two runs that moved
+  them (within 0.7 units).
+- **Gain is the soft spot.** Within 1.5 units here, with the clean model the weakest (little changes between gain 0.5 and
+  2). As in the D3 limits, gain is read from flatness and envelope spread, and these depend on the playing: a strum
+  recorded against an arpeggio reads as a different gain, and a different guitar than the song's gives a wrong gain
+  (the 12 cross-guitar matrix runs still break; the amp search does not fix that). Use a DI of the same kind of part.
+- **Tone knobs and EQ overlap.** A bass/treble shift can be made by a knob, by the graphic EQ, or by the cab choice. The
+  knob step is preferred because it changes the signal before the clipping, but two settings that sound alike can have
+  different knob values; do not read the knobs as the "true" settings of the recording's amp.
+- **Not modelled by the search:** the amp's master, bright and tight, a pedal in front of the amp, and the second and
+  third channels (the result is always channel 1). The bundled classic amps are three voicings, not the amp on the
+  record: a real recording through another amp is matched by the closest of the three plus the EQ. This is "as close as
+  possible", not exact.
+- **A real song is harder than a round trip.** The numbers above are synthetic. The synthetic round trips all pass, but
+  the real-song results of the table above (2-4 dB residuals) need a Demucs stem and the same part played, and the
+  amp search has not yet been compared against real songs by listening (unverified).
+- **Odd inputs.** Matching the dry DI against itself, a case with no amp in the reference, gave crunch_a gain 10 with
+  extreme knobs (bass 0.8, mid 10, treble 0.3) and the 4 kHz EQ band at -12 dB: when no amp setting explains the spectrum,
+  the knob fit can run to its edges. Treat results with knobs at 0 or 10 and an EQ at its limit as "the chain ran out of range"
+  (the tool prints the EQ limit warning).
