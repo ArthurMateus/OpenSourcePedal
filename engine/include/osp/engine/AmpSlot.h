@@ -4,8 +4,8 @@
 //
 // The amp slot of one amp channel (ADR-0009 D5). Phase 5 puts ModelAmpChannel (ADR-0011 D1,
 // engine/src/graph/ModelAmpChannel.h) behind this interface; the graph builds it, and AmpStub stays for the graph
-// tests (Graph::Options::useAmpStub). All channels and model kinds report the same delay (ADR-0002 D4: one L_slot). A virtual call to an
-// already-built object is RT-allowed (realtime-rules §1).
+// tests (Graph::Options::useAmpStub). All channels and model kinds report the same delay (ADR-0002 D4: one L_slot). A
+// virtual call to an already-built object is RT-allowed (realtime-rules §1).
 
 #include "osp/rt/AudioThread.h"
 
