@@ -42,6 +42,7 @@ public:
 
     struct Options {
         double ampStubDelaySamples = 0.0; // AmpStub test delay (ADR-0009 D5)
+        bool useAmpStub = false; // tests only: every strip gets an AmpStub instead of its ModelAmpChannel (ADR-0011 D1)
     };
 
     // Control thread. `params` must outlive the graph.

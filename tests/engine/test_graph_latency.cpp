@@ -31,7 +31,7 @@ struct Rig {
     std::vector<std::unique_ptr<PartitionedConvolver>> irs;
 
     Rig(double rate, double slotDelay, std::vector<std::pair<std::string, float>> settings = {})
-        : graph(params, Graph::Options{slotDelay})
+        : graph(params, Graph::Options{slotDelay, true})
     {
         params.set("output.limiter", 0.0f); // keep the output linear for impulses
         for (const auto& [id, v] : settings)

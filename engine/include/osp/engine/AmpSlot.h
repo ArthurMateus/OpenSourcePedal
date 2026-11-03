@@ -3,8 +3,8 @@
 // Public engine header: no JUCE, no NAM, no Eigen (ADR-0006 D3).
 //
 // The amp slot of one amp channel (ADR-0009 D5). Phase 5 puts ModelAmpChannel (ADR-0011 D1,
-// engine/src/graph/ModelAmpChannel.h) behind this interface; until the graph builds it (#175 part 2) every channel is
-// an AmpStub. All channels and model kinds report the same delay (ADR-0002 D4: one L_slot). A virtual call to an
+// engine/src/graph/ModelAmpChannel.h) behind this interface; the graph builds it, and AmpStub stays for the graph
+// tests (Graph::Options::useAmpStub). All channels and model kinds report the same delay (ADR-0002 D4: one L_slot). A virtual call to an
 // already-built object is RT-allowed (realtime-rules §1).
 
 #include "osp/rt/AudioThread.h"
