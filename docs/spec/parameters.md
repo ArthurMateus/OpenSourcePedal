@@ -218,8 +218,11 @@ Per-channel parameters (`amp.ch<N>.` …, N = 1…3; each channel is a built-in 
 | `levelDb` | Level | −24…+12 | dB | 0 | lin | 20 | ✔ | H |
 | `bright` | Bright | bool | bool | false | step | xf 10 | ✔ | H |
 | `tight` | Tight | bool | bool | false | step | xf 10 | ✔ | H |
+| `lowCutHz` | Low cut | 20…300 | Hz | 20 | log | 20 | ✔ | H |
 | `namLevelMode` | Capture level | `raw`, `normalized`, `calibrated` | enum | `normalized` | step | xf ADR-0004 | — | P |
 
+- `lowCutHz` is the pre-amp high-pass (ADR-0011 D4, REQ-408): a 2nd-order Butterworth at the channel input, applied
+  to every model. 20 = off (the filter is bypassed exactly).
 - `levelDb` is the tone-neutral channel output, the reference's LEVEL/OUTPUT ("volume without affecting tone",
   reference-plugins §2.3). `master` drives the power-amp stage and does change the tone.
 - `presence` is a 2–6 kHz high shelf, ±10 dB at 0/10 (tone-targets-b F6). `depth` is a 60–150 Hz low shelf, ±10 dB.
@@ -394,8 +397,8 @@ Stored in `settings.json` (ADR-0003 §7). These are not host parameters.
 
 ## 5. Totals, requirements and open points
 
-**Host-visible parameters (v1): 226.**
-- Part 1: 69.
+**Host-visible parameters (v1): 229.**
+- Part 1: 72 (includes `amp.ch<N>.lowCutHz`, 3 ids, #175).
 - Part 2: 157, made up of cab 3 × 10, eq 3 × 29, mod 7, delay 11, reverb 10, doubler 4, output 2, plus 6 `enabled`
   (cab, eq, mod, delay, reverb, doubler).
 - Reserved for post-v1: `transpose.semitones` and `transpose.enabled`.
