@@ -4,11 +4,13 @@ namespace osp::ui {
 
 OspEditor::OspEditor(osp::app::PluginProcessor& processor)
     : AudioProcessorEditor(processor),
-      blocks_(processor.parameters())
+      blocks_(processor.parameters()),
+      page_(processor.parameters())
 {
     setLookAndFeel(&lookAndFeel_);
     addAndMakeVisible(blocks_);
-    blocks_.onSelect = [this](int) { repaint(); };
+    addAndMakeVisible(page_);
+    blocks_.onSelect = [this](int index) { page_.show(index); };
     blocks_.select(kAmpIndex);
 
     constrainer_.setFixedAspectRatio(static_cast<double>(kWidth) / kHeight);
@@ -40,14 +42,6 @@ void OspEditor::paint(juce::Graphics& g)
     g.setFont(juce::Font(juce::FontOptions(static_cast<float>(px(20)), juce::Font::bold)));
     g.drawText("OpenSourcePedal", getLocalBounds().removeFromTop(px(kTopBarHeight)).reduced(px(12), 0),
                juce::Justification::centredLeft);
-
-    // The controls of the selected block go here (next PR).
-    if (blocks_.selected() >= 0) {
-        g.setColour(colours::dimText);
-        g.setFont(juce::Font(juce::FontOptions(static_cast<float>(px(16)))));
-        g.drawText(kBlocks[static_cast<std::size_t>(blocks_.selected())].name, pageArea(),
-                   juce::Justification::centred);
-    }
 }
 
 void OspEditor::resized()
@@ -55,6 +49,7 @@ void OspEditor::resized()
     auto area = getLocalBounds();
     area.removeFromTop(px(kTopBarHeight));
     blocks_.setBounds(area.removeFromTop(px(kBlockRowHeight)).reduced(px(6), px(4)));
+    page_.setBounds(pageArea());
 }
 
 } // namespace osp::ui
