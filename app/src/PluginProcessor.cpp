@@ -1,5 +1,7 @@
 #include "PluginProcessor.h"
 
+#include "OspEditor.h"
+
 #include "osp/engine/State.h"
 
 #include <algorithm>
@@ -160,7 +162,7 @@ void PluginProcessor::setStateInformation(const void* data, int sizeInBytes)
 
 juce::AudioProcessorEditor* PluginProcessor::createEditor()
 {
-    return new juce::GenericAudioProcessorEditor(*this);
+    return new osp::ui::OspEditor(*this);
 }
 
 } // namespace osp::app
