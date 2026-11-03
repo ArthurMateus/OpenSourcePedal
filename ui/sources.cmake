@@ -5,4 +5,5 @@ set(osp_ui_sources
     ${PROJECT_SOURCE_DIR}/ui/src/BlockStrip.cpp
     ${PROJECT_SOURCE_DIR}/ui/src/ControlWidgets.cpp
     ${PROJECT_SOURCE_DIR}/ui/src/OspEditor.cpp
-    ${PROJECT_SOURCE_DIR}/ui/src/OspLookAndFeel.cpp)
+    ${PROJECT_SOURCE_DIR}/ui/src/OspLookAndFeel.cpp
+    ${PROJECT_SOURCE_DIR}/ui/src/StatusBar.cpp)

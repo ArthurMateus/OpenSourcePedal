@@ -48,6 +48,13 @@ public:
     int getLatencySamples() const noexcept OSP_RT_NONBLOCKING { return graph_->getLatencySamples(); }
     int getMaxBlockSize() const noexcept OSP_RT_NONBLOCKING { return maxBlockSize_; }
 
+    // Telemetry for the editor's meters (threading.md §3.5). Any thread: the peak |sample| of the host input (channel
+    // 1) or of the engine output (all channels) since the last call, then cleared. The audio thread keeps the larger of
+    // the stored and the new block peak; a reset that lands between its load and store can drop one block's peak,
+    // which a meter does not show.
+    float takeInputPeak() noexcept { return inputPeak_.exchange(0.0f, std::memory_order_relaxed); }
+    float takeOutputPeak() noexcept { return outputPeak_.exchange(0.0f, std::memory_order_relaxed); }
+
 private:
     ParamStore params_;
     std::unique_ptr<Graph> graph_;
@@ -56,6 +63,7 @@ private:
     std::array<std::unique_ptr<dsp::PartitionedConvolver>, Graph::kNumChannels> noCab_;
     std::vector<float> right_; // the graph's right output when the host has one channel
     int maxBlockSize_ = 0;
+    std::atomic<float> inputPeak_{0.0f}, outputPeak_{0.0f};
     bool noCabInstalled_ = false;
 };
 

@@ -1,8 +1,25 @@
 #include "osp/engine/Engine.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace osp::engine {
+
+namespace {
+float peakOf(const float* x, int n) noexcept OSP_RT_NONBLOCKING
+{
+    float peak = 0.0f;
+    for (int i = 0; i < n; ++i)
+        peak = std::max(peak, std::abs(x[i]));
+    return std::isfinite(peak) ? peak : 0.0f;
+}
+
+void keepLarger(std::atomic<float>& slot, float peak) noexcept OSP_RT_NONBLOCKING
+{
+    if (peak > slot.load(std::memory_order_relaxed))
+        slot.store(peak, std::memory_order_relaxed);
+}
+} // namespace
 
 Engine::Engine() : graph_(std::make_unique<Graph>(params_))
 {
@@ -55,7 +72,12 @@ void Engine::process(float* const* channels, int numChannels, int numSamples) no
     }
     // Mono in from channel 1 (REQ-207 default); the graph reads its input before writing outL, so in place is fine.
     float* const right = numChannels > 1 ? channels[1] : right_.data();
+    keepLarger(inputPeak_, peakOf(channels[0], numSamples));
     graph_->process(channels[0], channels[0], right, numSamples);
+    float outPeak = peakOf(channels[0], numSamples);
+    if (numChannels > 1)
+        outPeak = std::max(outPeak, peakOf(right, numSamples));
+    keepLarger(outputPeak_, outPeak);
 }
 
 void processChunked(Engine& engine, float* const* channels, int numChannels, int numSamples) noexcept OSP_RT_NONBLOCKING

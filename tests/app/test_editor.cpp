@@ -4,9 +4,13 @@
 #include "BlockControls.h"
 #include "OspEditor.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <juce_events/juce_events.h>
+
+#include <cmath>
+#include <vector>
 
 namespace {
 
@@ -107,6 +111,44 @@ TEST_CASE("Editor: the page shows the controls of the selected block and follows
     CHECK(editor.page().controlCount() == static_cast<int>(controlsFor(6).size()));
 }
 
+TEST_CASE("Editor: the status bar shows the latency the plugin reports", "[app][ui]")
+{
+    const juce::ScopedJuceInitialiser_GUI juce;
+    osp::app::PluginProcessor p;
+    p.prepareToPlay(48000.0, 256);
+    OspEditor editor(p);
+    editor.status().refresh();
+    CHECK(editor.status().latencyText().startsWith("Latency: " + juce::String(p.getLatencySamples()) + " samples"));
+}
+
+TEST_CASE("Editor: the meters and the tuner read the engine's lock-free values", "[app][ui]")
+{
+    const juce::ScopedJuceInitialiser_GUI juce;
+    osp::app::PluginProcessor p;
+    constexpr double fs = 48000.0;
+    p.prepareToPlay(fs, 512);
+    OspEditor editor(p);
+
+    // About one second of a 220 Hz sine at -12 dBFS, through the engine as the audio thread would.
+    std::vector<float> left(512), right(512);
+    float* channels[2] = {left.data(), right.data()};
+    for (int block = 0; block < 100; ++block) {
+        for (int n = 0; n < 512; ++n)
+            left[static_cast<std::size_t>(n)] =
+                0.25f * std::sin(2.0f * juce::MathConstants<float>::pi * 220.0f * static_cast<float>(block * 512 + n) /
+                                 static_cast<float>(fs));
+        p.engine().process(channels, 2, 512);
+    }
+    editor.status().refresh();
+    CHECK(editor.status().inputDb() == Catch::Approx(-12.0f).margin(0.5f));
+    CHECK(editor.status().outputDb() > -60.0f);
+    for (int poll = 0; poll < 3; ++poll) // the tuner is polled every fourth refresh, the meters fall in between
+        editor.status().refresh();
+    CHECK(editor.status().inputDb() < -12.0f);
+    INFO(editor.status().tunerText());
+    CHECK(editor.status().tunerText().startsWith("Tuner: A3"));
+}
+
 TEST_CASE("Editor: snapshot", "[app][ui][.snapshot]")
 {
     // Run explicitly with OSP_UI_SNAPSHOT=<file.png>; used for the screenshots in pull requests.
@@ -115,7 +157,19 @@ TEST_CASE("Editor: snapshot", "[app][ui][.snapshot]")
         SKIP("OSP_UI_SNAPSHOT is not set");
     const juce::ScopedJuceInitialiser_GUI juce;
     osp::app::PluginProcessor p;
+    p.prepareToPlay(48000.0, 512);
     OspEditor editor(p);
+    // A 220 Hz sine at -12 dBFS through the engine, so the meters and the tuner show something.
+    std::vector<float> left(512), right(512);
+    float* channels[2] = {left.data(), right.data()};
+    for (int block = 0; block < 100; ++block) {
+        for (int n = 0; n < 512; ++n)
+            left[static_cast<std::size_t>(n)] = 0.25f * std::sin(2.0f * juce::MathConstants<float>::pi * 220.0f *
+                                                                 static_cast<float>(block * 512 + n) / 48000.0f);
+        p.engine().process(channels, 2, 512);
+    }
+    for (int poll = 0; poll < 4; ++poll)
+        editor.status().refresh();
     editor.blocks().select(juce::SystemStats::getEnvironmentVariable("OSP_UI_BLOCK", "5").getIntValue());
     const auto image = editor.createComponentSnapshot(editor.getLocalBounds());
     juce::File file(path);
