@@ -18,7 +18,18 @@ class OspLookAndFeel final : public juce::LookAndFeel_V4 {
 public:
     OspLookAndFeel();
 
-    // The on/off switch of a block: a small LED, lit while the block is on.
+    // A flat arc: a dim track, the accent up to the value, and a pointer.
+    void drawRotarySlider(juce::Graphics&,
+                          int x,
+                          int y,
+                          int width,
+                          int height,
+                          float position,
+                          float startAngle,
+                          float endAngle,
+                          juce::Slider&) override;
+
+    // A small LED, lit while on, with the button text to its right (block power switches have no text).
     void drawToggleButton(juce::Graphics&, juce::ToggleButton&, bool highlighted, bool down) override;
 };
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BlockPage.h"
 #include "BlockStrip.h"
 #include "OspLookAndFeel.h"
 #include "PluginProcessor.h"
@@ -18,6 +19,7 @@ public:
     ~OspEditor() override;
 
     BlockStrip& blocks() noexcept { return blocks_; }
+    BlockPage& page() noexcept { return page_; }
     int selectedBlock() const noexcept { return blocks_.selected(); }
 
     void paint(juce::Graphics&) override;
@@ -33,6 +35,7 @@ private:
 
     OspLookAndFeel lookAndFeel_;
     BlockStrip blocks_;
+    BlockPage page_;
     juce::ComponentBoundsConstrainer constrainer_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OspEditor)
