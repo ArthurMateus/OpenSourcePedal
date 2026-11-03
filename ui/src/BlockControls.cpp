@@ -26,6 +26,16 @@ constexpr std::array kDrive{ControlSpec{choice, "type", "Type"},    ControlSpec{
                             ControlSpec{knob, "tone", "Tone"},      ControlSpec{knob, "levelDb", "Level"},
                             ControlSpec{knob, "mixPct", "Mix"},     ControlSpec{knob, "lowCutHz", "Tight"},
                             ControlSpec{toggle, "bright", "Bright"}};
+// The amp page edits the active channel. The model of a channel is a preset-only object, not a host parameter
+// (parameters.md §2.5), so it is shown by the model note, not by a control.
+constexpr std::array kAmp{
+    ControlSpec{choice, "channel", "Channel"},        ControlSpec{note, "model", "Model"},
+    ControlSpec{knob, "ch{ch}.gain", "Gain"},         ControlSpec{knob, "ch{ch}.bass", "Bass"},
+    ControlSpec{knob, "ch{ch}.mid", "Mid"},           ControlSpec{knob, "ch{ch}.treble", "Treble"},
+    ControlSpec{knob, "ch{ch}.presence", "Presence"}, ControlSpec{knob, "ch{ch}.depth", "Depth"},
+    ControlSpec{knob, "ch{ch}.master", "Master"},     ControlSpec{knob, "ch{ch}.levelDb", "Level"},
+    ControlSpec{toggle, "ch{ch}.bright", "Bright"},   ControlSpec{toggle, "ch{ch}.tight", "Tight"},
+    ControlSpec{knob, "cleanBlendPct", "Clean blend"}};
 constexpr std::array kCab{
     ControlSpec{toggle, "ch{ch}.ir1.enabled", "IR 1"},  ControlSpec{knob, "ch{ch}.ir1.levelDb", "Level"},
     ControlSpec{knob, "ch{ch}.ir1.pan", "Pan"},         ControlSpec{knob, "ch{ch}.ir1.delayMs", "Align"},
@@ -77,6 +87,8 @@ std::span<const ControlSpec> controlsFor(int blockIndex)
     case 3:
     case 4:
         return kDrive;
+    case kAmpIndex:
+        return kAmp;
     case 6:
         return kCab;
     case 7:
@@ -92,7 +104,7 @@ std::span<const ControlSpec> controlsFor(int blockIndex)
     case 12:
         return kOutput;
     default:
-        return {}; // the amp (kAmpIndex) has its own page
+        return {};
     }
 }
 
