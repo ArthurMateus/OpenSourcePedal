@@ -60,4 +60,17 @@ void ChoiceControl::resized()
     box_.setBounds(area.withSizeKeepingCentre(area.getWidth() - 8, juce::jmin(area.getHeight(), 28)));
 }
 
+ModelNote::ModelNote(int channel)
+{
+    static constexpr const char* kModels[] = {"clean_a", "crunch_a", "lead_a"};
+    text_ = juce::String("Model\n") + kModels[juce::jlimit(1, 3, channel) - 1] + "\n(preset)";
+}
+
+void ModelNote::paint(juce::Graphics& g)
+{
+    g.setColour(colours::dimText);
+    g.setFont(juce::Font(juce::FontOptions(14.0f)));
+    g.drawFittedText(text_, getLocalBounds(), juce::Justification::centred, 3);
+}
+
 } // namespace osp::ui
