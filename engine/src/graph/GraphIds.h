@@ -57,7 +57,8 @@ enum AmpKey {
     kAmpMaster,
     kAmpLevel,
     kAmpBright,
-    kAmpTight
+    kAmpTight,
+    kAmpLowCut
 };
 enum CabKey { kCabIrEnabled, kCabIrLevel, kCabIrPan, kCabIrInvert, kCabIrDelay, kCabKeysPerIr };
 enum EqKey {
@@ -113,7 +114,7 @@ struct Graph::Ids {
                                             "blendPct", "makeupDb", "autoMakeup", "mode", "tone"});
     std::array<std::array<int, 8>, 2> drive{driveKeys("drive1."), driveKeys("drive2.")};
     int ampChannel = find("amp.channel"), ampCleanBlend = find("amp.cleanBlendPct"), ampCabLink = find("amp.cabLink");
-    std::array<std::array<int, 10>, 3> amp{ampKeys(1), ampKeys(2), ampKeys(3)};
+    std::array<std::array<int, 11>, 3> amp{ampKeys(1), ampKeys(2), ampKeys(3)};
     int cabEnabled = find("cab.enabled");
     std::array<std::array<int, 2 * kCabKeysPerIr>, 3> cab{cabKeys(1), cabKeys(2), cabKeys(3)};
     int eqEnabled = find("eq.enabled"), eqFollow = find("eq.followChannel");
@@ -152,10 +153,10 @@ struct Graph::Ids {
         return resolve<8>(prefix, {"enabled", "type", "drive", "tone", "levelDb", "lowCutHz", "bright", "mixPct"});
     }
 
-    static std::array<int, 10> ampKeys(int ch)
+    static std::array<int, 11> ampKeys(int ch)
     {
-        return resolve<10>("amp.ch" + std::to_string(ch) + ".", {"gain", "bass", "mid", "treble", "presence", "depth",
-                                                                 "master", "levelDb", "bright", "tight"});
+        return resolve<11>("amp.ch" + std::to_string(ch) + ".", {"gain", "bass", "mid", "treble", "presence", "depth",
+                                                                 "master", "levelDb", "bright", "tight", "lowCutHz"});
     }
 
     static std::array<int, 2 * kCabKeysPerIr> cabKeys(int ch)

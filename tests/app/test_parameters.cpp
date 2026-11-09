@@ -23,14 +23,14 @@ int hostIndex(int tableIndex)
 
 } // namespace
 
-TEST_CASE("App: the host sees the 226 table parameters, in table order, at their defaults", "[app][params]")
+TEST_CASE("App: the host sees the 229 table parameters, in table order, at their defaults", "[app][params]")
 {
     const juce::ScopedJuceInitialiser_GUI juce;
     osp::app::PluginProcessor p;
 
     const auto& params = p.getParameters();
     REQUIRE(params.size() == hostParamCount());
-    REQUIRE(params.size() == 226);
+    REQUIRE(params.size() == 229);
 
     const auto table = paramTable();
     for (std::size_t i = 0; i < table.size(); ++i) {

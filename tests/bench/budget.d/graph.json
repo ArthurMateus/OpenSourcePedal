@@ -2,51 +2,51 @@
   "benchmarks": {
     "graph_default": {
       "kind": "full_chain",
-      "r0": 0.85935197,
+      "r0": 2.576214259,
       "maxCpuPercent": 25.0,
-      "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 0.859351970 (range 0.840176362..0.872935434, spread 3.90%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
+      "baseline": "#175 part 2, 2026-11-03: R 2.817019 on AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD; other values scaled; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/41717323235",
       "headroom": "the v1 graph's default preset (most blocks off; the disabled delay and reverb idle once silent); the fixed 25 % ceiling applies",
       "processorBaselines": {
         "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
-          "r0": 0.85935197,
-          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 0.859351970, spread 3.90%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+          "r0": 2.576214259,
+          "baseline": "scaled from the AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD measurement of #175 part 2 (x2.9979), not measured on this processor; recalibrate on the next run there. Previous: r0 0.85935197"
         },
         "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
-          "r0": 0.939677598,
-          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 0.939677598, spread 0.31%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+          "r0": 2.817019,
+          "baseline": "#175 part 2, 2026-11-03, windows-2022, AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD; R 2.817019 measured with the three classic amps in the graph (PR #210 CI run, head 5ceedff); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/41717323235"
         },
         "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel": {
-          "r0": 1.115402247,
-          "baseline": "bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001520, image 20261022.344.1; median of 5 R 1.115402247 (range 1.106239006..1.125902202, spread 1.78%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40761033116, head 189a950 (PR #187; bench code identical to main f9aa767)"
+          "r0": 3.343816357,
+          "baseline": "scaled from the AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD measurement of #175 part 2 (x2.9979), not measured on this processor; recalibrate on the next run there. Previous: r0 1.115402247"
         },
         "AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD": {
-          "r0": 0.867537788,
-          "baseline": "bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001547, image 20261022.344.1; median of 5 R 0.867537788 (range 0.867295668..0.878889750, spread 1.34%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40767060990, head 1547a0f (PR #187; bench code identical to main)"
+          "r0": 2.600754171,
+          "baseline": "scaled from the AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD measurement of #175 part 2 (x2.9979), not measured on this processor; recalibrate on the next run there. Previous: r0 0.867537788"
         }
       }
     },
     "graph_all_blocks": {
       "kind": "full_chain",
-      "r0": 4.074962319,
+      "r0": 5.893543525,
       "maxCpuPercent": 25.0,
-      "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1, AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD; MSVC Release /WX, median of 5: R 4.074962319 (range 4.027822591..4.157004646, spread 3.21%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4",
-      "headroom": "every v1 block on, tape delay, both cab slots on 1 s IRs (the ceiling case): the fixed 25 % ceiling applies; the amp slot is still the identity stub, so Phase 5 amps add to it",
+      "baseline": "#175 part 2, 2026-11-03: R 6.093454 on AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD; other values scaled; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/41717323235",
+      "headroom": "every v1 block on, tape delay, both cab slots on 1 s IRs (the ceiling case): the fixed 25 % ceiling applies; the amp slot is the classic ModelAmpChannel (#175)",
       "processorBaselines": {
         "AMD64 Family 26 Model 2 Stepping 1, AuthenticAMD": {
-          "r0": 4.074962319,
-          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001482, image 20261026.347.1; median of 5 R 4.074962319, spread 3.21%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40723348821, head 6a3b3e4"
+          "r0": 5.893543525,
+          "baseline": "scaled from the AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD measurement of #175 part 2 (x1.4463), not measured on this processor; recalibrate on the next run there. Previous: r0 4.074962319"
         },
         "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD": {
-          "r0": 4.213186063,
-          "baseline": "#83, 2026-10-28, windows-2022, runner GitHub Actions 1000001491, image 20261026.347.1; median of 5 R 4.213186063, spread 0.39%; https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40726002769, head 270076d"
+          "r0": 6.093454,
+          "baseline": "#175 part 2, 2026-11-03, windows-2022, AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD; R 6.093454 measured with the three classic amps in the graph (PR #210 CI run, head 5ceedff); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/41717323235"
         },
         "Intel64 Family 6 Model 207 Stepping 2, GenuineIntel": {
-          "r0": 5.29697084,
-          "baseline": "bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001520, image 20261022.344.1; median of 5 R 5.296970840 (range 5.239237995..5.398218916, spread 3.03%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40761033116, head 189a950 (PR #187; bench code identical to main f9aa767)"
+          "r0": 7.660912115,
+          "baseline": "scaled from the AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD measurement of #175 part 2 (x1.4463), not measured on this processor; recalibrate on the next run there. Previous: r0 5.29697084"
         },
         "AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD": {
-          "r0": 4.06472725,
-          "baseline": "bench calibration, 2026-10-28, windows-2022, runner GitHub Actions 1000001547, image 20261022.344.1; median of 5 R 4.064727250 (range 4.056401502..4.086884788, spread 0.75%); https://github.com/ArthurMateus/OpenSourcePedal/actions/runs/40767060990, head 1547a0f (PR #187; bench code identical to main)"
+          "r0": 5.878740732,
+          "baseline": "scaled from the AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD measurement of #175 part 2 (x1.4463), not measured on this processor; recalibrate on the next run there. Previous: r0 4.06472725"
         }
       }
     }
