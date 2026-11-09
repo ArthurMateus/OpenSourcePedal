@@ -163,6 +163,8 @@ def main() -> int:
     ap.add_argument("--end", type=float, help="reference section end, seconds")
     ap.add_argument("--source", default="auto", choices=["auto", "mono", "mid", "side", "left", "right"])
     ap.add_argument("--stem", action="store_true", help="isolate the guitar with Demucs first (recommended)")
+    ap.add_argument("--no-amps", action="store_true",
+                    help="search the drive pedal only; by default the classic amps are searched (model, gain, tone)")
     ap.add_argument("--no-hpss", action="store_true", help="keep percussive energy (an already clean guitar stem)")
     ap.add_argument("--tones", action="store_true",
                     help="one preset per guitar part and tone over the whole song (guitar 1 tone 1, ...); best with --stem")
@@ -196,6 +198,8 @@ def main() -> int:
         cmd += ["--render", a.render]
     if a.no_hpss:
         cmd += ["--no-hpss"]
+    if a.no_amps:
+        cmd += ["--no-amps"]
     if a.tones:
         cmd += ["--tones"]
     if a.max_tones is not None:

@@ -175,18 +175,20 @@ void warnDarkDi(double trebleDb)
 
 int usage()
 {
-    std::fprintf(stderr,
-                 "usage: osp-tonematch --ref <song.wav|mp3> --di <my-di.wav> --out <preset.json> [options]\n"
-                 "  --start/--end <s>   analyse only this part of the reference (pick a guitar-heavy section)\n"
-                 "  --source <s>        auto (default), mono, mid, side, left, right\n"
-                 "  --no-hpss           keep percussive energy (use for an isolated guitar stem)\n"
-                 "  --ir-dir <dir>      cab IR folder (default: the bundled assets/cab)\n"
-                 "  --render <out.wav>  also write the DI through the matched setting\n"
-                 "  --name <text>       preset name (default: Tone match)\n"
-                 "  --tones             find each guitar part and every tone it uses over the whole song, and\n"
-                 "                      write one preset per tone: <out>-g<part>-t<tone>.osp.json (with\n"
-                 "                      --render also <render>-g<p>-t<t>.wav and the song's own -ref.wav)\n"
-                 "  --max-tones <n>     with --tones: at most n tones per guitar part (default 4, 0 = no cap)\n");
+    std::fprintf(
+        stderr,
+        "usage: osp-tonematch --ref <song.wav|mp3> --di <my-di.wav> --out <preset.json> [options]\n"
+        "  --start/--end <s>   analyse only this part of the reference (pick a guitar-heavy section)\n"
+        "  --source <s>        auto (default), mono, mid, side, left, right\n"
+        "  --no-amps           search drive pedal x cab x EQ only (default: the classic amps replace the pedal)\n"
+        "  --no-hpss           keep percussive energy (use for an isolated guitar stem)\n"
+        "  --ir-dir <dir>      cab IR folder (default: the bundled assets/cab)\n"
+        "  --render <out.wav>  also write the DI through the matched setting\n"
+        "  --name <text>       preset name (default: Tone match)\n"
+        "  --tones             find each guitar part and every tone it uses over the whole song, and\n"
+        "                      write one preset per tone: <out>-g<part>-t<tone>.osp.json (with\n"
+        "                      --render also <render>-g<p>-t<t>.wav and the song's own -ref.wav)\n"
+        "  --max-tones <n>     with --tones: at most n tones per guitar part (default 4, 0 = no cap)\n");
     return 2;
 }
 
@@ -207,18 +209,38 @@ void printBands(const tmatch::Profile& ref, const tmatch::Profile& got)
 
 } // namespace
 
+// "crunch_a gain 4.5", "mid 6" or "clean": what makes the gain in a setting.
+std::string gainStageText(const tmatch::Setting& s)
+{
+    char b[64];
+    if (s.amp.model != tmatch::AmpKind::none) {
+        std::snprintf(b, sizeof b, "%s gain %.1f", std::string(tmatch::toString(s.amp.model)).substr(8).c_str(),
+                      s.amp.gain);
+        return b;
+    }
+    if (s.drive == tmatch::DriveKind::clean)
+        return "clean";
+    std::snprintf(b, sizeof b, "%s %.0f", tmatch::toString(s.drive), s.driveKnob);
+    return b;
+}
+
 int main(int argc, char** argv)
 {
     std::string refPath, diPath, outPath, renderPath, irDir = OSP_ASSET_DIR "/cab", name = "Tone match";
     double start = 0.0, end = -1.0;
     tmatch::Source source = tmatch::Source::automatic;
     tmatch::MatchOptions opt;
+    opt.searchAmps = true;
     bool factoryIrs = true, tones = false;
     int maxTones = tmatch::SectionOptions{}.maxTones;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "--no-hpss") {
             opt.analysis.hpss = false;
+            continue;
+        }
+        if (a == "--no-amps") {
+            opt.searchAmps = false;
             continue;
         }
         if (a == "--tones") {
@@ -373,7 +395,8 @@ int main(int argc, char** argv)
             for (std::size_t i = 0; i < sec.parts.size(); ++i)
                 std::printf(" guitar %zu = %s%s", i + 1, sec.parts[i].label.c_str(),
                             i + 1 < sec.parts.size() ? "," : "\n");
-            std::printf("rendering your DI through the drive candidates (once for all tones) ...\n");
+            std::printf("rendering your DI through the %s candidates (once for all tones) ...\n",
+                        opt.searchAmps ? "amp" : "drive");
             const tmatch::Matcher matcher(diMono, fsDi, cabs, opt);
             std::printf("\n  %-18s %-10s %-34s %s\n", "part / tone", "residual", "matched setting", "where");
             double treble = 0.0; // the DI's treble, the same for every tone
@@ -387,8 +410,7 @@ int main(int argc, char** argv)
                              mmss(range.endSeconds + static_cast<double>(from) / ref.rate);
                 const auto& st = r.setting;
                 char setting[96];
-                std::snprintf(setting, sizeof setting, "%s %.0f, cab %s",
-                              st.drive == tmatch::DriveKind::clean ? "clean" : tmatch::toString(st.drive), st.driveKnob,
+                std::snprintf(setting, sizeof setting, "%s, cab %s", gainStageText(st).c_str(),
                               cabs[static_cast<std::size_t>(st.cab)].name.c_str());
                 const std::string label =
                     "guitar " + std::to_string(t.part + 1) + ", tone " + std::to_string(t.tone + 1);
@@ -434,13 +456,18 @@ int main(int argc, char** argv)
             std::printf("           resampled %u -> %u Hz to match the DI\n", ref.rate, di.rate);
         std::printf("DI:        %s (%u Hz, %.1f s), %zu cab IRs\n", diPath.c_str(), di.rate,
                     static_cast<double>(diMono.size()) / fsDi, cabs.size());
-        std::printf("searching drive x cab x EQ ...\n");
+        std::printf(opt.searchAmps ? "searching amp x cab x EQ ...\n" : "searching drive x cab x EQ ...\n");
 
         const tmatch::MatchResult r = tmatch::match(refProfile, diMono, fsDi, cabs, opt);
         const auto& s = r.setting;
 
         std::printf("\nmatched setting\n");
         std::printf("  input     %+.1f dB\n", s.inputGainDb);
+        if (s.amp.model != tmatch::AmpKind::none)
+            std::printf("  amp       %s, gain %.1f, bass %.1f, mid %.1f, treble %.1f, presence %.1f, depth %.1f, "
+                        "master %.1f\n",
+                        tmatch::toString(s.amp.model), s.amp.gain, s.amp.bass, s.amp.mid, s.amp.treble, s.amp.presence,
+                        s.amp.depth, s.amp.master);
         if (s.drive == tmatch::DriveKind::clean)
             std::printf("  drive1    off (clean)\n");
         else
@@ -469,8 +496,8 @@ int main(int argc, char** argv)
         std::printf("runners-up:\n");
         for (std::size_t i = 1; i < r.ranking.size(); ++i) {
             const auto& c = r.ranking[i].setting;
-            std::printf("  %s %.0f, tight %s, cab %s (predicted residual %.2f dB, flatness %.2f dB)\n",
-                        tmatch::toString(c.drive), c.driveKnob,
+            std::printf("  %s, tight %s, cab %s (predicted residual %.2f dB, flatness %.2f dB)\n",
+                        gainStageText(c).c_str(),
                         c.tightHz > 20.0f ? (std::to_string(static_cast<int>(c.tightHz)) + " Hz").c_str() : "off",
                         cabs[static_cast<std::size_t>(c.cab)].name.c_str(), r.ranking[i].residualDb,
                         r.ranking[i].flatnessDistance);

@@ -138,6 +138,7 @@ std::vector<ParamInfo> buildTable()
         b.lin("levelDb", -24, 12, 0, "dB");
         b.boolean("bright", false);
         b.boolean("tight", false);
+        b.log("lowCutHz", 20, 300, 20, "Hz");
         b.choice("namLevelMode", kNamLevel, 1, P);
     }
 

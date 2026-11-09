@@ -129,6 +129,7 @@ void Graph::applyStrip(int strip) noexcept OSP_RT_NONBLOCKING
     ap.levelDb = value(a[kAmpLevel]);
     ap.bright = on(a[kAmpBright]);
     ap.tight = on(a[kAmpTight]);
+    ap.lowCutHz = value(a[kAmpLowCut]);
     s.amp->setParameters(ap);
 
     // amp.cabLink / eq.followChannel off: ch1's values for every strip (parameters.md §3.1, §3.2).
