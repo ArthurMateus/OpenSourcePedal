@@ -1,5 +1,7 @@
 #include "PluginProcessor.h"
 
+#include "OspEditor.h"
+
 #include "osp/engine/State.h"
 
 #include <algorithm>
@@ -84,7 +86,7 @@ PluginProcessor::PluginProcessor()
 
 juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParameterLayout()
 {
-    // Every host-visible entry of the v1 table (parameters.md §5: 226), in table order. Ranges come from the table, so
+    // Every host-visible entry of the v1 table (parameters.md §5: 229), in table order. Ranges come from the table, so
     // a restore that clamps through convertTo0to1() keeps every value the spec allows.
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
     for (const auto& p : osp::engine::paramTable())
@@ -160,7 +162,7 @@ void PluginProcessor::setStateInformation(const void* data, int sizeInBytes)
 
 juce::AudioProcessorEditor* PluginProcessor::createEditor()
 {
-    return new juce::GenericAudioProcessorEditor(*this);
+    return new osp::ui::OspEditor(*this);
 }
 
 } // namespace osp::app
