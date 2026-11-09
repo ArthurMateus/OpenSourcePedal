@@ -5,11 +5,13 @@ namespace osp::ui {
 OspEditor::OspEditor(osp::app::PluginProcessor& processor)
     : AudioProcessorEditor(processor),
       blocks_(processor.parameters()),
-      page_(processor.parameters())
+      page_(processor.parameters()),
+      status_(processor)
 {
     setLookAndFeel(&lookAndFeel_);
     addAndMakeVisible(blocks_);
     addAndMakeVisible(page_);
+    addAndMakeVisible(status_);
     blocks_.onSelect = [this](int index) { page_.show(index); };
     blocks_.select(kAmpIndex);
 
@@ -30,6 +32,7 @@ juce::Rectangle<int> OspEditor::pageArea() const
 {
     return getLocalBounds()
         .withTrimmedTop(px(kTopBarHeight + kBlockRowHeight))
+        .withTrimmedBottom(px(kStatusHeight))
         .withTrimmedRight(px(kSideWidth))
         .reduced(px(12));
 }
@@ -50,6 +53,7 @@ void OspEditor::resized()
     area.removeFromTop(px(kTopBarHeight));
     blocks_.setBounds(area.removeFromTop(px(kBlockRowHeight)).reduced(px(6), px(4)));
     page_.setBounds(pageArea());
+    status_.setBounds(getLocalBounds().removeFromBottom(px(kStatusHeight)));
 }
 
 } // namespace osp::ui
