@@ -13,8 +13,10 @@
 //    against the measured response of the real Eq block.
 // 4. The best (drive, cab, EQ) by flatness distance + spectral residual is rendered end to end and re-profiled, and
 //    that measured residual is what the result reports.
-// Limits (also in ADR-0008): no amp block yet (Phase 5), so the drive slot is the only gain stage; a full mix still
-// leaks bass, keys and vocals into the profile, which a stem (Demucs) or a solo-guitar section avoids.
+// With MatchOptions::searchAmps the candidates are the classic amps (model x gain, then the tone knobs and a gain trim
+// against real renders) instead of the drive pedal (ADR-0008 A1).
+// Limits (also in ADR-0008): a full mix still leaks bass, keys and vocals into the profile, which a stem (Demucs) or a
+// solo-guitar section avoids.
 
 #include "osp/engine/ToneProfile.h"
 
