@@ -1,6 +1,7 @@
 #include "osp/engine/Graph.h"
 
 #include "GraphIds.h"
+#include "ModelAmpChannel.h"
 
 #include <algorithm>
 #include <cassert>
@@ -15,8 +16,16 @@ Graph::Graph(const ParamStore& params, Options options)
       table_(paramTable()),
       ids_(std::make_unique<Ids>())
 {
-    for (auto& s : strips_)
-        s.amp = std::make_unique<AmpStub>(options.ampStubDelaySamples);
+    // Strip k holds classic model k (ADR-0003 defaults: clean_a, crunch_a, lead_a). A per-channel model choice is
+    // preset-only and arrives with the follow-up (#169); ModelAmpChannel::setModel already crossfades between them.
+    int k = 0;
+    for (auto& s : strips_) {
+        if (options.useAmpStub)
+            s.amp = std::make_unique<AmpStub>(options.ampStubDelaySamples);
+        else
+            s.amp = std::make_unique<ModelAmpChannel>(static_cast<ClassicAmpId>(k));
+        ++k;
+    }
     // Every block starts at the parameters.md defaults, with no fade from the constructor state.
     applyParameters();
     stripFrom_ = stripTo_ = choice(ids_->ampChannel);

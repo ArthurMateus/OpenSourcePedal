@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
-#include <complex>
 #include <limits>
 #include <memory>
 #include <numbers>
@@ -95,26 +94,16 @@ TEST_CASE("Engine: reads the output level atomic once per block and ramps to it"
         REQUIRE(std::abs(half[n] - 0.5f * unity[n]) < 1e-4f);
 }
 
-TEST_CASE("Engine: reported latency is round(sum D) and matches the 1 kHz impulse delay (Moth's ask (a))", "[engine]")
+// The default engine builds the real amps (#175). Their 1 kHz impulse delay includes the modelled filters' phase,
+// which ADR-0011 A2 leaves out of D_slot, so the impulse measurement lives in test_graph_latency.cpp (AmpStub) and
+// test_graph_amp.cpp (per channel, against the bare model). Here the engine reports the rounded sum.
+TEST_CASE("Engine: reported latency is round(sum D) (Moth's ask (a))", "[engine]")
 {
     const double fs = GENERATE(44100.0, 48000.0, 88200.0, 96000.0);
     osp::engine::Engine engine;
-    engine.parameters().set("input.enabled", 0.0f);
-    engine.parameters().set("output.limiter", 0.0f);
     engine.prepare(fs, 64);
     CHECK(engine.getLatencySamples() == std::lround(engine.graph().getMeasuredDelaySamples()));
-
-    std::vector<float> left(4096, 0.0f), right(4096, 0.0f);
-    left[0] = 0.5f;
-    run(engine, left, right, 64);
-    std::complex<double> num, den;
-    const double w = 2.0 * std::numbers::pi * 1000.0 / fs;
-    for (std::size_t n = 0; n < left.size(); ++n) {
-        const auto e = std::polar(static_cast<double>(left[n]), -w * static_cast<double>(n));
-        num += static_cast<double>(n) * e;
-        den += e;
-    }
-    CHECK(std::abs((num / den).real() - engine.getLatencySamples()) <= 0.5);
+    CHECK(engine.getLatencySamples() > 0);
 }
 
 TEST_CASE("Engine: NaN/Inf/out-of-range fuzz of every parameter, every rate and host block (RT checker)",

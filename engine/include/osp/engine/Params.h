@@ -40,7 +40,7 @@ struct ParamInfo {
 std::span<const ParamInfo> paramTable();
 // Control thread. Index of `id`, or -1.
 int findParam(std::string_view id);
-// Number of host-visible entries (parameters.md §5: 226).
+// Number of host-visible entries (parameters.md §5: 229).
 int hostParamCount();
 
 // Clamps to [min, max] (NaN → min) and snaps bool, choice and integer values. RT-safe.

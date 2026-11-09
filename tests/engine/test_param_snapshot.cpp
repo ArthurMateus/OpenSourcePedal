@@ -114,7 +114,7 @@ TEST_CASE("Params: the host parameter list equals tests/spec/parameters.json (RE
         CAPTURE(id);
         CHECK(now.count(id) == 1);
     }
-    CHECK(now.size() == 226);
+    CHECK(now.size() == 229);
     CHECK(actual == expected);
 }
 
