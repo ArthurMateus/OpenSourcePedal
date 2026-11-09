@@ -1,5 +1,5 @@
 {
-  "count": 226,
+  "count": 229,
   "params": [
     {"id": "input.enabled", "kind": "bool", "min": 0, "max": 1, "default": 1, "skew": "step", "unit": ""},
     {"id": "input.gainDb", "kind": "float", "min": -24, "max": 24, "default": 0, "skew": "lin", "unit": "dB"},
@@ -50,6 +50,7 @@
     {"id": "amp.ch1.levelDb", "kind": "float", "min": -24, "max": 12, "default": 0, "skew": "lin", "unit": "dB"},
     {"id": "amp.ch1.bright", "kind": "bool", "min": 0, "max": 1, "default": 0, "skew": "step", "unit": ""},
     {"id": "amp.ch1.tight", "kind": "bool", "min": 0, "max": 1, "default": 0, "skew": "step", "unit": ""},
+    {"id": "amp.ch1.lowCutHz", "kind": "float", "min": 20, "max": 300, "default": 20, "skew": "log", "unit": "Hz"},
     {"id": "amp.ch2.gain", "kind": "float", "min": 0, "max": 10, "default": 5, "skew": "lin", "unit": "knob"},
     {"id": "amp.ch2.bass", "kind": "float", "min": 0, "max": 10, "default": 5, "skew": "lin", "unit": "knob"},
     {"id": "amp.ch2.mid", "kind": "float", "min": 0, "max": 10, "default": 5, "skew": "lin", "unit": "knob"},
@@ -60,6 +61,7 @@
     {"id": "amp.ch2.levelDb", "kind": "float", "min": -24, "max": 12, "default": 0, "skew": "lin", "unit": "dB"},
     {"id": "amp.ch2.bright", "kind": "bool", "min": 0, "max": 1, "default": 0, "skew": "step", "unit": ""},
     {"id": "amp.ch2.tight", "kind": "bool", "min": 0, "max": 1, "default": 0, "skew": "step", "unit": ""},
+    {"id": "amp.ch2.lowCutHz", "kind": "float", "min": 20, "max": 300, "default": 20, "skew": "log", "unit": "Hz"},
     {"id": "amp.ch3.gain", "kind": "float", "min": 0, "max": 10, "default": 6, "skew": "lin", "unit": "knob"},
     {"id": "amp.ch3.bass", "kind": "float", "min": 0, "max": 10, "default": 5, "skew": "lin", "unit": "knob"},
     {"id": "amp.ch3.mid", "kind": "float", "min": 0, "max": 10, "default": 5, "skew": "lin", "unit": "knob"},
@@ -70,6 +72,7 @@
     {"id": "amp.ch3.levelDb", "kind": "float", "min": -24, "max": 12, "default": 0, "skew": "lin", "unit": "dB"},
     {"id": "amp.ch3.bright", "kind": "bool", "min": 0, "max": 1, "default": 0, "skew": "step", "unit": ""},
     {"id": "amp.ch3.tight", "kind": "bool", "min": 0, "max": 1, "default": 0, "skew": "step", "unit": ""},
+    {"id": "amp.ch3.lowCutHz", "kind": "float", "min": 20, "max": 300, "default": 20, "skew": "log", "unit": "Hz"},
     {"id": "cab.enabled", "kind": "bool", "min": 0, "max": 1, "default": 1, "skew": "step", "unit": ""},
     {"id": "cab.ch1.ir1.enabled", "kind": "bool", "min": 0, "max": 1, "default": 1, "skew": "step", "unit": ""},
     {"id": "cab.ch1.ir1.levelDb", "kind": "float", "min": -60, "max": 6, "default": 0, "skew": "lin", "unit": "dB"},
