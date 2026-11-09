@@ -36,8 +36,10 @@ def main() -> int:
         for label, extra in (("factory IRs", []), ("--ir-dir", ["--ir-dir", str(ROOT / "assets" / "cab")])):
             doc = run(exe, Path(tmp) / "p.osp.json", extra)
             validator.validate(doc)
-            ir = doc["blocks"][2]["channels"][0]["resources"]["ir1"]
-            print(f"{label}: valid preset, name {len(doc['name'])} chars, ir1 {ir['uri']}"
+            amp = next(b for b in doc["blocks"] if b["type"] == "amp")["channels"][0]
+            assert amp["model"]["id"].startswith("osp.amp."), amp
+            ir = next(b for b in doc["blocks"] if b["type"] == "cab")["channels"][0]["resources"]["ir1"]
+            print(f"{label}: valid preset, amp {amp['model']['id']}, name {len(doc['name'])} chars, ir1 {ir['uri']}"
                   + (f" sha256 {ir['sha256'][:12]}..." if "sha256" in ir else ""))
     return 0
 

@@ -39,7 +39,7 @@ struct Rig {
     std::vector<std::unique_ptr<PartitionedConvolver>> irs;
     std::vector<PartitionedConvolver*> retired;
 
-    Rig(double rate, int maxBlock, Graph::Options options = {}) : graph(params, options)
+    Rig(double rate, int maxBlock, Graph::Options options = {0.0, true}) : graph(params, options)
     {
         graph.prepare(rate, maxBlock);
         const float delta = 1.0f;
@@ -283,7 +283,7 @@ TEST_CASE("Graph: latency is round(D_os1 + D_slot), with a fractional amp-slot t
     osp::dsp::DriveRegion region;
     region.prepare(rate, 64);
     for (const double slot : {0.0, 2.37, 3.6}) {
-        Rig rig(rate, 64, Graph::Options{slot});
+        Rig rig(rate, 64, Graph::Options{slot, true});
         CHECK(rig.graph.getLatencySamples() == std::lround(region.getMeasuredDelaySamples() + slot));
     }
 }
