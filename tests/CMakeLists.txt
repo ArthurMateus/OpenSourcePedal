@@ -26,9 +26,12 @@ add_executable(osp_tests ${OSP_TEST_SOURCES})
 
 # tools/tonematch/Sha256.h is header-only and tested here (ADR-0008).
 target_include_directories(osp_tests PRIVATE "${PROJECT_SOURCE_DIR}/tools/tonematch")
-target_link_libraries(osp_tests PRIVATE osp_engine osp_measure osp_rt_checker osp_dr_wav Catch2::Catch2WithMain)
+target_link_libraries(osp_tests PRIVATE osp_engine osp_measure osp_rt_checker osp_dr_wav osp_ebur128 nlohmann_json::nlohmann_json
+    Catch2::Catch2WithMain)
 # The asset tests read the bundled CC0 IRs and DI clips (Git LFS; CI checks them out with lfs: true).
 target_compile_definitions(osp_tests PRIVATE OSP_ASSET_DIR="${PROJECT_SOURCE_DIR}/assets")
+# The factory preset test reads presets/factory (#200).
+target_compile_definitions(osp_tests PRIVATE OSP_PRESET_DIR="${PROJECT_SOURCE_DIR}/presets")
 # REQ-PAR-001 compares the parameter table with tests/spec/parameters.json (ADR-0009 D8).
 target_compile_definitions(osp_tests PRIVATE OSP_SPEC_DIR="${PROJECT_SOURCE_DIR}/tests/spec")
 osp_apply_settings(osp_tests)
