@@ -256,6 +256,12 @@ bool PluginProcessor::isDirty() const
     return dirty_;
 }
 
+std::filesystem::path PluginProcessor::assetDir() const
+{
+    const juce::ScopedLock lock(stateLock_);
+    return assetDir_;
+}
+
 void PluginProcessor::setAssetDir(std::filesystem::path dir)
 {
     const juce::ScopedLock lock(stateLock_);

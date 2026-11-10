@@ -63,6 +63,7 @@ public:
     bool isDirty() const;
     // Control thread. The folder with cab/<name>.wav for `factory:ir/<name>`; found next to the executable by default.
     void setAssetDir(std::filesystem::path dir);
+    std::filesystem::path assetDir() const;
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
