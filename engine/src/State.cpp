@@ -1,5 +1,7 @@
 #include "osp/engine/State.h"
 
+#include "PresetJson.h"
+
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -13,35 +15,26 @@ namespace {
 constexpr std::size_t kMaxBytes = 1u << 20; // 1 MiB
 constexpr int kMaxDepth = 16;
 
-// Nesting depth of objects/arrays, ignoring brackets inside strings. Checked before parsing (ADR-0003 item 10).
-int nestingDepth(std::string_view text) noexcept
-{
-    int depth = 0, maxDepth = 0;
-    bool inString = false, escaped = false;
-    for (const char c : text) {
-        if (inString) {
-            if (escaped)
-                escaped = false;
-            else if (c == '\\')
-                escaped = true;
-            else if (c == '"')
-                inString = false;
-        } else if (c == '"') {
-            inString = true;
-        } else if (c == '{' || c == '[') {
-            maxDepth = std::max(maxDepth, ++depth);
-        } else if (c == '}' || c == ']') {
-            --depth;
-        }
-    }
-    return maxDepth;
-}
-
 } // namespace
 
 std::string writeState(const PluginState& state)
 {
     // nlohmann::json objects are std::map-backed, so dump() emits keys in sorted order.
+    if (!state.params.empty()) { // a complete snapshot (every parameter and cab IR), see Preset.h
+        Preset full;
+        full.id = state.presetId;
+        full.name = state.presetName;
+        full.params = state.params;
+        full.cabs = state.cabs;
+        const nlohmann::json blob = {
+            {"format", "osp-state"},
+            {"stateVersion", 1},
+            {"preset", presetToJson(full)},
+            {"source", {{"presetId", state.presetId}, {"dirty", state.dirty}}},
+            {"ui", nlohmann::json::object()},
+        };
+        return blob.dump();
+    }
     const nlohmann::json preset = {
         {"format", "osp-preset"},
         {"schemaVersion", 1},
@@ -64,7 +57,7 @@ std::string writeState(const PluginState& state)
 
 std::optional<PluginState> readState(std::string_view json) noexcept
 {
-    if (json.size() > kMaxBytes || nestingDepth(json) > kMaxDepth)
+    if (json.size() > kMaxBytes || jsonNestingDepth(json) > kMaxDepth)
         return std::nullopt;
     try {
         const auto blob = nlohmann::json::parse(json, nullptr, /*allow_exceptions=*/false);
@@ -83,6 +76,11 @@ std::optional<PluginState> readState(std::string_view json) noexcept
         for (const auto& block : preset.at("blocks"))
             if (block.value("id", "") == "output")
                 state.outputLevelDb = block.at("params").value("levelDb", 0.0);
+        // Only a real snapshot is kept; an old output-only blob stays on the old path so it re-writes byte-identically.
+        if (auto full = presetFromJson(preset, nullptr); full && (full->params.size() > 1 || !full->cabs.empty())) {
+            state.params = std::move(full->params);
+            state.cabs = std::move(full->cabs);
+        }
         return state;
     } catch (const nlohmann::json::exception&) {
         return std::nullopt; // missing field or wrong type
