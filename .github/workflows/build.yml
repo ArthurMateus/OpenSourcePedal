@@ -57,6 +57,10 @@ jobs:
           set -euo pipefail
           pip install jsonschema==4.23.0
           python tools/tonematch/check_preset.py build/release/tools/osp-tonematch.exe
+      # REQ-PRE-001: the factory bank validates against preset.v1 (#200).
+      - name: Factory preset schema
+        shell: bash
+        run: python tools/presets/check_factory.py
       # REQ-TEST-007. 5 runs, gated on the per-benchmark median (tools/bench/median.py), so one noisy run cannot fail
       # the job. The strict >10% R gate uses processor-specific r0 in budget.d (#83); no extra noise allowance.
       - name: Benchmarks (CPU ceilings and R regression)
