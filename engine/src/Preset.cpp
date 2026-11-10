@@ -172,7 +172,7 @@ json presetToJson(const Preset& preset)
         blocks.push_back(std::move(block));
     }
 
-    json doc = {{"format", "osp-preset"}, {"schemaVersion", 1}, {"id", preset.id},
+    json doc = {{"format", "osp-preset"}, {"schemaVersion", 1},          {"id", preset.id},
                 {"name", preset.name},    {"blocks", std::move(blocks)}, {"createdWith", versionString()}};
     if (!preset.category.empty())
         doc["category"] = preset.category;

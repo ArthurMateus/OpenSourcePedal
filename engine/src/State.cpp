@@ -27,10 +27,8 @@ std::string writeState(const PluginState& state)
         full.params = state.params;
         full.cabs = state.cabs;
         const nlohmann::json blob = {
-            {"format", "osp-state"},
-            {"stateVersion", 1},
-            {"preset", presetToJson(full)},
-            {"source", {{"presetId", state.presetId}, {"dirty", state.dirty}}},
+            {"format", "osp-state"},          {"stateVersion", 1},
+            {"preset", presetToJson(full)},   {"source", {{"presetId", state.presetId}, {"dirty", state.dirty}}},
             {"ui", nlohmann::json::object()},
         };
         return blob.dump();
