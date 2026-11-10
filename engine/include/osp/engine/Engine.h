@@ -30,8 +30,12 @@ public:
     // Control thread. The parameter store the graph reads once per block (ADR-0009 D8): bind host atomics here, or
     // write preset-only values.
     ParamStore& parameters() noexcept { return params_; }
+    const ParamStore& parameters() const noexcept { return params_; }
     // Control thread, audio stopped (tests, the future controller): the graph itself.
     Graph& graph() noexcept { return *graph_; }
+    // The engine-owned "no cab" unit impulse of a strip (ir1 until an IR is installed). A convolver the graph retires
+    // that equals one of these belongs to the engine: whoever installs IRs must not delete it. Any thread.
+    dsp::PartitionedConvolver* noCabIr(int channel) noexcept { return noCab_[static_cast<std::size_t>(channel)].get(); }
 
     // Control thread, audio stopped (JUCE prepareToPlay contract). The only call that may allocate.
     void prepare(double sampleRate, int maxBlockSize);

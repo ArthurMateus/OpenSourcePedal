@@ -42,12 +42,12 @@ add_subdirectory(bench)
 
 # App-level tests link the plugin's shared-code target (JUCE), so they exist only with OSP_BUILD_APP.
 if(OSP_BUILD_APP)
-    add_executable(osp_app_tests app/test_parameters.cpp app/test_state_roundtrip.cpp app/test_editor.cpp app/test_preset_store.cpp)
+    add_executable(osp_app_tests app/test_parameters.cpp app/test_state_roundtrip.cpp app/test_editor.cpp app/test_preset_store.cpp app/test_processor_presets.cpp)
     # JUCE symbols come from the OpenSourcePedal library; only the module headers are needed here (as SYSTEM, so our
     # /W4 /WX does not apply to them). Linking juce:: module targets again would compile JUCE a second time.
     target_include_directories(osp_app_tests PRIVATE "${PROJECT_SOURCE_DIR}/app/src")
     target_include_directories(osp_app_tests SYSTEM PRIVATE "${JUCE_MODULES_DIR}")
     target_link_libraries(osp_app_tests PRIVATE OpenSourcePedal Catch2::Catch2WithMain)
-    osp_apply_settings(osp_app_tests WARNINGS_ON app/test_parameters.cpp app/test_state_roundtrip.cpp app/test_editor.cpp app/test_preset_store.cpp)
+    osp_apply_settings(osp_app_tests WARNINGS_ON app/test_parameters.cpp app/test_state_roundtrip.cpp app/test_editor.cpp app/test_preset_store.cpp app/test_processor_presets.cpp)
     catch_discover_tests(osp_app_tests DISCOVERY_MODE PRE_TEST)
 endif()
