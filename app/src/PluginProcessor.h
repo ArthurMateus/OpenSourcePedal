@@ -1,8 +1,15 @@
 #pragma once
 
+#include "CabIrInstaller.h"
+
 #include "osp/engine/Engine.h"
+#include "osp/engine/Preset.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
+
+#include <filesystem>
+#include <string>
+#include <vector>
 
 namespace osp::app {
 
@@ -42,10 +49,28 @@ public:
     // Control thread (tests): the engine whose ParamStore the host parameters are bound into.
     osp::engine::Engine& engine() noexcept { return engine_; }
 
+    // Control thread. Applies every parameter of `preset` and installs its cab IRs (decoded and conditioned here, then
+    // queued to the audio thread). The preset becomes the current one and clean. Returns what could not be applied
+    // (unreadable IR, ...); a missing IR leaves its slot silent, the rest of the preset still loads.
+    std::vector<std::string> loadPreset(const osp::engine::Preset& preset);
+    // Control thread. A complete snapshot of the current sound under the current id and name.
+    osp::engine::Preset capturePreset() const;
+    // Control thread. Starts a new preset identity (new id, `name`, clean): "Save as".
+    void beginNewPreset(const std::string& name);
+    std::string presetName() const;
+    std::string presetId() const;
+    bool isDirty() const;
+    // Control thread. The folder with cab/<name>.wav for `factory:ir/<name>`; found next to the executable by default.
+    void setAssetDir(std::filesystem::path dir);
+
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    void applyPreset(const osp::engine::Preset& preset, bool dirty, std::vector<std::string>& warnings);
+    void installCabs(std::vector<std::string>& warnings);
 
     juce::AudioProcessorValueTreeState parameters_;
+    // Outlives the engine: its destructor lets go of installed IRs without deleting them.
+    CabIrInstaller cabIrs_;
     osp::engine::Engine engine_;
 
     // Stand-in for the EngineController mutex (ADR-0004 rule 6): serialises state calls; never taken on the audio
@@ -54,6 +79,9 @@ private:
     std::string presetId_;
     std::string presetName_ = "Init";
     bool dirty_ = false;
+    std::vector<osp::engine::PresetCab> cabs_;
+    std::filesystem::path assetDir_;
+    double sampleRate_ = 0.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PluginProcessor)
 };

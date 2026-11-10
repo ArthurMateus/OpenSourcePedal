@@ -16,6 +16,8 @@ juce_add_plugin(OpenSourcePedal
 
 include(${PROJECT_SOURCE_DIR}/ui/sources.cmake) # osp_ui_sources: the editor (ui/)
 set(osp_app_sources
+    src/CabIrFiles.cpp
+    src/CabIrInstaller.cpp
     src/PluginProcessor.cpp
     src/PresetStore.cpp
     ${osp_ui_sources})
@@ -23,7 +25,7 @@ target_sources(OpenSourcePedal PRIVATE ${osp_app_sources})
 
 target_include_directories(OpenSourcePedal
     PUBLIC ${PROJECT_SOURCE_DIR}/ui/src
-    PRIVATE src)
+    PRIVATE src ${PROJECT_SOURCE_DIR}/tools/tonematch)
 
 target_compile_definitions(OpenSourcePedal
     PUBLIC
@@ -36,7 +38,8 @@ target_compile_definitions(OpenSourcePedal
         JUCE_STRICT_REFCOUNTEDPOINTER=1
         JUCE_DISPLAY_SPLASH_SCREEN=0
     PRIVATE
-        WIN32_LEAN_AND_MEAN)
+        WIN32_LEAN_AND_MEAN
+        OSP_SOURCE_ASSET_DIR="${PROJECT_SOURCE_DIR}/assets")
 
 target_link_libraries(OpenSourcePedal
     PRIVATE
