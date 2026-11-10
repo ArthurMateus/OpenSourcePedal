@@ -1,0 +1,214 @@
+{
+  "author": "OpenSourcePedal",
+  "blocks": [
+    {
+      "enabled": true,
+      "id": "input",
+      "params": {
+        "gainDb": 0.0
+      },
+      "type": "input"
+    },
+    {
+      "enabled": true,
+      "id": "gate",
+      "params": {
+        "releaseMs": 120.0,
+        "thresholdDb": -55.0
+      },
+      "type": "gate"
+    },
+    {
+      "enabled": false,
+      "id": "comp",
+      "params": {
+        "ratio": 3.0
+      },
+      "type": "comp"
+    },
+    {
+      "enabled": true,
+      "id": "drive1",
+      "params": {
+        "drive": 0.0,
+        "levelDb": 6.0,
+        "lowCutHz": 120.0,
+        "tone": 5.0,
+        "type": "mid"
+      },
+      "type": "drive"
+    },
+    {
+      "activeChannel": 2,
+      "channels": [
+        {
+          "model": {
+            "id": "osp.amp.clean_a",
+            "kind": "builtin"
+          },
+          "name": "Clean"
+        },
+        {
+          "model": {
+            "id": "osp.amp.crunch_a",
+            "kind": "builtin"
+          },
+          "name": "Crunch"
+        },
+        {
+          "model": {
+            "id": "osp.amp.lead_a",
+            "kind": "builtin"
+          },
+          "name": "Iron Tide",
+          "params": {
+            "bass": 5.5,
+            "depth": 6.0,
+            "gain": 6.5,
+            "lowCutHz": 90.0,
+            "master": 5.0,
+            "mid": 4.0,
+            "presence": 6.0,
+            "tight": true,
+            "treble": 6.0
+          }
+        }
+      ],
+      "enabled": true,
+      "id": "amp",
+      "type": "amp"
+    },
+    {
+      "channels": [
+        {
+          "params": {
+            "ir1.levelDb": 0.0
+          },
+          "resources": {
+            "ir1": {
+              "uri": "factory:ir/412-c"
+            }
+          }
+        },
+        {
+          "params": {
+            "ir1.levelDb": 0.0
+          },
+          "resources": {
+            "ir1": {
+              "uri": "factory:ir/412-c"
+            }
+          }
+        },
+        {
+          "params": {
+            "ir1.levelDb": 0.0
+          },
+          "resources": {
+            "ir1": {
+              "uri": "factory:ir/412-c"
+            }
+          }
+        }
+      ],
+      "enabled": true,
+      "id": "cab",
+      "perChannel": true,
+      "type": "cab"
+    },
+    {
+      "channels": [
+        {
+          "params": {
+            "g125Db": 0.0,
+            "g16kDb": -3.0,
+            "g1kDb": 0.0,
+            "g250Db": 0.0,
+            "g2kDb": 1.0,
+            "g4kDb": 0.0,
+            "g500Db": -1.5,
+            "g63Db": -2.0,
+            "g8kDb": -1.0,
+            "mode": "graphic9"
+          }
+        },
+        {
+          "params": {
+            "g125Db": 0.0,
+            "g16kDb": -3.0,
+            "g1kDb": 0.0,
+            "g250Db": 0.0,
+            "g2kDb": 1.0,
+            "g4kDb": 0.0,
+            "g500Db": -1.5,
+            "g63Db": -2.0,
+            "g8kDb": -1.0,
+            "mode": "graphic9"
+          }
+        },
+        {
+          "params": {
+            "g125Db": 0.0,
+            "g16kDb": -3.0,
+            "g1kDb": 0.0,
+            "g250Db": 0.0,
+            "g2kDb": 1.0,
+            "g4kDb": 0.0,
+            "g500Db": -1.5,
+            "g63Db": -2.0,
+            "g8kDb": -1.0,
+            "mode": "graphic9"
+          }
+        }
+      ],
+      "enabled": true,
+      "id": "eq",
+      "perChannel": true,
+      "type": "eq"
+    },
+    {
+      "enabled": false,
+      "id": "mod",
+      "params": {
+        "type": "chorusWide"
+      },
+      "type": "mod"
+    },
+    {
+      "enabled": false,
+      "id": "delay",
+      "params": {
+        "mode": "digital"
+      },
+      "type": "delay"
+    },
+    {
+      "enabled": false,
+      "id": "reverb",
+      "params": {
+        "mode": "hall"
+      },
+      "type": "reverb"
+    },
+    {
+      "enabled": true,
+      "id": "output",
+      "params": {
+        "levelDb": -4.53
+      },
+      "type": "output"
+    }
+  ],
+  "category": "High Gain",
+  "createdWith": "0.1.0",
+  "description": "Tight high-gain rhythm tone with a scooped mid and a firm low end. Gate set for palm muting.",
+  "format": "osp-preset",
+  "id": "2d7b9c63-e1a4-4f08-b3d5-7a9e0c1f6b24",
+  "name": "Iron Tide",
+  "schemaVersion": 1,
+  "tags": [
+    "high-gain",
+    "rhythm",
+    "tight"
+  ]
+}

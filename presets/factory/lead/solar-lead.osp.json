@@ -1,0 +1,219 @@
+{
+  "author": "OpenSourcePedal",
+  "blocks": [
+    {
+      "enabled": true,
+      "id": "input",
+      "params": {
+        "gainDb": 0.0
+      },
+      "type": "input"
+    },
+    {
+      "enabled": true,
+      "id": "gate",
+      "params": {
+        "releaseMs": 120.0,
+        "thresholdDb": -58.0
+      },
+      "type": "gate"
+    },
+    {
+      "enabled": false,
+      "id": "comp",
+      "params": {
+        "ratio": 3.0
+      },
+      "type": "comp"
+    },
+    {
+      "enabled": true,
+      "id": "drive1",
+      "params": {
+        "drive": 1.0,
+        "levelDb": 3.0,
+        "lowCutHz": 80.0,
+        "tone": 6.0,
+        "type": "mid"
+      },
+      "type": "drive"
+    },
+    {
+      "activeChannel": 2,
+      "channels": [
+        {
+          "model": {
+            "id": "osp.amp.clean_a",
+            "kind": "builtin"
+          },
+          "name": "Clean"
+        },
+        {
+          "model": {
+            "id": "osp.amp.crunch_a",
+            "kind": "builtin"
+          },
+          "name": "Crunch"
+        },
+        {
+          "model": {
+            "id": "osp.amp.lead_a",
+            "kind": "builtin"
+          },
+          "name": "Solar Lead",
+          "params": {
+            "bass": 5.0,
+            "depth": 5.5,
+            "gain": 7.0,
+            "master": 5.5,
+            "mid": 6.5,
+            "presence": 5.5,
+            "treble": 5.5
+          }
+        }
+      ],
+      "enabled": true,
+      "id": "amp",
+      "type": "amp"
+    },
+    {
+      "channels": [
+        {
+          "params": {
+            "ir1.levelDb": 0.0
+          },
+          "resources": {
+            "ir1": {
+              "uri": "factory:ir/412-d"
+            }
+          }
+        },
+        {
+          "params": {
+            "ir1.levelDb": 0.0
+          },
+          "resources": {
+            "ir1": {
+              "uri": "factory:ir/412-d"
+            }
+          }
+        },
+        {
+          "params": {
+            "ir1.levelDb": 0.0
+          },
+          "resources": {
+            "ir1": {
+              "uri": "factory:ir/412-d"
+            }
+          }
+        }
+      ],
+      "enabled": true,
+      "id": "cab",
+      "perChannel": true,
+      "type": "cab"
+    },
+    {
+      "channels": [
+        {
+          "params": {
+            "g125Db": 0.0,
+            "g16kDb": -2.0,
+            "g1kDb": 1.5,
+            "g250Db": 0.0,
+            "g2kDb": 0.0,
+            "g4kDb": 0.0,
+            "g500Db": 1.0,
+            "g63Db": -3.0,
+            "g8kDb": -1.0,
+            "mode": "graphic9"
+          }
+        },
+        {
+          "params": {
+            "g125Db": 0.0,
+            "g16kDb": -2.0,
+            "g1kDb": 1.5,
+            "g250Db": 0.0,
+            "g2kDb": 0.0,
+            "g4kDb": 0.0,
+            "g500Db": 1.0,
+            "g63Db": -3.0,
+            "g8kDb": -1.0,
+            "mode": "graphic9"
+          }
+        },
+        {
+          "params": {
+            "g125Db": 0.0,
+            "g16kDb": -2.0,
+            "g1kDb": 1.5,
+            "g250Db": 0.0,
+            "g2kDb": 0.0,
+            "g4kDb": 0.0,
+            "g500Db": 1.0,
+            "g63Db": -3.0,
+            "g8kDb": -1.0,
+            "mode": "graphic9"
+          }
+        }
+      ],
+      "enabled": true,
+      "id": "eq",
+      "perChannel": true,
+      "type": "eq"
+    },
+    {
+      "enabled": false,
+      "id": "mod",
+      "params": {
+        "type": "chorusWide"
+      },
+      "type": "mod"
+    },
+    {
+      "enabled": true,
+      "id": "delay",
+      "params": {
+        "feedbackPct": 32.0,
+        "highCutHz": 4500.0,
+        "mixPct": 22.0,
+        "mode": "digital",
+        "sync": "1/8D"
+      },
+      "type": "delay"
+    },
+    {
+      "enabled": true,
+      "id": "reverb",
+      "params": {
+        "decayS": 2.2,
+        "mixPct": 14.0,
+        "mode": "plate"
+      },
+      "type": "reverb"
+    },
+    {
+      "enabled": true,
+      "id": "output",
+      "params": {
+        "levelDb": -5.24
+      },
+      "type": "output"
+    }
+  ],
+  "category": "Lead",
+  "createdWith": "0.1.0",
+  "description": "Singing lead with long sustain, a dotted-eighth delay and a plate reverb behind it.",
+  "format": "osp-preset",
+  "id": "58f3a1d7-4c92-4b6e-8d0a-3e1b7c9f2a45",
+  "name": "Solar Lead",
+  "schemaVersion": 1,
+  "tags": [
+    "lead",
+    "delay",
+    "reverb"
+  ],
+  "tempoBpm": 110
+}
