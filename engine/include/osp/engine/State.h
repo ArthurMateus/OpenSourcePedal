@@ -3,9 +3,12 @@
 // Plugin state blob (ADR-0003 item 9, docs/spec/preset-schema.md §8). Public header: standard types only.
 // Control thread only: these functions allocate and never run on the audio thread (ADR-0004 rule 2).
 
+#include "osp/engine/Preset.h"
+
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace osp::engine {
 
@@ -15,6 +18,10 @@ struct PluginState {
     std::string presetName = "Init";
     double outputLevelDb = 0.0; // parameter "output.levelDb"
     bool dirty = false;
+    // Every parameter value and cab IR of the preset (Preset.h). Empty = only outputLevelDb is stored (an old blob).
+    // readState fills them from any blob; writeState uses them when not empty, outputLevelDb otherwise.
+    std::vector<PresetParam> params;
+    std::vector<PresetCab> cabs;
 };
 
 // UTF-8 JSON with keys in canonical (sorted) order, so equal states give byte-identical blobs (REQ-902).
