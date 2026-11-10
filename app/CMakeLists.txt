@@ -16,10 +16,13 @@ juce_add_plugin(OpenSourcePedal
 
 include(${PROJECT_SOURCE_DIR}/ui/sources.cmake) # osp_ui_sources: the editor (ui/)
 set(osp_app_sources
+    src/AudioFiles.cpp
     src/CabIrFiles.cpp
     src/CabIrInstaller.cpp
     src/PluginProcessor.cpp
     src/PresetStore.cpp
+    src/ToneMatchJob.cpp
+    src/YtDlp.cpp
     ${osp_ui_sources})
 target_sources(OpenSourcePedal PRIVATE ${osp_app_sources})
 
@@ -31,15 +34,16 @@ target_compile_definitions(OpenSourcePedal
     PUBLIC
         JUCE_ASIO=$<BOOL:${OSP_ENABLE_ASIO}>
         JUCE_WASAPI=1
+        JUCE_USE_MP3AUDIOFORMAT=1 # tone match reads MP3 songs
         JUCE_DIRECTSOUND=0
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_STRICT_REFCOUNTEDPOINTER=1
         JUCE_DISPLAY_SPLASH_SCREEN=0
+        OSP_SOURCE_ASSET_DIR="${PROJECT_SOURCE_DIR}/assets" # the tests read the bundled IRs and DI too
     PRIVATE
         WIN32_LEAN_AND_MEAN
-        OSP_SOURCE_ASSET_DIR="${PROJECT_SOURCE_DIR}/assets"
         OSP_SOURCE_PRESET_DIR="${PROJECT_SOURCE_DIR}/presets/factory")
 
 target_link_libraries(OpenSourcePedal
