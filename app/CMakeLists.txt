@@ -17,6 +17,7 @@ juce_add_plugin(OpenSourcePedal
 include(${PROJECT_SOURCE_DIR}/ui/sources.cmake) # osp_ui_sources: the editor (ui/)
 set(osp_app_sources
     src/PluginProcessor.cpp
+    src/PresetStore.cpp
     ${osp_ui_sources})
 target_sources(OpenSourcePedal PRIVATE ${osp_app_sources})
 
