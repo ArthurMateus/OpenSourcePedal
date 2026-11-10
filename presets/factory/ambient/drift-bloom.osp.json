@@ -1,0 +1,227 @@
+{
+  "author": "OpenSourcePedal",
+  "blocks": [
+    {
+      "enabled": true,
+      "id": "input",
+      "params": {
+        "gainDb": 0.0
+      },
+      "type": "input"
+    },
+    {
+      "enabled": true,
+      "id": "gate",
+      "params": {
+        "releaseMs": 120.0,
+        "thresholdDb": -60.0
+      },
+      "type": "gate"
+    },
+    {
+      "enabled": true,
+      "id": "comp",
+      "params": {
+        "attackMs": 30.0,
+        "blendPct": 60.0,
+        "mode": "opto",
+        "ratio": 3.0,
+        "thresholdDb": -28.0
+      },
+      "type": "comp"
+    },
+    {
+      "enabled": false,
+      "id": "drive1",
+      "params": {
+        "drive": 2.0,
+        "type": "mid"
+      },
+      "type": "drive"
+    },
+    {
+      "activeChannel": 0,
+      "channels": [
+        {
+          "model": {
+            "id": "osp.amp.clean_a",
+            "kind": "builtin"
+          },
+          "name": "Drift Bloom",
+          "params": {
+            "bass": 4.5,
+            "depth": 5.0,
+            "gain": 2.5,
+            "master": 5.0,
+            "mid": 5.0,
+            "presence": 6.0,
+            "treble": 6.0
+          }
+        },
+        {
+          "model": {
+            "id": "osp.amp.crunch_a",
+            "kind": "builtin"
+          },
+          "name": "Crunch"
+        },
+        {
+          "model": {
+            "id": "osp.amp.lead_a",
+            "kind": "builtin"
+          },
+          "name": "Lead"
+        }
+      ],
+      "enabled": true,
+      "id": "amp",
+      "type": "amp"
+    },
+    {
+      "channels": [
+        {
+          "params": {
+            "ir1.levelDb": 0.0
+          },
+          "resources": {
+            "ir1": {
+              "uri": "factory:ir/412-e"
+            }
+          }
+        },
+        {
+          "params": {
+            "ir1.levelDb": 0.0
+          },
+          "resources": {
+            "ir1": {
+              "uri": "factory:ir/412-e"
+            }
+          }
+        },
+        {
+          "params": {
+            "ir1.levelDb": 0.0
+          },
+          "resources": {
+            "ir1": {
+              "uri": "factory:ir/412-e"
+            }
+          }
+        }
+      ],
+      "enabled": true,
+      "id": "cab",
+      "perChannel": true,
+      "type": "cab"
+    },
+    {
+      "channels": [
+        {
+          "params": {
+            "g125Db": 0.0,
+            "g16kDb": 0.0,
+            "g1kDb": 0.0,
+            "g250Db": -1.0,
+            "g2kDb": 0.0,
+            "g4kDb": 0.0,
+            "g500Db": 0.0,
+            "g63Db": -4.0,
+            "g8kDb": 1.0,
+            "mode": "graphic9"
+          }
+        },
+        {
+          "params": {
+            "g125Db": 0.0,
+            "g16kDb": 0.0,
+            "g1kDb": 0.0,
+            "g250Db": -1.0,
+            "g2kDb": 0.0,
+            "g4kDb": 0.0,
+            "g500Db": 0.0,
+            "g63Db": -4.0,
+            "g8kDb": 1.0,
+            "mode": "graphic9"
+          }
+        },
+        {
+          "params": {
+            "g125Db": 0.0,
+            "g16kDb": 0.0,
+            "g1kDb": 0.0,
+            "g250Db": -1.0,
+            "g2kDb": 0.0,
+            "g4kDb": 0.0,
+            "g500Db": 0.0,
+            "g63Db": -4.0,
+            "g8kDb": 1.0,
+            "mode": "graphic9"
+          }
+        }
+      ],
+      "enabled": true,
+      "id": "eq",
+      "perChannel": true,
+      "type": "eq"
+    },
+    {
+      "enabled": true,
+      "id": "mod",
+      "params": {
+        "depthPct": 30.0,
+        "mixPct": 100.0,
+        "rateHz": 2.5,
+        "type": "tremolo"
+      },
+      "type": "mod"
+    },
+    {
+      "enabled": true,
+      "id": "delay",
+      "params": {
+        "feedbackPct": 45.0,
+        "highCutHz": 3000.0,
+        "mixPct": 30.0,
+        "mode": "tape",
+        "stereo": "pingpong",
+        "sync": "1/4D"
+      },
+      "type": "delay"
+    },
+    {
+      "enabled": true,
+      "id": "reverb",
+      "params": {
+        "decayS": 8.0,
+        "highCutHz": 7000.0,
+        "mixPct": 40.0,
+        "mode": "shimmer",
+        "shimmerInterval": "octUp",
+        "shimmerPct": 45.0
+      },
+      "type": "reverb"
+    },
+    {
+      "enabled": true,
+      "id": "output",
+      "params": {
+        "levelDb": -6.14
+      },
+      "type": "output"
+    }
+  ],
+  "category": "Ambient",
+  "createdWith": "0.1.0",
+  "description": "Slow, glassy ambient pad: tape delay into a shimmer reverb, with gentle tremolo. Let the notes ring.",
+  "format": "osp-preset",
+  "id": "e04a6d8b-9f13-4c27-95b8-1d3f7a0e5c66",
+  "name": "Drift Bloom",
+  "schemaVersion": 1,
+  "tags": [
+    "ambient",
+    "shimmer",
+    "tape"
+  ],
+  "tempoBpm": 80
+}

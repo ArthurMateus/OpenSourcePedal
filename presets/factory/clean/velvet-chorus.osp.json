@@ -1,0 +1,223 @@
+{
+  "author": "OpenSourcePedal",
+  "blocks": [
+    {
+      "enabled": true,
+      "id": "input",
+      "params": {
+        "gainDb": 0.0
+      },
+      "type": "input"
+    },
+    {
+      "enabled": true,
+      "id": "gate",
+      "params": {
+        "releaseMs": 120.0,
+        "thresholdDb": -60.0
+      },
+      "type": "gate"
+    },
+    {
+      "enabled": true,
+      "id": "comp",
+      "params": {
+        "attackMs": 20.0,
+        "blendPct": 70.0,
+        "mode": "opto",
+        "ratio": 4.0,
+        "thresholdDb": -26.0
+      },
+      "type": "comp"
+    },
+    {
+      "enabled": false,
+      "id": "drive1",
+      "params": {
+        "drive": 2.0,
+        "type": "mid"
+      },
+      "type": "drive"
+    },
+    {
+      "activeChannel": 0,
+      "channels": [
+        {
+          "model": {
+            "id": "osp.amp.clean_a",
+            "kind": "builtin"
+          },
+          "name": "Velvet Chorus",
+          "params": {
+            "bass": 5.0,
+            "depth": 5.0,
+            "gain": 3.5,
+            "master": 5.0,
+            "mid": 5.5,
+            "presence": 5.0,
+            "treble": 5.5
+          }
+        },
+        {
+          "model": {
+            "id": "osp.amp.crunch_a",
+            "kind": "builtin"
+          },
+          "name": "Crunch"
+        },
+        {
+          "model": {
+            "id": "osp.amp.lead_a",
+            "kind": "builtin"
+          },
+          "name": "Lead"
+        }
+      ],
+      "enabled": true,
+      "id": "amp",
+      "type": "amp"
+    },
+    {
+      "channels": [
+        {
+          "params": {
+            "ir1.levelDb": 0.0
+          },
+          "resources": {
+            "ir1": {
+              "uri": "factory:ir/412-b"
+            }
+          }
+        },
+        {
+          "params": {
+            "ir1.levelDb": 0.0
+          },
+          "resources": {
+            "ir1": {
+              "uri": "factory:ir/412-b"
+            }
+          }
+        },
+        {
+          "params": {
+            "ir1.levelDb": 0.0
+          },
+          "resources": {
+            "ir1": {
+              "uri": "factory:ir/412-b"
+            }
+          }
+        }
+      ],
+      "enabled": true,
+      "id": "cab",
+      "perChannel": true,
+      "type": "cab"
+    },
+    {
+      "channels": [
+        {
+          "params": {
+            "g125Db": 0.0,
+            "g16kDb": 0.0,
+            "g1kDb": 0.0,
+            "g250Db": -1.0,
+            "g2kDb": 0.0,
+            "g4kDb": 1.0,
+            "g500Db": 0.0,
+            "g63Db": -3.0,
+            "g8kDb": 0.0,
+            "mode": "graphic9"
+          }
+        },
+        {
+          "params": {
+            "g125Db": 0.0,
+            "g16kDb": 0.0,
+            "g1kDb": 0.0,
+            "g250Db": -1.0,
+            "g2kDb": 0.0,
+            "g4kDb": 1.0,
+            "g500Db": 0.0,
+            "g63Db": -3.0,
+            "g8kDb": 0.0,
+            "mode": "graphic9"
+          }
+        },
+        {
+          "params": {
+            "g125Db": 0.0,
+            "g16kDb": 0.0,
+            "g1kDb": 0.0,
+            "g250Db": -1.0,
+            "g2kDb": 0.0,
+            "g4kDb": 1.0,
+            "g500Db": 0.0,
+            "g63Db": -3.0,
+            "g8kDb": 0.0,
+            "mode": "graphic9"
+          }
+        }
+      ],
+      "enabled": true,
+      "id": "eq",
+      "perChannel": true,
+      "type": "eq"
+    },
+    {
+      "enabled": true,
+      "id": "mod",
+      "params": {
+        "depthPct": 45.0,
+        "mixPct": 40.0,
+        "rateHz": 0.7,
+        "type": "chorusWide"
+      },
+      "type": "mod"
+    },
+    {
+      "enabled": true,
+      "id": "delay",
+      "params": {
+        "feedbackPct": 28.0,
+        "highCutHz": 3500.0,
+        "mixPct": 18.0,
+        "mode": "analog",
+        "sync": "1/8D"
+      },
+      "type": "delay"
+    },
+    {
+      "enabled": true,
+      "id": "reverb",
+      "params": {
+        "decayS": 1.2,
+        "mixPct": 8.0,
+        "mode": "room"
+      },
+      "type": "reverb"
+    },
+    {
+      "enabled": true,
+      "id": "output",
+      "params": {
+        "levelDb": -2.29
+      },
+      "type": "output"
+    }
+  ],
+  "category": "Clean",
+  "createdWith": "0.1.0",
+  "description": "Compressed clean with a wide chorus and a soft dotted-eighth analog delay.",
+  "format": "osp-preset",
+  "id": "a3c84b19-7d2e-4f60-8b15-9e0a4d6c2b72",
+  "name": "Velvet Chorus",
+  "schemaVersion": 1,
+  "tags": [
+    "clean",
+    "chorus",
+    "delay"
+  ],
+  "tempoBpm": 100
+}
