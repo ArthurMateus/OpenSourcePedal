@@ -6,4 +6,5 @@ set(osp_ui_sources
     ${PROJECT_SOURCE_DIR}/ui/src/ControlWidgets.cpp
     ${PROJECT_SOURCE_DIR}/ui/src/OspEditor.cpp
     ${PROJECT_SOURCE_DIR}/ui/src/OspLookAndFeel.cpp
+    ${PROJECT_SOURCE_DIR}/ui/src/PresetBar.cpp
     ${PROJECT_SOURCE_DIR}/ui/src/StatusBar.cpp)

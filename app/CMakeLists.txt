@@ -39,7 +39,8 @@ target_compile_definitions(OpenSourcePedal
         JUCE_DISPLAY_SPLASH_SCREEN=0
     PRIVATE
         WIN32_LEAN_AND_MEAN
-        OSP_SOURCE_ASSET_DIR="${PROJECT_SOURCE_DIR}/assets")
+        OSP_SOURCE_ASSET_DIR="${PROJECT_SOURCE_DIR}/assets"
+        OSP_SOURCE_PRESET_DIR="${PROJECT_SOURCE_DIR}/presets/factory")
 
 target_link_libraries(OpenSourcePedal
     PRIVATE
