@@ -7,6 +7,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include <atomic>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -15,10 +16,10 @@ namespace osp::app {
 
 // Thin JUCE wrapper around osp::engine::Engine. Threading follows ADR-0004 / docs/spec/threading.md:
 // prepareToPlay and state calls are control-thread, processBlock is the audio thread.
-class PluginProcessor final : public juce::AudioProcessor {
+class PluginProcessor final : public juce::AudioProcessor, private juce::AudioProcessorValueTreeState::Listener {
 public:
     PluginProcessor();
-    ~PluginProcessor() override = default;
+    ~PluginProcessor() override;
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -65,6 +66,7 @@ public:
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    void parameterChanged(const juce::String&, float) override;
     void applyPreset(const osp::engine::Preset& preset, bool dirty, std::vector<std::string>& warnings);
     void installCabs(std::vector<std::string>& warnings);
 
@@ -78,7 +80,9 @@ private:
     juce::CriticalSection stateLock_;
     std::string presetId_;
     std::string presetName_ = "Init";
-    bool dirty_ = false;
+    // Set by any host parameter change that is not a preset being applied (any thread: automation, the editor).
+    std::atomic<bool> dirty_{false};
+    std::atomic<bool> applying_{false};
     std::vector<osp::engine::PresetCab> cabs_;
     std::filesystem::path assetDir_;
     double sampleRate_ = 0.0;

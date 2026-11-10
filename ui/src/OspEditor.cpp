@@ -6,12 +6,14 @@ OspEditor::OspEditor(osp::app::PluginProcessor& processor)
     : AudioProcessorEditor(processor),
       blocks_(processor.parameters()),
       page_(processor.parameters()),
-      status_(processor)
+      status_(processor),
+      presets_(processor)
 {
     setLookAndFeel(&lookAndFeel_);
     addAndMakeVisible(blocks_);
     addAndMakeVisible(page_);
     addAndMakeVisible(status_);
+    addAndMakeVisible(presets_);
     blocks_.onSelect = [this](int index) { page_.show(index); };
     blocks_.select(kAmpIndex);
 
@@ -50,7 +52,7 @@ void OspEditor::paint(juce::Graphics& g)
 void OspEditor::resized()
 {
     auto area = getLocalBounds();
-    area.removeFromTop(px(kTopBarHeight));
+    presets_.setBounds(area.removeFromTop(px(kTopBarHeight)).withTrimmedLeft(px(230)).reduced(px(6), px(2)));
     blocks_.setBounds(area.removeFromTop(px(kBlockRowHeight)).reduced(px(6), px(4)));
     page_.setBounds(pageArea());
     status_.setBounds(getLocalBounds().removeFromBottom(px(kStatusHeight)));

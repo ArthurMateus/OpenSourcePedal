@@ -4,11 +4,12 @@
 #include "BlockStrip.h"
 #include "OspLookAndFeel.h"
 #include "PluginProcessor.h"
+#include "PresetBar.h"
 #include "StatusBar.h"
 
 namespace osp::ui {
 
-// The minimal editor (issue #198). Layout, top to bottom: a top bar (title; the preset menu goes here, #199), the block
+// The minimal editor (issue #198). Layout, top to bottom: a top bar (title and the preset menu), the block
 // row, then the page of the selected block and, at the bottom, the status bar (meters, tuner, latency). A side panel
 // for the tone-match controls (#199) takes its width from kSideWidth, which is 0 until then. All sizes are in design
 // pixels (kWidth x kHeight) and scale with the window.
@@ -23,6 +24,7 @@ public:
     BlockStrip& blocks() noexcept { return blocks_; }
     BlockPage& page() noexcept { return page_; }
     StatusBar& status() noexcept { return status_; }
+    PresetBar& presets() noexcept { return presets_; }
     int selectedBlock() const noexcept { return blocks_.selected(); }
 
     void paint(juce::Graphics&) override;
@@ -40,6 +42,7 @@ private:
     BlockStrip blocks_;
     BlockPage page_;
     StatusBar status_;
+    PresetBar presets_;
     juce::ComponentBoundsConstrainer constrainer_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OspEditor)

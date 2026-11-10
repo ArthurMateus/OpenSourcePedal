@@ -85,6 +85,9 @@ PluginProcessor::PluginProcessor()
     for (std::size_t i = 0; i < table.size(); ++i)
         if (table[i].vis == osp::engine::Visibility::host)
             engine_.parameters().bind(static_cast<int>(i), parameters_.getRawParameterValue(juce::String(table[i].id)));
+    for (const auto& p : table)
+        if (p.vis == osp::engine::Visibility::host)
+            parameters_.addParameterListener(juce::String(p.id), this);
 
     // The factory IRs sit in assets/ next to the executable (installer) or in the source tree (a build from the repo).
     const auto exeDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
@@ -96,6 +99,19 @@ PluginProcessor::PluginProcessor()
             break;
         }
     }
+}
+
+PluginProcessor::~PluginProcessor()
+{
+    for (const auto& p : osp::engine::paramTable())
+        if (p.vis == osp::engine::Visibility::host)
+            parameters_.removeParameterListener(juce::String(p.id), this);
+}
+
+void PluginProcessor::parameterChanged(const juce::String&, float)
+{
+    if (!applying_.load())
+        dirty_.store(true);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParameterLayout()
@@ -188,10 +204,12 @@ void PluginProcessor::setStateInformation(const void* data, int sizeInBytes)
     }
     presetId_ = state->presetId;
     presetName_ = state->presetName;
-    dirty_ = state->dirty;
     // Written synchronously, so getValue()/getStateInformation() on the next line see the restored value.
     auto* level = parameters_.getParameter(kGainId);
+    applying_ = true;
     level->setValueNotifyingHost(level->convertTo0to1(static_cast<float>(state->outputLevelDb)));
+    applying_ = false;
+    dirty_ = state->dirty;
 }
 
 std::vector<std::string> PluginProcessor::loadPreset(const osp::engine::Preset& preset)
@@ -250,6 +268,7 @@ void PluginProcessor::applyPreset(const osp::engine::Preset& preset, bool dirty,
     // atomic), preset-only values straight into the engine's store.
     const auto table = osp::engine::paramTable();
     const auto values = osp::engine::presetValues(preset);
+    applying_ = true;
     for (std::size_t i = 0; i < table.size(); ++i) {
         if (table[i].vis == osp::engine::Visibility::host) {
             auto* p = parameters_.getParameter(juce::String(table[i].id));
@@ -258,6 +277,7 @@ void PluginProcessor::applyPreset(const osp::engine::Preset& preset, bool dirty,
             engine_.parameters().set(static_cast<int>(i), values[i]);
         }
     }
+    applying_ = false;
     presetId_ = preset.id.empty() ? juce::Uuid().toDashedString().toLowerCase().toStdString() : preset.id;
     presetName_ = preset.name;
     dirty_ = dirty;
